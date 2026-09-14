@@ -50,7 +50,7 @@ docs/                   architecture, security by design, AWS integration, frict
 
 ## Run
 
-Requirements: Node >= 22.5 (uses `node:sqlite`, no native dependencies), pnpm 9+.
+Requirements: Node >= 22.5 (uses `node:sqlite`, no native dependencies), pnpm 11+.
 
 ```bash
 pnpm install
