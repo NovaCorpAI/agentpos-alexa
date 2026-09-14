@@ -1,0 +1,23 @@
+{
+  "name": "agentpos-alexa",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Alexa+ add-on for AgentPOS stores: MCP server, UCP checkout, payment rails, merchant agents and a simulated Alexa+ client.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

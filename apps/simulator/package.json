@@ -1,0 +1,8 @@
+{
+  "name": "@agentpos-alexa/simulator",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Simulated Alexa+ experience: a web app whose agentic client (Bedrock + Strands) drives the bridge end to end. Official alternative path for the Alexa+ track.",
+  "license": "Apache-2.0"
+}

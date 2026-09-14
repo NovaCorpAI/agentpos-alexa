@@ -1,0 +1,14 @@
+{
+  "name": "@agentpos-alexa/bridge",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The Alexa+ add-on: MCP server for Alexa+, UCP checkout sessions, payment rails and UCP profile in front of an AgentPOS store.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@agentpos-alexa/store-client": "workspace:*"
+  }
+}

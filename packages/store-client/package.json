@@ -1,0 +1,11 @@
+{
+  "name": "@agentpos-alexa/store-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Typed client for the public surfaces of an AgentPOS store (UCP profile, MCP, REST, x402 checkout).",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

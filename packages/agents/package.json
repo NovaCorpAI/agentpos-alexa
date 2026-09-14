@@ -1,0 +1,11 @@
+{
+  "name": "@agentpos-alexa/agents",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Merchant-side agents (onboarding, catalog, policy guardian) with Strands Agents SDK on Amazon Bedrock AgentCore.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
