@@ -1,6 +1,6 @@
 # Unit costs
 
-Filled from the `usage_events` table (tokens in, tokens out, latency, model, estimated cost
+Filled from the `usage_events` table (schema in `docs/USAGE-EVENTS.md`: tokens, latency, model, cost
 per call). Two units: **store per month** (what the hosted tier charges) and **closed
 checkout session** (the variable cost a store generates).
 

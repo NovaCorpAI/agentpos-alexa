@@ -15,7 +15,7 @@ Thesis for judges: "Alexa+ for Builders is for Priceline. AgentPOS is for the co
 
 ## Hard rules (inherited from AgentPOS; breaking them breaks the project)
 
-1. **Zero custody.** Never store a merchant's or a household's private key or secret. The
+1. **Zero custody.** Never store a merchant's or a household's private key, PSP key or secret. The
    bridge orchestrates; it does not hold funds.
 2. **The store is merchant of record.** No commission, no take rate, no marketplace, no
    central listing. If a feature turns us into an intermediary, stop and ask.
@@ -37,7 +37,7 @@ Thesis for judges: "Alexa+ for Builders is for Priceline. AgentPOS is for the co
 
 ## Stack
 
-TypeScript strict, Node >= 22.5, pnpm workspaces, Hono, `node:sqlite` behind a storage
+TypeScript strict, Node >= 22.13, pnpm workspaces, Hono, `node:sqlite` (unflagged since 22.13) behind a storage
 adapter (a judge must run this with one command and no services to create), vitest.
 AWS: Amazon Bedrock (Nova 2 Lite for frequent cheap steps, Claude Sonnet via Bedrock or Nova
 Pro for critical decisions), Bedrock AgentCore Runtime and Memory, Strands Agents SDK,
@@ -58,16 +58,27 @@ us-east-1. Document every AWS service with file paths in `docs/AWS-INTEGRATION.m
 
 ## Build order
 
+Rationale in `docs/STRATEGY.md`. The simulator is built second because it is where design is
+judged; every agent is instrumented in `usage_events` from its first call.
+
 1. `store-client` against `https://demo.agentposhq.com` and the AgentPOS `demo-store` docker
-   (testnet, physical goods).
-2. `bridge`: MCP server for Alexa+ (voice-ready item data), `checkout-sessions` translated to
-   the store's cart, quote and payment; idempotency; TTL; `messages[]`; UCP profile
-   conformance-tested against vendored official schemas.
-3. Rails on `complete`: x402 real (with a buyer mandate from `@agentpos/mcp-buyer` in the
-   simulator); Amazon handlers simulated and labeled.
-4. `apps/simulator`: Bedrock + Strands client, MCP Apps rendering, public playground.
-5. `agents`: onboarding, catalog, policy guardian on AgentCore.
-6. `usage_events`, README sections, diagram, video.
+   (testnet, physical goods). The `usage_events` schema is defined first
+   (`packages/bridge/src/storage/usage-events.ts`, `docs/USAGE-EVENTS.md`).
+2. `apps/simulator` skeleton: Echo Show style screen, voice in and out, MCP Apps rendering
+   (carousel, order card, receipt card) with fixed data. Grows with the bridge from here on.
+3. `bridge`: MCP server for Alexa+ (voice-ready item data, few well-named tools, Amazon's MCP
+   design guidance), `checkout-sessions` translated to the store's cart, quote and payment;
+   idempotency; TTL; `messages[]`; UCP profile conformance-tested against vendored official
+   schemas. Validated with Amazon's own tooling if it is available without enrollment.
+4. Rails on `complete`, in order of presentation: merchant PSP (Stripe test mode, charge
+   executed by the store; the bridge never holds the key), Amazon handlers simulated and
+   labeled, x402 real (with a buyer mandate from `@agentpos/mcp-buyer` in the simulator).
+5. `agents` on AgentCore, one demo scene each: onboarding (URL to first voice purchase, every
+   stage timestamped), catalog ("is it gluten free?", reads only what is published), guardian
+   (blocks a duplicate, explains in one sentence), memory ("the same as last week", order
+   references only).
+6. Public simulator on App Runner, waitlist, `usage_events` export, README sections, diagram,
+   video. Onboarding timed on 5 stores; three real stores not ours before 19 Oct 2026.
 
 ## Relationship with other repositories
 
