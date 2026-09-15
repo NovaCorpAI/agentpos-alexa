@@ -11,3 +11,4 @@ Thumbs.db
 *.sqlite
 *.db
 .data/
+.claude/settings.local.json

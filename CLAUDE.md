@@ -93,3 +93,19 @@ judged; every agent is instrumented in `usage_events` from its first call.
 
 Works in the simulator; has a test; records `usage_events`; documented in the README; can be
 shown in 20 seconds of video.
+
+## Agent skills
+
+Project-local skills live in `.claude/skills/` (origin and rationale in
+`.claude/skills/README.md`). Use `/grill-with-docs` before designing a module, `tdd` at agreed
+seams while building, `research` for anything that needs primary sources, and `/to-tickets`
+to turn a plan into GitHub issues.
+
+### Issue tracker
+
+GitHub Issues in this repo, through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single context: `CONTEXT.md` at the root for the glossary, decisions in
+`docs/ARCHITECTURE.md`, ADRs only when warranted. See `docs/agents/domain.md`.
