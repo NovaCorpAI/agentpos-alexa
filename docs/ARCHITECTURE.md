@@ -51,6 +51,59 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
   contributed to the AgentPOS core once its repository is public. The x402 handler is proposed
   to the UCP standard with this repository's `profile/` module as reference implementation.
 
+- **Simulator stack.** One Node process (Hono) serves the React and Vite interface and runs the
+  Household agent with the Strands TypeScript SDK on Bedrock (Nova 2 Lite by default, model
+  chosen by environment, every call in `usage_events`). Two MCP SDK lines coexist behind an
+  adapter: Strands brings its MCP client on SDK 1.x, MCP Apps 2.0 needs SDK v2; both are pinned
+  in `versions.ts`.
+- **Views live in the Bridge.** Carousel, item card, order card and receipt card are `ui://`
+  resources served by the Bridge's MCP server, built to one HTML file each. The Simulator only
+  hosts them through the official app bridge, so they render identically in Alexa+.
+- **Scenes and Free mode.** Five Scenes (first voice purchase, "is it gluten free?", duplicate
+  blocked, "the same as last week", onboarding timed) run the real agent with prerecorded
+  inputs and emit an Inspection summary each. Free mode is the public playground.
+- **Echo Show only.** Two device frames (small and large) and four display modes: inline,
+  fullscreen, voice-only, hydrated. Voice in through the browser, voice out through Polly with
+  per-phrase cache and browser speech as fallback when there are no AWS credentials. English
+  by default, Spanish (es-CL) switch; catalog data in the Store's language.
+- **Enabled add-ons.** The Simulator starts from a list of Stores, one Bridge URL each,
+  mirroring how a Household enables add-ons in Alexa+.
+- **Demo household and Synthetic persona.** Bounded Buyer mandate, Test mode or testnet only
+  (ADR-0002), fixed synthetic checkout data never logged. Test-mode orders on real Stores need
+  a test-order mark from the AgentPOS core; until it exists, only Stores that opted in.
+- **Voice overlay in the Bridge.** Voice-ready item data is an overlay in the Bridge's storage,
+  confirmed by the Merchant and invalidated by item hash; pushing it into the Store is proposed
+  to the core.
+- **OAuth 2.0 client credentials.** The Bridge issues bearer tokens from its own token
+  endpoint; the Simulator obtains them like Alexa+ would. The static token is for tests only.
+- **One trace id.** `Request-Id` (already in the UCP checkout contract) carries the `traceId`
+  from Simulator to Bridge to Store; MCP calls carry it in `_meta.traceId`.
+- **Merchant console in the Simulator app.** A separate route, importing nothing from the
+  Household side, ready to split into `apps/merchant` when it has its own users. The
+  onboarding timer starts at a Store that already runs AgentPOS.
+- **Household memory behind an interface.** SQLite locally, AgentCore Memory in the hosted
+  playground; order references only.
+- **Two services on App Runner.** The Bridge has its own public URL because it is "the bridge
+  you deploy"; the Simulator is a separate service pointing at it.
+- **Fixtures first, docker second.** The skeleton runs on a fictional bakery with physical
+  goods shaped by the real AgentPOS OpenAPI, plus recorded responses from the public demo
+  Store for shape tests; the same bakery is loaded into the demo-store docker on testnet.
+
+- **Checkout is the host's pattern.** Amazon treats checkout and authentication as standardized
+  patterns of the host, so the Simulator renders a native checkout confirmation fed by the UCP
+  checkout session. The Bridge contributes the order card and the receipt card afterwards,
+  never a checkout view.
+- **One Bridge, many Stores.** The Bridge is multi-tenant: `/stores/{slug}/mcp`,
+  `/stores/{slug}/checkout-sessions`, `/stores/{slug}/.well-known/ucp`, with a Store registry
+  in its SQLite holding only the Store URL and the Voice overlay, never a secret. A Bridge with
+  one registered Store behaves like a single-store deployment. `AGENTPOS_STORE_URL` registers
+  the first Store at boot.
+- **Merchant agents: one interface, two runtimes.** Onboarding, catalog and guardian run
+  in-process in the Bridge (Strands TypeScript on Bedrock with the operator's credentials) and
+  the same code deploys to AgentCore Runtime for the hosted playground, chosen by environment.
+  With no AWS credentials at all, Scenes that need an agent run in Recorded mode and say so on
+  screen.
+
 ## Versions
 
 Pinned in `packages/bridge/src/versions.ts`. MCP spec 2025-11-25 (SDK >= 1.30), UCP checkout
