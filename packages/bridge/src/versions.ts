@@ -31,10 +31,12 @@ export const PROTOCOL_VERSIONS = {
   /** Order of presentation: the merchant chooses the rail (docs/STRATEGY.md). */
   paymentHandlers: {
     /**
-     * The merchant's own PSP. Stripe in test mode for the demo. The charge is executed by the
-     * store behind its PaymentRail; the bridge relays the payment token and never holds a key.
+     * The merchant's own PSP through the UCP-sanctioned processor tokenizer handler, with Stripe
+     * (test mode) as the processor for the demo. The client tokenizes the card with the
+     * processor; the store executes the charge behind its PaymentRail; the bridge never holds a
+     * key. Spec: https://ucp.dev/specification/examples/processor-tokenizer-payment-handler/
      */
-    merchantPsp: "com.stripe.test_mode",
+    merchantPsp: "dev.ucp.processor_tokenizer",
     /** Contract-complete, exercised against a simulated PSP while the Alexa+ program is in preview. */
     amazonNetworkToken: "com.amazon.payments.network_token",
     amazonStoredPaymentMethod: "com.amazon.payments.stored_payment_method",

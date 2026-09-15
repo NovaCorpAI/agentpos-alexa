@@ -54,6 +54,6 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
 ## Versions
 
 Pinned in `packages/bridge/src/versions.ts`. MCP spec 2025-11-25 (SDK >= 1.30), UCP checkout
-2026-04-08, handlers `com.stripe.test_mode` (via the store's `PaymentRail`),
+2026-04-08, handlers `dev.ucp.processor_tokenizer` (via the store's `PaymentRail`),
 `com.amazon.payments.network_token`, `com.amazon.payments.stored_payment_method`,
 `org.x402.stellar`.

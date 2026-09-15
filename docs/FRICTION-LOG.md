@@ -19,10 +19,67 @@ commit or file.
   States" and Alexa+ for Builders is "currently available to select partners working directly
   with our team". No self-serve path found.
 - Severity: High (changes the demo strategy)
-- Time lost: [fill]
+- Time lost: about 2 h of reading and enrollment attempts (estimate, confirm)
 - Workaround: the track rules accept "a simulated Alexa+ experience in a web app using your
   preferred agentic tool"; we build `apps/simulator` with Bedrock and Strands and target the
   same MCP and checkout contracts.
 - Suggestion: a sandbox-only enrollment for developers outside the US, gated to the
   simulator, would let global developers validate add-ons before the program opens.
-- Link: [commit]
+- Link: commit 72e72e5, apps/simulator
+
+## FL-002
+
+- Date: 2026-09-15
+- Tool: Alexa AI CLI (`@alexa-ai/cli`), Local Inspector (`@alexa-ai/addon-local-inspector`),
+  web simulator in the developer console.
+- What we tried: install the CLI and the Local Inspector to validate an MCP add-on locally
+  without being in the partner program. The set-up page documents
+  `npm install -g @alexa-ai/cli`, and the Local Inspector page promises to "connect to your MCP
+  server, call its tools, and instantly see how the resulting UI widgets render inside Alexa
+  device frames, before you submit anything for review".
+- What happened: both packages must be pulled from a private AWS CodeArtifact registry
+  (`aws codeartifact login ... --domain alexa-ai --domain-owner 372468808636`) with a role
+  obtained from an Alexa Solutions Architect. `npm view @alexa-ai/cli` and
+  `npm view @alexa-ai/addon-local-inspector` return E404 on the public registry. The web
+  simulator needs a deployed add-on, so it needs the same access. No official GitHub
+  repository for either tool.
+  Docs: https://developer.amazon.com/docs/alexaplus/add-ons/set-up-your-development-environment.html,
+  https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-local-inspector.html,
+  https://developer.amazon.com/docs/alexaplus/add-ons/test-with-web-simulator.html
+- Severity: High (no way to validate rendering or certification verdicts with Amazon's tool)
+- Time lost: about 1 h of research
+- Workaround: `apps/simulator` renders the documented components (list, carousel, card) in
+  Echo Show frames following the published design guide and display modes, and reports its
+  own `inspection-summary.json` with the same fields the Local Inspector documents.
+- Suggestion: publish `@alexa-ai/addon-local-inspector` on the public npm registry. It runs
+  against the developer's own MCP server and needs no Amazon backend, so gating it only
+  removes the cheapest quality check from everyone building the simulated path the hackathon
+  itself recommends.
+- Link: docs/STRATEGY.md, apps/simulator
+
+## FL-003
+
+- Date: 2026-09-15
+- Tool: Alexa+ checkout integration, `com.amazon.payments.network_token` handler.
+- What we tried: find test vectors, a sample encrypted token, the key exchange procedure or a
+  sandbox issuer for the network token handler, so the `complete` path can be exercised end to
+  end without program access. Also checked whether the merchant's PSP (Stripe) can accept a
+  third-party network token plus cryptogram directly.
+- What happened: the checkout doc states "You receive an encrypted token only you can decrypt"
+  but publishes no key format, sample payload or sandbox. Stripe's public API exposes no
+  parameter for a third-party network token (only `card.number`, the legacy `token`, and the
+  3D Secure import fields for CAVV cryptograms); its Vault and Forward product is outbound only
+  and gated. Docs: https://developer.amazon.com/docs/alexaplus/add-ons/checkout-integration.html,
+  https://docs.stripe.com/api/payment_methods/create,
+  https://docs.stripe.com/payments/vault-and-forward
+- Severity: Medium (changes how the Amazon handler is demonstrated, not whether)
+- Time lost: about 1 h of research
+- Workaround: the Amazon handlers run against a simulated PSP and are labeled as such
+  everywhere (hard rule 9). The real fiat rail is the UCP `dev.ucp.processor_tokenizer` handler
+  with Stripe test mode as processor: the client tokenizes with Stripe, the store charges. The
+  two are never blurred in code, logs or UI.
+- Suggestion: publish a sandbox for the network token handler with a sample encrypted payload,
+  the decryption procedure and the PSP integration pattern Amazon expects (which PSPs accept
+  the decrypted token, in which API). Without it, every entrant outside the program ships a
+  different simulation of the same step.
+- Link: packages/bridge/src/versions.ts, docs/STRATEGY.md

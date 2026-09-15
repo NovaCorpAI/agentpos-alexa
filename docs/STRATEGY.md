@@ -62,7 +62,7 @@ order, with fixed data at first.
   belongs to the household, not to the merchant. The bridge stores a reference to the order in
   the store, never the content, and the store resolves it. Keeps logs free of PII.
 
-### 5. Three real stores we do not control, before 19 October 2026
+### 5. Three real stores we do not control, before 19 October 2026 (internal target)
 
 The lighthouse stores of the SCF plan qualify. With them the impact section stops being a
 projection: stores, third-party purchases from the public simulator, waitlist, and the measured
@@ -81,10 +81,38 @@ with storage, and `usage_events` distinguishing our own purchases from third-par
 
 1. README and `docs/ARCHITECTURE.md` present the rails in the new order: merchant PSP, Amazon
    Wallet, USDC via x402.
-2. `packages/bridge/src/versions.ts` declares the third handler (`com.stripe.test_mode`
+2. `packages/bridge/src/versions.ts` declares the third handler (`dev.ucp.processor_tokenizer`
    behind the store's `PaymentRail`), and `.env.example` documents that the Stripe key lives in
    the store, never in the bridge.
 3. `CLAUDE.md` build order: simulator at step 2, agents instrumented for timing from the start.
 4. The `usage_events` schema is defined before any module writes to it
    (`packages/bridge/src/storage/usage-events.ts`, `docs/USAGE-EVENTS.md`), with fields for the
    onboarding stage and the purchase origin (own or third party).
+
+## Verified on 2026-09-15 (week 0 checks)
+
+Sources and detail in `docs/FRICTION-LOG.md` (FL-002, FL-003) and `docs/ALEXA-MCP-DESIGN.md`.
+
+- **Amazon's tooling is closed.** The Alexa AI CLI, the Local Inspector and the web simulator
+  are only reachable through a private CodeArtifact registry granted during partner
+  onboarding. Move 3 therefore rests entirely on `apps/simulator` following the published
+  design guide; the simulator produces its own inspection summary with the fields the Local
+  Inspector documents.
+- **Stripe does not accept third-party network tokens.** The Amazon `network_token` handler
+  cannot be turned into a real Stripe test charge. The real fiat rail is instead the
+  UCP-sanctioned `dev.ucp.processor_tokenizer` handler with Stripe test mode as processor (the
+  client tokenizes with Stripe, the store charges). The Amazon handlers stay simulated and
+  labeled. This is cleaner than the original plan: the fiat rail uses a handler that already
+  exists in the standard, and no vendor namespace is invented.
+- **The official deadline is Friday 23 October 2026, 12:00 pm Pacific Time.** 19 October is
+  our internal target for the three real stores and the final video.
+- **Judging is four equally weighted criteria**: Tech Implementation, Design, Potential Impact,
+  Quality of the Idea, plus up to 10 percent bonus for friction log submissions in the first
+  downselection. Chile is eligible; the simulated path is explicitly allowed and exempt from
+  the runtime hook requirement as long as the source is in the repo and the video shows it.
+- **UCP governance for the x402 handler.** Vendors must publish new handlers under their own
+  reverse-domain namespace with the spec and schema hosted on that domain; core adoption needs
+  an Enhancement Proposal and Tech Council approval after proven adoption. No x402 proposal
+  exists in the UCP organization. Path: publish `com.agentposhq.x402` with the spec hosted on
+  agentposhq.com and this repository's `profile/` module as reference implementation, then
+  open the proposal issue.

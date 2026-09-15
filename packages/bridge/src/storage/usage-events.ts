@@ -50,7 +50,7 @@ export interface UsageEvent {
   onboardingStage?: OnboardingStage;
   /** Set on checkout events only. */
   purchaseOrigin?: PurchaseOrigin;
-  /** Payment handler id on rail events, e.g. com.stripe.test_mode. */
+  /** Payment handler id on rail events, e.g. dev.ucp.processor_tokenizer. */
   paymentHandler?: string;
   /** True when the rail or PSP behind this event is simulated. Never inferred; always written. */
   simulated: boolean;

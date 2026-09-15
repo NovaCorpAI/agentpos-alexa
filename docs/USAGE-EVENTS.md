@@ -19,7 +19,7 @@ it so the numbers are comparable across components.
 | `estimated_cost_usd_micros` | integer | 1 USD = 1,000,000. Never a float |
 | `onboarding_stage` | text, nullable | `scan`, `catalog_draft`, `policies_draft`, `human_confirm`, `published`, `first_voice_purchase` |
 | `purchase_origin` | text, nullable | `own` (our team, tests) or `third_party` (public simulator) |
-| `payment_handler` | text, nullable | handler id on rail events, e.g. `com.stripe.test_mode` |
+| `payment_handler` | text, nullable | handler id on rail events, e.g. `dev.ucp.processor_tokenizer` |
 | `simulated` | integer 0/1 | 1 when the rail or PSP behind the event is simulated. Always written, never inferred |
 
 ## Questions the table answers

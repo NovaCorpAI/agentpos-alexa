@@ -49,7 +49,7 @@ packages/store-client   typed client for the public surfaces of an AgentPOS stor
 packages/bridge         the add-on: MCP server for Alexa+, UCP checkout sessions, payment rails, UCP profile
 packages/agents         onboarding, catalog and policy guardian agents (Strands on AgentCore, Bedrock)
 apps/simulator          simulated Alexa+ experience (Bedrock + Strands client, voice or text)
-docs/                   strategy, architecture, security by design, AWS integration, usage events, friction log
+docs/                   strategy, submission draft, architecture, Alexa+ MCP design rules, security, AWS integration, usage events, friction log
 ```
 
 ## Run

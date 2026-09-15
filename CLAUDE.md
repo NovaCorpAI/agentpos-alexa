@@ -69,7 +69,8 @@ judged; every agent is instrumented in `usage_events` from its first call.
 3. `bridge`: MCP server for Alexa+ (voice-ready item data, few well-named tools, Amazon's MCP
    design guidance), `checkout-sessions` translated to the store's cart, quote and payment;
    idempotency; TTL; `messages[]`; UCP profile conformance-tested against vendored official
-   schemas. Validated with Amazon's own tooling if it is available without enrollment.
+   schemas. Rules in `docs/ALEXA-MCP-DESIGN.md`; Amazon's own tooling is closed (FL-002), so
+   the simulator is the validation surface.
 4. Rails on `complete`, in order of presentation: merchant PSP (Stripe test mode, charge
    executed by the store; the bridge never holds the key), Amazon handlers simulated and
    labeled, x402 real (with a buyer mandate from `@agentpos/mcp-buyer` in the simulator).
@@ -78,7 +79,7 @@ judged; every agent is instrumented in `usage_events` from its first call.
    (blocks a duplicate, explains in one sentence), memory ("the same as last week", order
    references only).
 6. Public simulator on App Runner, waitlist, `usage_events` export, README sections, diagram,
-   video. Onboarding timed on 5 stores; three real stores not ours before 19 Oct 2026.
+   video. Onboarding timed on 5 stores; three real stores not ours before 19 Oct 2026 (internal target; official deadline 23 Oct 2026, 12:00 pm PT).
 
 ## Relationship with other repositories
 
