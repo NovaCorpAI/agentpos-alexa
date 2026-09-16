@@ -6,10 +6,10 @@
  *   catalog      fast model, frequent: answers in conversation what a flat catalog cannot.
  *                Reads only the published catalog; never invents price or availability.
  *   guardian     strong model, only at checkout completion: adds context to the store's
- *                deterministic policy and can hand the order to the store's human approval queue.
+ *                deterministic policy and can hand the order to the buyer or the merchant.
  *
- * Runtime: Strands Agents SDK on Amazon Bedrock AgentCore Runtime (us-east-1).
- * Every call records usage_events (tokens, latency, model, estimated cost).
+ * Runtime: in-process in the Bridge locally; Strands Agents SDK on Amazon Bedrock AgentCore
+ * Runtime (us-east-1) when hosted. Every call records usage_events.
  */
 export type AgentRole = "onboarding" | "catalog" | "guardian";
 
@@ -26,3 +26,8 @@ export const AGENT_MODEL_POLICY: Readonly<Record<AgentRole, AgentModelPolicy>> =
   catalog: { role: "catalog", modelEnvVar: "BEDROCK_MODEL_FAST", maxOutputTokens: 400 },
   guardian: { role: "guardian", modelEnvVar: "BEDROCK_MODEL_STRONG", maxOutputTokens: 600 },
 };
+
+export { findings, Guardian } from "./guardian.js";
+export type { GuardianDecision, GuardianFinding, GuardianInput, GuardianLine, GuardianOptions, GuardianOrderRef, GuardianUsage, GuardianVerdict } from "./guardian.js";
+export { estimateCostUsdMicros, priceFor } from "./pricing.js";
+export type { ModelPrice } from "./pricing.js";

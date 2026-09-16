@@ -103,6 +103,13 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
   the same code deploys to AgentCore Runtime for the hosted playground, chosen by environment.
   With no AWS credentials at all, Scenes that need an agent run in Recorded mode and say so on
   screen.
+- **The guardian asks once, before any money moves.** At `complete`, a deterministic rule in
+  the Bridge compares the session with this buyer's completed sessions at the same Store
+  (duplicate lines within seven days). Only when a rule fires does the strong model write the
+  one spoken sentence; without credentials the rule speaks a fixed sentence. The session
+  answers `incomplete` with an error of severity `requires_buyer_review`, keeps its quote, and
+  the buyer's next `complete` on the same session is the answer. The buyer is identified by a
+  hash of the email, never the email, and the guardian's input carries no personal data.
 
 - **Sessions in USD cents, settlement in USDC.** A UCP session needs an ISO 4217 currency and
   integer minor units, and USDC has seven decimals. Sessions are denominated in USD cents, one

@@ -7,7 +7,7 @@
 import { Agent, ModelStreamUpdateEvent, tool, type Model } from "@strands-agents/sdk";
 import type { NewUsageEvent } from "@agentpos-alexa/bridge";
 import type { BridgeClient, ToolCallRecord } from "../bridge-client.js";
-import { estimateCostUsdMicros } from "./pricing.js";
+import { estimateCostUsdMicros } from "@agentpos-alexa/agents";
 
 export interface HouseholdAgentDeps {
   bridge: BridgeClient;

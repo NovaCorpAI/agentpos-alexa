@@ -19,7 +19,8 @@ const interesting = modelSummaries.filter((m) => /nova-2-lite|nova-lite|sonnet/i
 for (const m of interesting) console.log(`${m.modelId}  [${(m.inferenceTypesSupported ?? []).join(",")}]  ${m.modelLifecycle?.status ?? ""}`);
 
 const runtime = new BedrockRuntimeClient({ region });
-for (const modelId of [fast, strong]) {
+const strongFallback = process.env.BEDROCK_MODEL_STRONG_FALLBACK ?? "us.amazon.nova-pro-v1:0";
+for (const modelId of [fast, strong, strongFallback]) {
   if (!modelId) continue;
   const started = Date.now();
   try {
@@ -28,5 +29,8 @@ for (const modelId of [fast, strong]) {
     console.log(`OK ${modelId}: "${text}" in ${Date.now() - started} ms, usage ${JSON.stringify(res.usage)}`);
   } catch (e) {
     console.log(`FAIL ${modelId}: ${e.name}: ${String(e.message).slice(0, 200)}`);
+    if (/use case details/i.test(String(e.message))) {
+      console.log("  -> Anthropic models on Bedrock need a one-time form: AWS console > Amazon Bedrock > Model catalog > pick the Claude model > 'Submit use case details'. Until accepted, BEDROCK_MODEL_STRONG_FALLBACK answers (FL-006).");
+    }
   }
 }

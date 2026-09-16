@@ -3,7 +3,10 @@
  * One command, no services to create.
  */
 import { randomBytes } from "node:crypto";
+import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { serve } from "@hono/node-server";
+import { Guardian } from "@agentpos-alexa/agents";
+import { BedrockModel } from "@strands-agents/sdk";
 import { discoverStore, StoreDiscoveryError } from "@agentpos-alexa/store-client";
 import { createApp } from "./app.js";
 import { amazonRailsFromMode } from "./rails/amazon-simulated.js";
@@ -53,7 +56,28 @@ if (process.env.BRIDGE_OAUTH_CLIENT_ID && process.env.BRIDGE_OAUTH_CLIENT_SECRET
 const rails = new RailRegistry();
 for (const rail of amazonRailsFromMode(process.env.AMAZON_PSP_MODE ?? "simulated")) rails.register(rail);
 
-const app = createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails });
+// Policy guardian: the strong model on Bedrock when credentials resolve, the rule alone otherwise.
+// Two strong models: Claude Sonnet needs the Anthropic use case form on new accounts (FL-006),
+// so Nova Pro stands in until it is accepted. Every call says which model spoke.
+const strongModelId = process.env.BEDROCK_MODEL_STRONG ?? "us.anthropic.claude-sonnet-4-6";
+const fallbackModelId = process.env.BEDROCK_MODEL_STRONG_FALLBACK ?? "us.amazon.nova-pro-v1:0";
+const region = process.env.AWS_REGION ?? "us-east-1";
+let guardian: Guardian;
+try {
+  await fromNodeProviderChain()();
+  const bedrock = (modelId: string) => new BedrockModel({ region, modelId, maxTokens: 300, temperature: 0.1 });
+  guardian = new Guardian({
+    model: bedrock(strongModelId),
+    modelId: strongModelId,
+    ...(fallbackModelId && fallbackModelId !== "off" ? { fallbackModel: bedrock(fallbackModelId), fallbackModelId } : {}),
+  });
+  logger.log("info", "guardian", { mode: "model", modelId: strongModelId, fallbackModelId, region });
+} catch {
+  guardian = new Guardian();
+  logger.log("info", "guardian", { mode: "rules-only", note: "no AWS credentials; the duplicate rule decides with a fixed sentence" });
+}
+
+const app = createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails, guardian });
 serve({ fetch: app.fetch, port }, (info) => {
   logger.log("info", "listening", {
     port: info.port,

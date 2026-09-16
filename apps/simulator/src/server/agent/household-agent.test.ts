@@ -5,7 +5,7 @@ import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BridgeClient } from "../bridge-client.js";
 import { AgentBrain } from "./brain.js";
-import { FakeModel } from "./fake-model.js";
+import { FakeModel } from "@agentpos-alexa/agents/testing";
 
 const STORE = "http://bakery.test";
 const BRIDGE = "http://bridge.test";

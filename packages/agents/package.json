@@ -3,9 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Merchant-side agents (onboarding, catalog, policy guardian) with Strands Agents SDK on Amazon Bedrock AgentCore.",
+  "description": "Merchant-side agents (onboarding, catalog, policy guardian) on Strands Agents with Amazon Bedrock; in-process in the Bridge locally, on AgentCore Runtime when hosted.",
   "license": "Apache-2.0",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/fake-model.ts"
+  },
+  "dependencies": {
+    "@strands-agents/sdk": "~1.17.0",
+    "zod": "^4.2.0"
   }
 }

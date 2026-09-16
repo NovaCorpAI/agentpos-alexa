@@ -14,7 +14,9 @@ export function Checkout({ state, busy, onConfirm, onCancel }: { state: Checkout
   const available = state.options.filter((o) => o.available);
   const [choice, setChoice] = useState(0);
   const s = state.session;
-  const ready = s.status === "ready_for_complete";
+  // A buyer review (the guardian's question) keeps the quote and expects the buyer's answer.
+  const review = s.status === "incomplete" && s.messages.some((m) => m.severity === "requires_buyer_review");
+  const ready = s.status === "ready_for_complete" || review;
   const chosen = available[choice];
   return (
     <section className="checkout" aria-label="Checkout">
@@ -78,7 +80,7 @@ export function Checkout({ state, busy, onConfirm, onCancel }: { state: Checkout
           Cancel
         </button>
         <button className="primary" onClick={() => chosen && onConfirm(chosen.handlerId, chosen.instrumentId)} disabled={busy || !ready || !chosen}>
-          {busy ? "Paying" : `Confirm ${dollars(s.totals.find((t) => t.type === "total")?.amount ?? 0)}`}
+          {busy ? "Paying" : review ? "Yes, order it again" : `Confirm ${dollars(s.totals.find((t) => t.type === "total")?.amount ?? 0)}`}
         </button>
       </div>
     </section>

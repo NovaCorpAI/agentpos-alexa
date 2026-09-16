@@ -62,6 +62,8 @@ export interface CheckoutRepo {
   listBySlug(slug: string, limit?: number): StoredSession[];
   /** The completed session that produced a Store order, if this Bridge did. */
   findByStoreOrderId(slug: string, storeOrderId: string): StoredSession | undefined;
+  /** Completed sessions of one buyer (by opaque key) at a Store since a moment, newest first. */
+  listCompletedByBuyer(slug: string, buyerKey: string, sinceIso: string, limit?: number): StoredSession[];
 }
 
 export interface IdempotencyRepo {
@@ -111,6 +113,16 @@ export class SqliteCheckoutRepo implements CheckoutRepo {
       .get(slug, storeOrderId) as unknown as { body: string; internal: string; created_at: string; updated_at: string } | undefined;
     if (!row) return undefined;
     return { session: JSON.parse(row.body) as CheckoutSession, internal: JSON.parse(row.internal) as SessionInternal, createdAt: row.created_at, updatedAt: row.updated_at };
+  }
+
+  listCompletedByBuyer(slug: string, buyerKey: string, sinceIso: string, limit = 20): StoredSession[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM checkout_sessions WHERE slug = ? AND status = 'completed' AND json_extract(internal, '$.buyerKey') = ? AND updated_at >= ?
+         ORDER BY updated_at DESC LIMIT ?`,
+      )
+      .all(slug, buyerKey, sinceIso, limit) as unknown as Array<{ body: string; internal: string; created_at: string; updated_at: string }>;
+    return rows.map((row) => ({ session: JSON.parse(row.body) as CheckoutSession, internal: JSON.parse(row.internal) as SessionInternal, createdAt: row.created_at, updatedAt: row.updated_at }));
   }
 
   listBySlug(slug: string, limit = 100): StoredSession[] {

@@ -6,7 +6,8 @@
  * once a delivery destination exists (physical goods) and completed only after a rail
  * reports settlement with a reference (hard rule 3). Every response is the full object.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { estimateCostUsdMicros, type Guardian } from "@agentpos-alexa/agents";
 import { AgentPosStoreClient, StoreRequestError, type CartQuote, type CatalogItem } from "@agentpos-alexa/store-client";
 import { BridgeError } from "../errors.js";
 import type { Logger } from "../logging.js";
@@ -32,6 +33,8 @@ import type {
 export interface CheckoutServiceDeps {
   storage: Storage;
   rails: RailRegistry;
+  /** Policy guardian, consulted once per session at complete. Omitted: no guard. */
+  guardian?: Guardian;
   bridgeBaseUrl: string;
   now?: () => Date;
   ttlHours?: number;
@@ -166,7 +169,8 @@ export class CheckoutService {
     // A decline leaves the session incomplete with only the payment message; the quote is
     // still good, so a retry with another instrument is allowed. Anything else must be
     // resolved through update first.
-    const retryAfterDecline = session.status === "incomplete" && internal.cartId !== undefined && session.messages.every((m) => m.type === "error" && m.code === "payment_failed");
+    const retryAfterDecline =
+      session.status === "incomplete" && internal.cartId !== undefined && session.messages.every((m) => m.type === "error" && (m.code === "payment_failed" || m.severity === "requires_buyer_review"));
     if (session.status !== "ready_for_complete" && !retryAfterDecline) {
       session.messages = [...session.messages.filter((m) => m.type !== "error" || m.code !== "payment_failed"), err("not_ready", "The session is not ready to complete; resolve the messages first.", "recoverable")];
       this.deps.storage.checkout.save(session, internal);
@@ -177,6 +181,19 @@ export class CheckoutService {
     if (internal.cartExpiresAt && new Date(internal.cartExpiresAt).getTime() <= this.now().getTime()) {
       const priced = await this.quote(ctx, session, internal, storeClient);
       if (!priced) {
+        this.deps.storage.checkout.save(session, internal);
+        return session;
+      }
+    }
+    // The guardian runs once per session, before any money moves. Its review asks the buyer;
+    // the next complete on the same session is the buyer's answer.
+    if (this.deps.guardian && !internal.guardianAcknowledged) {
+      const verdict = await this.guard(ctx, session, internal);
+      if (verdict.decision !== "allow") {
+        internal.guardianAcknowledged = verdict.decision === "review";
+        session.status = "incomplete";
+        session.messages = [err(verdict.code, verdict.reason, verdict.decision === "review" ? "requires_buyer_review" : "unrecoverable")];
+        ctx.log.log(verdict.fallbackReason ? "warn" : "info", "guardian", { sessionId: session.id, decision: verdict.decision, code: verdict.code, findings: verdict.findings, modelUsed: verdict.modelUsed, ...(verdict.fallbackReason ? { fallbackReason: verdict.fallbackReason } : {}) });
         this.deps.storage.checkout.save(session, internal);
         return session;
       }
@@ -223,6 +240,45 @@ export class CheckoutService {
     return session;
   }
 
+  /** Asks the guardian with this buyer's recent orders at this Store; every model call is recorded. */
+  private async guard(ctx: CallContext, session: CheckoutSession, internal: SessionInternal): Promise<Awaited<ReturnType<Guardian["review"]>>> {
+    const guardian = this.deps.guardian!;
+    const since = new Date(this.now().getTime() - 30 * 86_400_000).toISOString();
+    const recent = internal.buyerKey ? this.deps.storage.checkout.listCompletedByBuyer(ctx.store.slug, internal.buyerKey, since) : [];
+    const started = performance.now();
+    const verdict = await guardian.review({
+      storeName: new URL(ctx.store.origin).hostname,
+      language: session.context?.language === "es-CL" ? "es-CL" : "en-US",
+      lines: session.line_items.map((l) => ({ itemId: l.item.id, title: l.item.title, quantity: l.quantity })),
+      totalCents: session.totals.find((t) => t.type === "total")?.amount ?? 0,
+      currency: session.currency,
+      recentOrders: recent.map((r) => ({
+        orderId: r.session.order?.id ?? r.session.id,
+        at: r.updatedAt,
+        lines: r.session.line_items.map((l) => ({ itemId: l.item.id, title: l.item.title, quantity: l.quantity })),
+        totalCents: r.session.totals.find((t) => t.type === "total")?.amount ?? 0,
+      })),
+      now: this.now(),
+    });
+    // Rows only when a rule fired: an allow costs nothing and calls no model.
+    if (verdict.findings.length > 0) {
+      const u = verdict.usage;
+      this.deps.storage.usageEvents.record({
+        traceId: ctx.traceId,
+        source: "agent.guardian",
+        storeOrigin: ctx.store.origin,
+        checkoutSessionId: session.id,
+        model: u?.modelId ?? null,
+        inputTokens: u?.inputTokens ?? 0,
+        outputTokens: u?.outputTokens ?? 0,
+        latencyMs: Math.round(performance.now() - started),
+        estimatedCostUsdMicros: u ? estimateCostUsdMicros(u.modelId, u.inputTokens, u.outputTokens).micros : 0,
+        simulated: false,
+      });
+    }
+    return verdict;
+  }
+
   private assertMutable(session: CheckoutSession): void {
     if (session.status === "completed") {
       throw new BridgeError(409, { code: "SESSION_IMMUTABLE", message: "Completed sessions are immutable", hint: "Create a new session for a new purchase." });
@@ -241,6 +297,8 @@ export class CheckoutService {
       session.messages = [err("missing", "At least one line item is required", "recoverable", "$.line_items")];
       return;
     }
+    if (req.buyer?.email) internal.buyerKey = createHash("sha256").update(req.buyer.email.trim().toLowerCase()).digest("hex");
+    else delete internal.buyerKey;
     if (req.buyer) session.buyer = req.buyer;
     else delete session.buyer;
     if (req.context) session.context = req.context;

@@ -57,6 +57,9 @@ importers:
         specifier: ^4.2.0
         version: 4.6.5
     devDependencies:
+      '@agentpos-alexa/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
       '@agentpos-alexa/fixture-store':
         specifier: workspace:*
         version: link:../../packages/fixture-store
@@ -82,13 +85,26 @@ importers:
         specifier: ^7.0.0
         version: 7.3.6(@types/node@24.13.4)(tsx@4.23.13)(yaml@2.9.1)
 
-  packages/agents: {}
+  packages/agents:
+    dependencies:
+      '@strands-agents/sdk':
+        specifier: ~1.17.0
+        version: 1.17.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(@opentelemetry/api@1.9.1)(@smithy/types@4.18.0)(express@5.2.1)(zod@4.6.5)
+      zod:
+        specifier: ^4.2.0
+        version: 4.6.5
 
   packages/bridge:
     dependencies:
+      '@agentpos-alexa/agents':
+        specifier: workspace:*
+        version: link:../agents
       '@agentpos-alexa/store-client':
         specifier: workspace:*
         version: link:../store-client
+      '@aws-sdk/credential-providers':
+        specifier: ^3.1132.0
+        version: 3.1132.0
       '@hono/node-server':
         specifier: ^2.1.1
         version: 2.1.1(hono@4.13.7)
@@ -104,6 +120,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: ^2.0.0
         version: 2.0.0
+      '@strands-agents/sdk':
+        specifier: ~1.17.0
+        version: 1.17.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(@opentelemetry/api@1.9.1)(@smithy/types@4.18.0)(express@5.2.1)(zod@4.6.5)
       hono:
         specifier: ^4.13.7
         version: 4.13.7

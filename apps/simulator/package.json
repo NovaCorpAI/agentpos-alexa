@@ -23,6 +23,7 @@
     "zod": "^4.2.0"
   },
   "devDependencies": {
+    "@agentpos-alexa/agents": "workspace:*",
     "@agentpos-alexa/fixture-store": "workspace:*",
     "@modelcontextprotocol/ext-apps": "^2.0.0",
     "@types/react": "^19.0.0",

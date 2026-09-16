@@ -36,7 +36,6 @@ export const SCENES: Scene[] = [
     title: "Scene 3: duplicate order blocked",
     proves: "The guardian adds context to the store's policy and explains the block in one sentence.",
     steps: [{ reset: true }, { say: "Buy two sourdough loaves" }, { confirmCheckout: true }, { say: "Buy two sourdough loaves" }, { confirmCheckout: true }],
-    pending: "guardian agent (#15)",
   },
   {
     id: "same-as-last-week",

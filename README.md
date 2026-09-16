@@ -132,6 +132,13 @@ synthetic address, shows the store's quote with the payment handlers the session
 (the Amazon handlers, labeled SIMULATED), and completes with the chosen one. The order card
 and the receipt card that follow are the bridge's own MCP Apps views.
 
+The policy guardian sits inside `complete`: when this household orders the same lines it
+ordered within the last seven days, the Bridge does not settle. It answers with one spoken
+sentence (Claude Sonnet 4.6 on Bedrock writes it when credentials resolve; a fixed sentence
+otherwise), the checkout stays open with the same quote, and the button reads "Yes, order it
+again". Scene 3 plays exactly that. The rule is deterministic and runs first; the model only
+words the question, and the guardian never sees the buyer's email, only a hash.
+
 ![The simulator rendering the bridge's carousel view inside an Echo Show frame](docs/assets/simulator-carousel.png)
 
 ![The host's checkout pattern with the simulated Amazon handlers](docs/assets/simulator-checkout.png)

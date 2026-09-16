@@ -127,3 +127,26 @@ commit or file.
 - Suggestion: a public, unauthenticated JSON endpoint with model ids per region and list
   prices would let tools like this one record cost per call without a manual step.
 - Link: scripts/setup-wizard.sh, apps/simulator/src/server/agent/pricing.ts
+
+## FL-006
+
+- Date: 2026-09-16
+- Tool: Amazon Bedrock, Anthropic models on a new account (Converse API through Strands).
+- What we tried: the first real guardian call on `us.anthropic.claude-sonnet-4-6` after the
+  account listed the model and the IAM policy allowed `bedrock:InvokeModel`.
+- What happened: `ModelError: Model use case details have not been submitted for this
+  account. Fill out the Anthropic use case details form before using the model. If you have
+  already filled out the form, try again in 15 minutes.` Nothing in the model listing, in the
+  IAM simulator or in the access page said that Anthropic models carry an extra, per-account
+  form; Nova models on the same account answered at once. The guardian silently fell back to
+  its rule, and only a usage row with `model = null` revealed it.
+- Severity: Medium
+- Time lost: about 45 min
+- Workaround: the guardian takes a second strong model (`BEDROCK_MODEL_STRONG_FALLBACK`, Nova
+  Pro by default) and records which model spoke; `scripts/bedrock-check.mjs` calls each
+  configured model once and prints the form's location when it sees this error; the Bridge
+  logs the fallback reason at `warn`.
+- Suggestion: surface the use case requirement in `ListFoundationModels` (a field next to
+  `inferenceTypesSupported`) and in the model access page, so tooling can tell "not enabled"
+  from "enabled but gated" before the first invoke.
+- Link: packages/agents/src/guardian.ts, packages/bridge/src/main.ts, scripts/bedrock-check.mjs

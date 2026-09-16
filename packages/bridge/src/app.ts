@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { requireBearerAuth, WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/server";
 import { AgentPosStoreClient } from "@agentpos-alexa/store-client";
+import type { Guardian } from "@agentpos-alexa/agents";
 import { anyOf, staticTokenVerifier, storedTokenVerifier, tokenEndpoint } from "./auth/oauth.js";
 import { registerCheckoutRoutes } from "./checkout/routes.js";
 import { CheckoutService } from "./checkout/service.js";
@@ -26,6 +27,8 @@ export interface AppDeps {
   bearerToken: string;
   /** Payment rails available to Stores. Empty until #9, #10 and #17 register theirs. */
   rails?: RailRegistry;
+  /** Policy guardian at checkout completion (#15). */
+  guardian?: Guardian;
   /** fetch used to reach Stores; tests route it into an in-memory fixture. */
   storeFetch?: typeof fetch;
   now?: () => Date;
@@ -36,11 +39,11 @@ export const TRACE_HEADER = "Request-Id";
 
 type Env = { Variables: { traceId: string; log: Logger } };
 
-export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails = new RailRegistry(), storeFetch, now }: AppDeps): Hono<Env> {
+export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails = new RailRegistry(), guardian, storeFetch, now }: AppDeps): Hono<Env> {
   const app = new Hono<Env>();
   const verifier = anyOf(storedTokenVerifier(storage.oauth), staticTokenVerifier(bearerToken));
   const gate = requireBearerAuth({ verifier });
-  const checkout = new CheckoutService({ storage, rails, bridgeBaseUrl, ...(storeFetch ? { storeFetch } : {}), ...(now ? { now } : {}) });
+  const checkout = new CheckoutService({ storage, rails, bridgeBaseUrl, ...(guardian ? { guardian } : {}), ...(storeFetch ? { storeFetch } : {}), ...(now ? { now } : {}) });
 
   app.use("*", async (c, next) => {
     const traceId = c.req.header(TRACE_HEADER) ?? randomUUID();

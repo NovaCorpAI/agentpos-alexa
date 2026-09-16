@@ -1,3 +1,5 @@
+import { Guardian } from "@agentpos-alexa/agents";
+import { FakeModel } from "@agentpos-alexa/agents/testing";
 import { createFixtureStore } from "@agentpos-alexa/fixture-store";
 import { parseStoreProfile } from "@agentpos-alexa/store-client";
 import type { Hono } from "hono";
@@ -148,6 +150,51 @@ describe("UCP checkout sessions", () => {
     const put409 = await put(`/stores/bakery/checkout-sessions/${created.id}`, updateBody, "k5");
     expect(put409.status).toBe(409);
     expect(await put409.json()).toMatchObject({ code: "SESSION_IMMUTABLE" });
+  });
+
+  it("the guardian asks once about a duplicate order; the buyer's next complete is the answer", async () => {
+    const model = new FakeModel([{ text: JSON.stringify({ decision: "review", reason: "You ordered the same bread today. Order it again?" }) }]);
+    const guardian = new Guardian({ model, modelId: "fake.strong" });
+    app = createApp({ storage, logger: createLogger(memorySink().sink), bridgeBaseUrl: BRIDGE, bearerToken: TOKEN, rails: new RailRegistry().register(testRail), guardian, storeFetch: fetchInto(fixture.app), now: () => clock }) as unknown as Hono;
+    const completeBody = { payment: { instruments: [{ id: "instr_1", handler_id: "test-rail", type: "card", credential: { type: "test" } }] } };
+    const buy = async (key: string) => {
+      const created = (await (await post("/stores/bakery/checkout-sessions", createBody, `${key}-c`)).json()) as CheckoutSession;
+      await put(`/stores/bakery/checkout-sessions/${created.id}`, updateBody, `${key}-u`);
+      return { id: created.id, done: (await (await post(`/stores/bakery/checkout-sessions/${created.id}/complete`, completeBody, `${key}-x`)).json()) as CheckoutSession };
+    };
+    // First order of the day: no rule fires, no model call, no guardian row.
+    expect((await buy("g1")).done.status).toBe("completed");
+    expect(model.calls).toHaveLength(0);
+    expect(storage.usageEvents.list({ source: "agent.guardian" })).toHaveLength(0);
+
+    // Same lines, same buyer, an hour later: the guardian speaks and the session waits for the buyer.
+    clock = new Date(clock.getTime() + 3_600_000);
+    const second = await buy("g2");
+    assertConformant(second.done);
+    expect(second.done.status).toBe("incomplete");
+    expect(second.done.messages).toEqual([{ type: "error", code: "duplicate_order", content: "You ordered the same bread today. Order it again?", severity: "requires_buyer_review" }]);
+    expect(fixture.state.orders.size).toBe(1);
+    expect(storage.usageEvents.list({ source: "agent.guardian" })).toMatchObject([{ checkoutSessionId: second.id, model: "fake.strong", simulated: false }]);
+    expect(JSON.stringify(model.calls)).not.toContain("alex.demo@example.com");
+
+    // The buyer says yes: the same session completes without asking again.
+    const yes = (await (await post(`/stores/bakery/checkout-sessions/${second.id}/complete`, completeBody, "g2-y")).json()) as CheckoutSession;
+    expect(yes.status).toBe("completed");
+    expect(fixture.state.orders.size).toBe(2);
+    expect(model.calls).toHaveLength(1);
+  });
+
+  it("without a model, the guardian's rule decides with a fixed sentence", async () => {
+    app = createApp({ storage, logger: createLogger(memorySink().sink), bridgeBaseUrl: BRIDGE, bearerToken: TOKEN, rails: new RailRegistry().register(testRail), guardian: new Guardian(), storeFetch: fetchInto(fixture.app), now: () => clock }) as unknown as Hono;
+    const completeBody = { payment: { instruments: [{ id: "instr_1", handler_id: "test-rail", type: "card", credential: { type: "test" } }] } };
+    for (const key of ["r1", "r2"]) {
+      const created = (await (await post("/stores/bakery/checkout-sessions", createBody, `${key}-c`)).json()) as CheckoutSession;
+      await put(`/stores/bakery/checkout-sessions/${created.id}`, updateBody, `${key}-u`);
+      const done = (await (await post(`/stores/bakery/checkout-sessions/${created.id}/complete`, completeBody, `${key}-x`)).json()) as CheckoutSession;
+      if (key === "r1") expect(done.status).toBe("completed");
+      else expect(done.messages[0]).toMatchObject({ code: "duplicate_order", severity: "requires_buyer_review", content: expect.stringMatching(/^You already ordered .* today[.] Do you want to order it again[?]$/) });
+    }
+    expect(storage.usageEvents.list({ source: "agent.guardian" })).toMatchObject([{ model: null, inputTokens: 0 }]);
   });
 
   it("replays the same Idempotency-Key and refuses it with a different body", async () => {

@@ -95,6 +95,11 @@ onboarding agent drafts and the Merchant confirms. Kept by the Bridge, never wri
 Store, invalidated when the item changes in the Store.
 _Avoid_: voice catalog, enriched catalog, metadata
 
+**Buyer review**:
+The guardian's one question at `complete`. The session stays `incomplete` with an error of
+severity `requires_buyer_review` and keeps its quote; the buyer's next `complete` on the same
+session is the answer. Asked at most once per session.
+
 **Synthetic persona**:
 The fixed name, email and address the Demo household presents at checkout. Never logged.
 _Avoid_: test user, dummy data, fake customer

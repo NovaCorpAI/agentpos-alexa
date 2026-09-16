@@ -21,6 +21,10 @@ export interface SessionInternal {
   approvalId?: string;
   /** line item id -> Store item id */
   lineIndex: Record<string, string>;
+  /** Opaque buyer key (hash of the email) to find this buyer's previous orders; never the email. */
+  buyerKey?: string;
+  /** The guardian asked the buyer to review once; the next complete is the buyer's answer. */
+  guardianAcknowledged?: boolean;
 }
 
 export interface RailContext {
