@@ -228,20 +228,18 @@ pause "Press Enter when both models show Access granted."
 
 # ── 4. Verify with the AWS CLI and pin the model ids ──────────────────────
 stage "Bedrock: verify and pin the model ids"
-if command -v aws >/dev/null 2>&1; then
-  say "Listing the Anthropic and Amazon models your account can invoke in ${AWS_REGION}:"
-  AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
-    aws bedrock list-foundation-models --region "$AWS_REGION" \
-      --query "modelSummaries[?contains(modelId, 'sonnet') || contains(modelId, 'nova-2-lite') || contains(modelId, 'nova-lite')].[modelId, join(',', inferenceTypesSupported)]" \
-      --output table 2>/dev/null || warn "the CLI call failed; check the keys and the region, then re-run this wizard"
-  note "If a model lists only INFERENCE_PROFILE, use the cross-region id that starts with us. (for example us.anthropic....)."
+say "Listing the Anthropic and Amazon models your account can invoke in ${AWS_REGION} (no AWS CLI needed):"
+if command -v node >/dev/null 2>&1 && [[ -f scripts/bedrock-check.mjs ]]; then
+  AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" AWS_REGION="$AWS_REGION" \
+    node scripts/bedrock-check.mjs 2>/dev/null | grep -vE "^(FAIL|OK|region)" || warn "the listing failed; check the keys and the region, then re-run this wizard"
+  note "A model that lists only INFERENCE_PROFILE needs the cross-region id that starts with us. (the defaults below already do)."
 else
-  warn "AWS CLI not found. Install it (https://aws.amazon.com/cli/) to verify; meanwhile use the ids from the Bedrock console's model catalog."
+  warn "node or scripts/bedrock-check.mjs not found; use the ids from the Bedrock console's model catalog."
 fi
-ask BEDROCK_MODEL_FAST "Model id for frequent cheap steps [amazon.nova-2-lite-v1:0]:"
-ask BEDROCK_MODEL_STRONG "Model id for critical decisions (Claude Sonnet) [anthropic.claude-sonnet-4-5-20250929-v1:0]:"
-write_env BEDROCK_MODEL_FAST "${BEDROCK_MODEL_FAST:-amazon.nova-2-lite-v1:0}"
-write_env BEDROCK_MODEL_STRONG "${BEDROCK_MODEL_STRONG:-anthropic.claude-sonnet-4-5-20250929-v1:0}"
+ask BEDROCK_MODEL_FAST "Model id for frequent cheap steps [us.amazon.nova-2-lite-v1:0]:"
+ask BEDROCK_MODEL_STRONG "Model id for critical decisions (Claude Sonnet) [us.anthropic.claude-sonnet-5]:"
+write_env BEDROCK_MODEL_FAST "${BEDROCK_MODEL_FAST:-us.amazon.nova-2-lite-v1:0}"
+write_env BEDROCK_MODEL_STRONG "${BEDROCK_MODEL_STRONG:-us.anthropic.claude-sonnet-5}"
 
 # ── 5. Stripe test mode for the merchant PSP rail ─────────────────────────
 stage "Stripe: test mode keys for the demo store"
