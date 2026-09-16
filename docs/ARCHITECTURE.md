@@ -115,6 +115,11 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
   instrument that paid. A decline is a 200 with `payment_failed`; a merchant review is a 200
   with `requires_buyer_review`; only protocol errors are 4xx.
 
+- **One Brain interface, picked at boot.** The Simulator runs the Household agent (Strands on
+  Bedrock) when AWS credentials resolve, the scripted router with no model otherwise, and
+  degrades to the router at runtime on a credentials error, saying so on screen. The agent
+  sees the Bridge's tools through our adapter, not Strands' MCP client (FL-004).
+
 ## Versions
 
 Pinned in `packages/bridge/src/versions.ts`. MCP spec 2025-11-25 (SDK >= 1.30), UCP checkout

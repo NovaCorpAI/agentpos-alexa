@@ -83,3 +83,47 @@ commit or file.
   the decrypted token, in which API). Without it, every entrant outside the program ships a
   different simulation of the same step.
 - Link: packages/bridge/src/versions.ts, docs/STRATEGY.md
+
+## FL-004
+
+- Date: 2026-09-16
+- Tool: Strands Agents SDK for TypeScript (`@strands-agents/sdk` 1.17), MCP client (`McpClient`).
+- What we tried: give the Household agent the Bridge's MCP tools through the SDK's own
+  `McpClient`, so that the agent and the host (the simulator) share one connection and one
+  tool list.
+- What happened: `McpTool.stream` maps only `result.content` (text, image, embedded resource)
+  and `isError`; the `structuredContent` block and the result `_meta` are accepted and
+  dropped. MCP Apps depends on `_meta.ui.resourceUri` on the tool definition and on the host
+  forwarding the full result to the view, and our tools carry exact prices in
+  `structuredContent`. With the SDK's client the model would only see the spoken text and the
+  host would never learn which view to render. Source: `dist/src/tools/mcp-tool.js` lines 35 to
+  55 in the published package.
+- Severity: Medium (one afternoon; changes the integration shape)
+- Time lost: about 2 h
+- Workaround: our own adapter lists the Bridge's tools once and wraps each as a Strands
+  `tool()` with the server's JSON schema; the callback calls the Bridge through the
+  simulator's MCP client, keeps the full result for the host, and returns the spoken text
+  plus the structured facts to the model (`apps/simulator/src/server/agent/household-agent.ts`).
+- Suggestion: surface `structuredContent` and result `_meta` on `McpTool` results (for
+  example as a JSON block after the text) and expose tool `_meta` on the listed tools, so
+  Strands agents can host MCP Apps without a second client.
+- Link: apps/simulator/src/server/agent/household-agent.ts
+
+## FL-005
+
+- Date: 2026-09-16
+- Tool: Amazon Bedrock model access and pricing pages, from a TypeScript build.
+- What we tried: pin the exact Bedrock model ids and per-token prices for Nova 2 Lite and
+  Claude Sonnet in `usage_events` before having an account with model access.
+- What happened: the model id an account can invoke depends on the region and on whether the
+  model is served only through a cross-region inference profile (`us.` prefix), and the
+  pricing page is not machine readable. Without credentials there is no way to check either,
+  so the code ships an estimate table that has to be verified by hand.
+- Severity: Low
+- Time lost: about 30 min
+- Workaround: `scripts/setup-wizard.sh` runs `aws bedrock list-foundation-models` and asks the
+  human to paste the ids the account actually lists; `apps/simulator/src/server/agent/pricing.ts`
+  keeps the estimates with a `BEDROCK_PRICING_JSON` override and marks unknown models.
+- Suggestion: a public, unauthenticated JSON endpoint with model ids per region and list
+  prices would let tools like this one record cost per call without a manual step.
+- Link: scripts/setup-wizard.sh, apps/simulator/src/server/agent/pricing.ts

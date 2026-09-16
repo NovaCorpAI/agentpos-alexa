@@ -8,8 +8,8 @@ Services used, why each, and where in the code. Updated as modules land.
 | Amazon Bedrock (Claude Sonnet or Nova Pro) | rare, critical decisions: onboarding draft, policy guardian | `packages/agents/src/onboarding/*`, `packages/agents/src/guardian/*` (planned) |
 | Bedrock AgentCore Runtime | hosts the merchant agents with traces for the demo | `packages/agents/deploy/*` (planned) |
 | Bedrock AgentCore Memory | per-store preferences and rules across sessions | `packages/agents/src/memory.ts` (planned) |
-| Strands Agents SDK | agent orchestration and tool use | `packages/agents/src/*` (planned) |
-| Amazon Bedrock (Nova 2 Lite, via Strands TypeScript) | the Household agent inside the Simulator: conversation, tool calls to the Bridge | `apps/simulator/src/agent/*` (planned) |
+| Strands Agents SDK (TypeScript) | agent orchestration and tool use; our adapter wraps the Bridge's MCP tools (FL-004) | `apps/simulator/src/server/agent/household-agent.ts`; merchant agents in `packages/agents/src/*` (planned) |
+| Amazon Bedrock (Nova 2 Lite, via Strands TypeScript) | the Household agent inside the Simulator: conversation, tool calls to the Bridge, one usage_events row per model call | `apps/simulator/src/server/agent/household-agent.ts`, `brain.ts`, `pricing.ts` |
 | Amazon Polly | voice output of the Simulator, per-phrase cache; browser speech as fallback | `apps/simulator/src/voice/*` (planned) |
 | AWS App Runner | hosts the Bridge and the Simulator as two services with public URLs | `infra/apprunner.yaml` (planned) |
 
