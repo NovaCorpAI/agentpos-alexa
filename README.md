@@ -63,7 +63,18 @@ pnpm typecheck
 pnpm test
 pnpm dev:fixture-store # a bakery-shaped test double of an AgentPOS Store on :8790 (optional)
 pnpm dev:bridge        # registers AGENTPOS_STORE_URL (default: the public demo store) and listens on :8787
+pnpm dev:simulator     # the simulated Alexa+ experience on http://127.0.0.1:8788 (builds its web app first)
 ```
+
+The simulator needs the same `BRIDGE_BEARER_TOKEN` as the bridge (set it in `.env` for both,
+or copy the one-run token the bridge prints). It shows an Echo Show frame with the four
+display modes Amazon documents (inline, fullscreen, voice-only, hydrated), the Enabled
+add-ons the bridge serves, voice or text input, and an inspection summary per turn
+(`.data/inspection-summary.json`) that checks what Amazon's guide asks for: voice text
+first, three to five carousel items, first item within 500 ms, typed errors. Until the
+Household agent lands, a scripted router with no model maps the text to one Bridge tool.
+
+![The simulator rendering the bridge's carousel view inside an Echo Show frame](docs/assets/simulator-carousel.png)
 
 To run the bridge against the bakery instead of the public demo store, set
 `AGENTPOS_STORE_URL=http://127.0.0.1:8790`.

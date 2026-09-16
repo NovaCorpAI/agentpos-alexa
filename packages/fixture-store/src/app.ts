@@ -153,9 +153,10 @@ export function createFixtureStore(opts: FixtureStoreOptions): { app: Hono; stat
 
   app.get("/agentpos/catalog", (c) => {
     const q = (c.req.query("q") ?? "").trim().toLowerCase();
-    const filtered = q
+    const filtered = (q
       ? items.filter((it) => `${it.title} ${it.description}`.toLowerCase().includes(q))
-      : items;
+      : items
+    ).map((it) => ({ ...it, url: `${base}/product/${it.id}/`, imageUrl: `${base}/images/${it.id}.svg` }));
     return c.json({
       adapterVersion: FIXTURE_ADAPTER_VERSION,
       site: { name, url: base },
@@ -168,6 +169,18 @@ export function createFixtureStore(opts: FixtureStoreOptions): { app: Hono; stat
       },
       items: filtered,
     });
+  });
+
+  // Fixture-only: a placeholder image per item, so views have something to show under the Store's own origin.
+  app.get("/images/:file", (c) => {
+    const id = c.req.param("file").replace(/\.svg$/, "");
+    const it = byId.get(id);
+    if (!it) return c.text("not found", 404);
+    let hue = 0;
+    for (const ch of id) hue = (hue * 31 + ch.charCodeAt(0)) % 360;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" rx="24" fill="hsl(${hue} 45% 55%)"/><circle cx="200" cy="130" r="70" fill="hsl(${hue} 55% 80%)"/><text x="200" y="250" font-family="Segoe UI, sans-serif" font-size="26" font-weight="700" fill="#1a1a1a" text-anchor="middle">${it.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text></svg>`;
+    c.header("Cache-Control", "public, max-age=86400");
+    return c.body(svg, 200, { "content-type": "image/svg+xml" });
   });
 
   app.get("/agentpos/feed", (c) =>

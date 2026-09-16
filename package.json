@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "lint": "tsc -p tsconfig.json --noEmit",
     "dev:bridge": "pnpm --filter @agentpos-alexa/bridge dev",
-    "dev:fixture-store": "pnpm --filter @agentpos-alexa/fixture-store dev"
+    "dev:fixture-store": "pnpm --filter @agentpos-alexa/fixture-store dev",
+    "dev:simulator": "pnpm --filter @agentpos-alexa/simulator dev"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

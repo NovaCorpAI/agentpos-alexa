@@ -25,6 +25,7 @@
   ],
   "exclude": [
     "**/apps/**",
+    "**/web/**",
     "**/node_modules/**",
     "**/dist/**"
   ]

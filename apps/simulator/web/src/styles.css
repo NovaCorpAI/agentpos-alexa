@@ -1,0 +1,52 @@
+:root { --panel: #0f1218; --panel-fg: #e6e9ef; --muted: #9aa3b2; --line: #232a37; --accent: #4aa3ff; --good: #37c26c; --bad: #ff6b6b; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: "Amazon Ember", "Segoe UI", system-ui, sans-serif; background: #05070b; color: var(--panel-fg); }
+#root { height: 100%; }
+.sim { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
+.panel { background: var(--panel); border-right: 1px solid var(--line); padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.panel h1 { font-size: 16px; margin: 0; }
+.panel label { margin-top: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.panel select, .panel input { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: #151a24; color: inherit; font: inherit; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.error { color: var(--bad); }
+.seg, .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button, .chips button { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: #151a24; color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
+.seg button.on { background: var(--accent); color: #04121f; border-color: var(--accent); font-weight: 700; }
+.chips button { text-align: left; }
+.inspection { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.inspection .turn { border-top: 1px solid var(--line); padding-top: 6px; }
+.checks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.checks span { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); }
+.checks .good, b.good { color: var(--good); }
+.checks .bad, b.bad { color: var(--bad); }
+.checks .na { color: var(--muted); }
+.inspection a { color: var(--accent); }
+
+.stage { display: grid; place-items: center; padding: 24px; overflow: auto; }
+.device { position: relative; border-radius: 28px; padding: 0; background: #0b0d12; box-shadow: 0 0 0 14px #1b1f28, 0 30px 80px rgba(0,0,0,.6); overflow: hidden; }
+.screen { position: absolute; top: 0; left: 0; transform-origin: top left; display: flex; flex-direction: column; background: linear-gradient(160deg, #1b2a4a, #0b1020 60%, #0a0f1a); color: #f2f4f8; font-size: 26px; }
+.theme-light .screen { background: linear-gradient(160deg, #e8f0ff, #f7f9fc 60%, #ffffff); color: #111318; }
+.statusbar { display: flex; justify-content: space-between; padding: 14px 28px; font-size: 20px; opacity: .8; }
+.conversation { flex: 0 0 auto; padding: 8px 28px; display: flex; flex-direction: column; gap: 10px; max-height: 40%; overflow: hidden; }
+.bubble { max-width: 78%; padding: 10px 16px; border-radius: 18px; line-height: 1.3; }
+.bubble.household { align-self: flex-end; background: rgba(74,163,255,.25); }
+.bubble.alexa { align-self: flex-start; background: rgba(255,255,255,.08); }
+.theme-light .bubble.alexa { background: rgba(0,0,0,.06); }
+.bubble.thinking { opacity: .6; }
+.viewport { flex: 1 1 auto; padding: 8px 24px; overflow: auto; }
+.viewport.fullscreen { position: absolute; inset: 60px 0 96px 0; background: inherit; padding: 16px 24px; z-index: 2; }
+.mode-voice-only .conversation { max-height: none; flex: 1; }
+.hydrated { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.hydrated li { display: flex; justify-content: space-between; padding: 12px 16px; border-radius: 14px; background: rgba(255,255,255,.08); }
+.theme-light .hydrated li { background: rgba(0,0,0,.05); }
+.hydrated-raw { font-size: 14px; }
+.inputbar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 10px; padding: 16px 24px; background: rgba(0,0,0,.35); backdrop-filter: blur(8px); }
+.theme-light .inputbar { background: rgba(255,255,255,.6); }
+.inputbar input { flex: 1; font-size: 22px; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.15); background: rgba(0,0,0,.25); color: inherit; }
+.theme-light .inputbar input { background: #fff; border-color: #cfd6e2; }
+.inputbar button { font-size: 18px; padding: 10px 16px; border-radius: 12px; border: 0; background: var(--accent); color: #04121f; font-weight: 700; cursor: pointer; }
+.inputbar button:disabled { opacity: .5; cursor: default; }
+.inputbar .mic { background: #2a3140; color: #f2f4f8; }
+.inputbar .mic.on { background: var(--bad); }
+@media (max-width: 1100px) { .sim { grid-template-columns: 1fr; } .panel { border-right: 0; border-bottom: 1px solid var(--line); } }

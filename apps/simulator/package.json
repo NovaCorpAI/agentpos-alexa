@@ -3,6 +3,30 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Simulated Alexa+ experience: a web app whose agentic client (Bedrock + Strands) drives the bridge end to end. Official alternative path for the Alexa+ track.",
-  "license": "Apache-2.0"
+  "description": "Simulated Alexa+ experience: an Echo Show style web app whose agent drives a Bridge end to end over MCP and UCP checkout. Official alternative path for the Alexa+ track.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build:web": "vite build --config web/vite.config.ts",
+    "dev": "pnpm build:web && tsx watch src/server/main.ts",
+    "start": "pnpm build:web && tsx src/server/main.ts",
+    "typecheck:web": "tsc -p web/tsconfig.json"
+  },
+  "dependencies": {
+    "@agentpos-alexa/bridge": "workspace:*",
+    "@agentpos-alexa/store-client": "workspace:*",
+    "@hono/node-server": "^2.1.1",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "hono": "^4.13.7",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@agentpos-alexa/fixture-store": "workspace:*",
+    "@modelcontextprotocol/ext-apps": "^2.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vite": "^7.0.0"
+  }
 }
