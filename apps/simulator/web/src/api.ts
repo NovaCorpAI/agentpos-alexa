@@ -58,6 +58,7 @@ export interface Inspection {
   turns: Array<{
     turnId: string;
     input: string;
+    scene?: string;
     toolCalls: Array<{ name: string; latencyMs: number; isError: boolean; itemCount: number | null }>;
     render?: { viewInitializedMs?: number; firstItemMs?: number; displayMode: string; component: string | null };
     checks: Record<string, boolean | null>;
@@ -78,12 +79,23 @@ export interface BrainInfo {
   region: string | null;
 }
 
+export type SceneStep = { say: string; pauseMs?: number } | { confirmCheckout: true; pauseMs?: number } | { reset: true };
+
+export interface Scene {
+  id: string;
+  title: string;
+  proves: string;
+  steps: SceneStep[];
+  pending?: string;
+}
+
 export const api = {
   addons: () => fetch("/api/addons").then((r) => json<{ addons: Addon[] }>(r)),
+  scenes: () => fetch("/api/scenes").then((r) => json<{ scenes: Scene[] }>(r)),
   brain: () => fetch("/api/brain").then((r) => json<BrainInfo>(r)),
   reset: (addon: string) => fetch("/api/reset", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ addon }) }).then((r) => json<unknown>(r)),
-  turn: (addon: string, text: string, language: string) =>
-    fetch("/api/turn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ addon, text, language }) }).then((r) => json<Turn>(r)),
+  turn: (addon: string, text: string, language: string, scene?: string) =>
+    fetch("/api/turn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ addon, text, language, scene }) }).then((r) => json<Turn>(r)),
   resource: (addon: string, uri: string) =>
     fetch(`/api/resource?addon=${encodeURIComponent(addon)}&uri=${encodeURIComponent(uri)}`).then((r) => json<{ html: string; mimeType: string; meta: unknown }>(r)),
   inspection: () => fetch("/api/inspection").then((r) => json<Inspection>(r)),
@@ -92,7 +104,7 @@ export const api = {
 };
 
 export const checkoutApi = {
-  confirm: (sessionId: string, handlerId: string, instrumentId?: string) =>
-    fetch(`/api/checkout/${sessionId}/confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handlerId, instrumentId }) }).then((r) => json<Turn>(r)),
+  confirm: (sessionId: string, handlerId: string, instrumentId?: string, scene?: string) =>
+    fetch(`/api/checkout/${sessionId}/confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handlerId, instrumentId, scene }) }).then((r) => json<Turn>(r)),
   cancel: (sessionId: string) => fetch(`/api/checkout/${sessionId}/cancel`, { method: "POST" }).then((r) => json<{ speak: string[] }>(r)),
 };

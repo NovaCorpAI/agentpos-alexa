@@ -75,3 +75,10 @@ html, body { margin: 0; height: 100%; font-family: "Amazon Ember", "Segoe UI", s
 .checkout .actions .primary { background: var(--accent); color: #04121f; font-weight: 700; }
 .checkout .actions .secondary { background: rgba(255,255,255,.12); color: inherit; }
 .checkout .actions button:disabled { opacity: .5; cursor: default; }
+
+.scenes { display: flex; flex-direction: column; gap: 8px; }
+.scene { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; font-size: 13px; }
+.scene button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.scene button:disabled { opacity: .45; cursor: default; }
+.good { color: var(--good); }
+.bad { color: var(--bad); }

@@ -1,17 +1,19 @@
 /**
  * The simulated Alexa+ experience: an Echo Show frame, the four display modes, the list of
- * Enabled add-ons, voice or text input, the host's own checkout pattern, and the inspection
- * summary. Everything visible in the frame came from a Bridge tool result or a UCP session.
+ * Enabled add-ons, voice or text input, the host's own checkout pattern, scripted Scenes
+ * and the inspection summary. Everything visible in the frame came from a Bridge tool
+ * result or a UCP session.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, checkoutApi, type Addon, type BrainInfo, type CheckoutState, type Inspection, type Turn } from "./api";
+import { api, checkoutApi, type Addon, type BrainInfo, type CheckoutState, type Inspection, type Scene, type Turn } from "./api";
 import { AppHost, type DisplayMode } from "./AppHost";
 import { Checkout } from "./Checkout";
-import { listenOnce, recognitionAvailable, speak } from "./speech";
+import { listenOnce, recognitionAvailable, speak, type SpeechSource } from "./speech";
 
 type Mode = "inline" | "fullscreen" | "voice-only" | "hydrated";
 type Frame = "show8" | "show5";
 type Theme = "light" | "dark";
+type Lang = "en-US" | "es-CL";
 
 const FRAMES: Record<Frame, { label: string; width: number; height: number }> = {
   show8: { label: "Echo Show 8", width: 1280, height: 800 },
@@ -40,6 +42,8 @@ function componentOf(uri: string): string | null {
   return m?.[1] ?? null;
 }
 
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /** Native rendering of structured content for hydrated mode: the host's own look, no view. */
 function Hydrated({ result }: { result: { structuredContent?: Record<string, unknown> } }) {
   const sc = result.structuredContent ?? {};
@@ -66,8 +70,9 @@ export function App() {
   const [mode, setMode] = useState<Mode>("inline");
   const [frame, setFrame] = useState<Frame>("show8");
   const [theme, setTheme] = useState<Theme>("dark");
-  const [lang, setLang] = useState<"en-US" | "es-CL">("en-US");
+  const [lang, setLang] = useState<Lang>("en-US");
   const [voiceOut, setVoiceOut] = useState(true);
+  const [voiceSource, setVoiceSource] = useState<SpeechSource>("none");
   const [input, setInput] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [busy, setBusy] = useState(false);
@@ -77,7 +82,11 @@ export function App() {
   const [lastTurn, setLastTurn] = useState<Turn | null>(null);
   const [checkout, setCheckout] = useState<CheckoutState | null>(null);
   const [brain, setBrain] = useState<BrainInfo | null>(null);
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [runningScene, setRunningScene] = useState<string | null>(null);
   const stopListen = useRef<(() => void) | null>(null);
+  const busyRef = useRef(false);
+  const speechRef = useRef<Promise<SpeechSource>>(Promise.resolve("none"));
 
   useEffect(() => {
     api
@@ -88,11 +97,17 @@ export function App() {
       })
       .catch((e: Error) => setError(e.message));
     api.brain().then(setBrain).catch(() => undefined);
+    api.scenes().then(({ scenes }) => setScenes(scenes)).catch(() => undefined);
   }, []);
 
   const refreshInspection = useCallback(() => {
     api.inspection().then(setInspection).catch(() => undefined);
   }, []);
+
+  const setBusyBoth = (b: boolean) => {
+    busyRef.current = b;
+    setBusy(b);
+  };
 
   /** Applies what a turn brought back: speech, a checkout to confirm, or a view to render. */
   const applyTurn = useCallback(
@@ -100,7 +115,10 @@ export function App() {
       setLastTurn(turn);
       if (turn.fallbackReason) setBrain((b) => (b ? { ...b, kind: turn.brain, degraded: turn.fallbackReason ?? null } : b));
       for (const s of turn.speak) setLines((l) => [...l, { who: "alexa", text: s }]);
-      if (voiceOut && turn.speak[0]) speak(turn.speak.join(" "), lang);
+      if (voiceOut && turn.speak[0]) {
+        speechRef.current = speak(turn.speak.join(" "), lang);
+        void speechRef.current.then(setVoiceSource);
+      }
       setCheckout(turn.checkout ?? null);
       if (turn.view && mode !== "voice-only" && mode !== "hydrated") {
         const r = await api.resource(addon, turn.view.resourceUri);
@@ -115,37 +133,43 @@ export function App() {
   );
 
   const submit = useCallback(
-    async (text: string) => {
-      if (!addon || !text.trim() || busy) return;
-      setBusy(true);
+    async (text: string, scene?: string): Promise<Turn | null> => {
+      if (!addon || !text.trim() || busyRef.current) return null;
+      setBusyBoth(true);
       setInput("");
       setLines((l) => [...l, { who: "household", text }]);
       const submittedAt = performance.now();
       try {
-        await applyTurn(await api.turn(addon, text, lang), submittedAt);
+        const turn = await api.turn(addon, text, lang, scene);
+        await applyTurn(turn, submittedAt);
+        return turn;
       } catch (e) {
         setLines((l) => [...l, { who: "alexa", text: `Something went wrong: ${(e as Error).message}` }]);
+        return null;
       } finally {
-        setBusy(false);
+        setBusyBoth(false);
       }
     },
-    [addon, busy, applyTurn, lang],
+    [addon, lang, applyTurn],
   );
 
   const confirmCheckout = useCallback(
-    async (handlerId: string, instrumentId?: string) => {
-      if (!checkout || busy) return;
-      setBusy(true);
+    async (state: CheckoutState, handlerId: string, instrumentId?: string, scene?: string): Promise<Turn | null> => {
+      if (busyRef.current) return null;
+      setBusyBoth(true);
       const submittedAt = performance.now();
       try {
-        await applyTurn(await checkoutApi.confirm(checkout.sessionId, handlerId, instrumentId), submittedAt);
+        const turn = await checkoutApi.confirm(state.sessionId, handlerId, instrumentId, scene);
+        await applyTurn(turn, submittedAt);
+        return turn;
       } catch (e) {
         setLines((l) => [...l, { who: "alexa", text: `Payment failed: ${(e as Error).message}` }]);
+        return null;
       } finally {
-        setBusy(false);
+        setBusyBoth(false);
       }
     },
-    [checkout, busy, applyTurn],
+    [applyTurn],
   );
 
   const cancelCheckout = useCallback(async () => {
@@ -157,6 +181,46 @@ export function App() {
       setCheckout(null);
     }
   }, [checkout]);
+
+  /** Plays a Scene step by step on screen, pacing on the spoken audio. */
+  const runScene = useCallback(
+    async (scene: Scene) => {
+      if (!addon || runningScene || busyRef.current) return;
+      setRunningScene(scene.id);
+      let lastCheckout: CheckoutState | null = null;
+      try {
+        for (const step of scene.steps) {
+          if ("reset" in step) {
+            await api.reset(addon);
+            setLines([]);
+            setView(null);
+            setCheckout(null);
+            lastCheckout = null;
+            continue;
+          }
+          if ("say" in step) {
+            const t = await submit(step.say, scene.id);
+            lastCheckout = t?.checkout ?? null;
+          } else if (step.confirmCheckout) {
+            const option = lastCheckout?.options.find((o) => o.available);
+            if (!lastCheckout || !option) {
+              setLines((l) => [...l, { who: "alexa", text: "Scene step skipped: there is no checkout to confirm." }]);
+              continue;
+            }
+            await wait(1200);
+            const t = await confirmCheckout(lastCheckout, option.handlerId, option.instrumentId, scene.id);
+            lastCheckout = t?.checkout ?? null;
+          }
+          await speechRef.current;
+          await wait(step.pauseMs ?? 900);
+        }
+      } finally {
+        setRunningScene(null);
+        refreshInspection();
+      }
+    },
+    [addon, runningScene, submit, confirmCheckout, refreshInspection],
+  );
 
   const onViewInitialized = useCallback(() => {
     if (!view) return;
@@ -184,6 +248,7 @@ export function App() {
   const scale = useMemo(() => Math.min(1, 900 / frameSpec.width), [frameSpec.width]);
   const displayMode: DisplayMode = mode === "fullscreen" ? "fullscreen" : "inline";
   const current = addons.find((a) => a.slug === addon);
+  const sceneTurns = (id: string) => inspection?.turns.filter((t) => t.scene === id) ?? [];
 
   return (
     <div className={`sim theme-${theme}`}>
@@ -193,6 +258,7 @@ export function App() {
           Simulated Alexa+ experience. Brain:{" "}
           <b>{brain?.kind === "agent" ? `Household agent on Bedrock (${brain.modelId ?? "model"}, ${brain.region ?? "region"})` : brain?.kind === "recorded" ? "recorded responses, no model" : "scripted router, no model"}</b>
           {brain?.degraded ? <span className="small"> {brain.degraded}</span> : null}
+          {voiceOut ? <span className="small"> Voice: {voiceSource === "polly" ? "Amazon Polly" : voiceSource === "browser" ? "browser" : "not yet"}</span> : null}
         </p>
         {error ? <p className="error">{error}</p> : null}
 
@@ -211,6 +277,30 @@ export function App() {
             handlers {current.paymentHandlers.join(", ") || "none"}
           </p>
         ) : null}
+
+        <label>Scenes</label>
+        <div className="scenes">
+          {scenes.map((s) => {
+            const turns = sceneTurns(s.id);
+            const failed = turns.reduce((n, t) => n + Object.values(t.checks).filter((v) => v === false).length, 0);
+            return (
+              <div key={s.id} className="scene">
+                <button onClick={() => void runScene(s)} disabled={Boolean(s.pending) || Boolean(runningScene) || busy || !addon} title={s.proves}>
+                  {runningScene === s.id ? "Running" : "Run"}
+                </button>
+                <div>
+                  <div>{s.title}</div>
+                  <div className="muted small">{s.pending ? `pending: ${s.pending}` : s.proves}</div>
+                  {turns.length ? (
+                    <div className="small">
+                      {turns.length} turns, <span className={failed ? "bad" : "good"}>{failed} failed checks</span>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
         <label>Display mode</label>
         <div className="seg">
@@ -242,7 +332,7 @@ export function App() {
         <label>Try</label>
         <div className="chips">
           {SUGGESTIONS.map((t) => (
-            <button key={t} onClick={() => void submit(t)} disabled={busy || !addon}>
+            <button key={t} onClick={() => void submit(t)} disabled={busy || !addon || Boolean(runningScene)}>
               {t}
             </button>
           ))}
@@ -256,7 +346,10 @@ export function App() {
             </div>
             {inspection.turns.slice(-3).reverse().map((t) => (
               <div key={t.turnId} className="turn">
-                <div className="muted small">{t.input}</div>
+                <div className="muted small">
+                  {t.scene ? `[${t.scene}] ` : ""}
+                  {t.input}
+                </div>
                 {t.toolCalls.map((c, i) => (
                   <div key={i} className="small">
                     {c.name} {c.latencyMs} ms{c.itemCount !== null ? `, ${c.itemCount} items` : ""}{c.isError ? ", error" : ""}
@@ -286,7 +379,7 @@ export function App() {
           <div className={`screen mode-${mode}`} style={{ width: frameSpec.width, height: frameSpec.height, transform: `scale(${scale})` }}>
             <div className="statusbar">
               <span>{current?.name ?? "No add-on"}</span>
-              <span>{mode}</span>
+              <span>{runningScene ? `Scene: ${scenes.find((s) => s.id === runningScene)?.title ?? runningScene}` : mode}</span>
             </div>
             <div className="conversation">
               {lines.slice(-4).map((l, i) => (
@@ -298,7 +391,7 @@ export function App() {
             </div>
             {checkout && mode !== "voice-only" ? (
               <div className="viewport inline">
-                <Checkout state={checkout} busy={busy} onConfirm={(h, i) => void confirmCheckout(h, i)} onCancel={() => void cancelCheckout()} />
+                <Checkout state={checkout} busy={busy} onConfirm={(h, i) => void confirmCheckout(checkout, h, i)} onCancel={() => void cancelCheckout()} />
               </div>
             ) : null}
             {mode !== "voice-only" && view && !checkout ? (

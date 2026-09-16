@@ -9,6 +9,8 @@ import type { BridgeClient, ToolCallRecord } from "./bridge-client.js";
 import type { CheckoutFlow, CheckoutState } from "./checkout.js";
 import { inspectTurn, type InspectionLog, type RenderTiming } from "./inspection.js";
 import type { HouseholdMemory } from "./memory.js";
+import { SCENES } from "./scenes.js";
+import type { PollySpeech, SpeechLanguage } from "./speech.js";
 
 export const SIMULATOR_VERSION = "0.0.1";
 
@@ -23,6 +25,8 @@ export interface SimulatorDeps {
   brainInfo?: { modelId?: string; region?: string };
   /** Where the served static web build lives; undefined in tests. */
   webDir?: string;
+  /** Voice output; undefined means the browser speaks. */
+  speech?: PollySpeech;
 }
 
 interface KnownItem {
@@ -100,7 +104,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
   };
 
   app.post("/api/turn", async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { addon?: string; text?: string; language?: string };
+    const body = (await c.req.json().catch(() => ({}))) as { addon?: string; text?: string; language?: string; scene?: string };
     if (!body.addon || typeof body.text !== "string") {
       return c.json({ code: "BAD_TURN", message: "addon and text are required", hint: "" }, 400);
     }
@@ -133,7 +137,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
         speak.push(`I could not open the checkout: ${(e as Error).message}`);
       }
     }
-    deps.inspection.add(inspectTurn(turnId, addon, body.text, brainTurn.brain, brainTurn.toolCalls));
+    deps.inspection.add(inspectTurn(turnId, addon, body.text, brainTurn.brain, brainTurn.toolCalls, body.scene));
     const res: TurnResponse = { turnId, traceId, brain: brainTurn.brain, speak, toolCalls: brainTurn.toolCalls, view: checkout ? null : viewOf(brainTurn.toolCalls.at(-1)), checkout };
     if (brainTurn.fallbackReason) res.fallbackReason = brainTurn.fallbackReason;
     return c.json(res);
@@ -141,7 +145,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
 
   /** Confirm a checkout with a payment option; on success the order card follows. */
   app.post("/api/checkout/:id/confirm", async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { handlerId?: string; instrumentId?: string };
+    const body = (await c.req.json().catch(() => ({}))) as { handlerId?: string; instrumentId?: string; scene?: string };
     if (!body.handlerId) return c.json({ code: "BAD_CONFIRM", message: "handlerId is required", hint: "" }, 400);
     const turnId = `turn_${randomUUID()}`;
     const traceId = `sim-${turnId.slice(5, 13)}`;
@@ -162,7 +166,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
         calls.push(rec);
         view = viewOf(rec);
       }
-      deps.inspection.add(inspectTurn(turnId, state.addon, `[confirm checkout ${state.sessionId} with ${body.handlerId}]`, deps.brain.kind, calls));
+      deps.inspection.add(inspectTurn(turnId, state.addon, `[confirm checkout ${state.sessionId} with ${body.handlerId}]`, deps.brain.kind, calls, body.scene));
       const res: TurnResponse = { turnId, traceId, brain: deps.brain.kind, speak, toolCalls: calls, view, checkout: state.session.status === "completed" ? null : state };
       return c.json(res);
     } catch (e) {
@@ -200,6 +204,27 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
   });
 
   app.get("/api/inspection", (c) => c.json(deps.inspection.summary()));
+
+  app.get("/api/scenes", (c) => c.json({ scenes: SCENES }));
+
+  /** Voice output: Polly with a per-phrase cache, or 503 so the browser speaks. */
+  app.get("/api/speech", async (c) => {
+    const text = (c.req.query("text") ?? "").trim();
+    const language: SpeechLanguage = c.req.query("lang") === "es-CL" ? "es-CL" : "en-US";
+    if (!text) return c.json({ code: "BAD_SPEECH", message: "text is required", hint: "" }, 400);
+    if (!deps.speech) return c.json({ code: "SPEECH_UNAVAILABLE", message: "No voice service configured", hint: "The browser voice is used." }, 503);
+    try {
+      const r = await deps.speech.synthesize(text, language);
+      c.header("Content-Type", r.contentType);
+      c.header("Cache-Control", "private, max-age=86400");
+      c.header("X-Voice", r.voiceId);
+      c.header("X-Cached", r.cached ? "1" : "0");
+      c.header("X-Latency-Ms", String(r.latencyMs));
+      return c.body(new Uint8Array(r.audio));
+    } catch (e) {
+      return c.json({ code: "SPEECH_UNAVAILABLE", message: String((e as Error).message).slice(0, 200), hint: "The browser voice is used." }, 503);
+    }
+  });
 
   app.post("/api/inspection/:turnId", async (c) => {
     const render = (await c.req.json().catch(() => null)) as RenderTiming | null;

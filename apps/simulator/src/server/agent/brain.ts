@@ -96,7 +96,9 @@ export class AgentBrain implements Brain {
       return { ...t, fallbackReason: this.disabledReason };
     }
     try {
-      const r = await this.agentFor(ctx).turn(text, ctx.traceId);
+      // The checkout completes outside the conversation, so the agent is told what it missed.
+      const note = ctx.lastOrderId ? `\n\n(Context, not spoken: the customer's most recent order at this store has id ${ctx.lastOrderId}; use it for get_order and get_receipt.)` : "";
+      const r = await this.agentFor(ctx).turn(`${text}${note}`, ctx.traceId);
       return { brain: "agent", speak: r.text ? [r.text] : [], toolCalls: r.toolCalls };
     } catch (e) {
       const cause = (e as { cause?: { name?: string } }).cause;

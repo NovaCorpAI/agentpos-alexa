@@ -121,6 +121,11 @@ guide asks for: voice text first, three to five carousel items, first item withi
 typed errors. Until the Household agent lands, a scripted router with no model maps the text
 to one Bridge tool, and the interface says so.
 
+Voice out is Amazon Polly (generative voices, cached per phrase under `.data/polly-cache`)
+whenever the AWS credentials allow it, and the browser's own voice otherwise; the panel says
+which one is speaking. The Scenes panel plays the scripted demo runs step by step with the
+real brain and a real Bridge, tagging every turn in the inspection summary.
+
 Checkout is the host's own pattern, as it is in Alexa+: when the customer confirms what to
 buy, the simulator opens a UCP checkout session on the bridge, fills the Demo household's
 synthetic address, shows the store's quote with the payment handlers the session accepts

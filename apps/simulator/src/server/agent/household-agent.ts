@@ -52,7 +52,12 @@ function bridgeTools(deps: HouseholdAgentDeps, tools: Array<{ name: string; desc
         const rec = await deps.bridge.callTool(deps.addon, t.name, args, traceId());
         collect(rec);
         const first = rec.result.content[0] as { type?: string; text?: string } | undefined;
-        const voice = first?.type === "text" ? (first.text ?? "") : "";
+        let voice = first?.type === "text" ? (first.text ?? "") : "";
+        // This host renders checkout natively (address and payment included), so the tool's
+        // own "I will need a delivery address" line must not be echoed by the agent.
+        if (t.name === "start_checkout" && rec.result.isError !== true) {
+          voice = "Checkout started. The checkout screen now collects the address and the payment; say only: Starting the checkout.";
+        }
         // The model gets the spoken text plus the structured facts; the host keeps the full result.
         return { spoken: voice, isError: rec.result.isError === true, data: rec.result.structuredContent ?? null };
       },

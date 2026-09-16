@@ -13,6 +13,7 @@ import { BridgeCheckoutClient, BridgeClient } from "./bridge-client.js";
 import { CheckoutFlow } from "./checkout.js";
 import { InspectionLog } from "./inspection.js";
 import { SqliteHouseholdMemory } from "./memory.js";
+import { PollySpeech } from "./speech.js";
 
 // Values from .env fill in what the environment does not set; nothing is ever printed.
 loadDotenv();
@@ -51,7 +52,9 @@ async function pickBrain(): Promise<{ brain: Brain; reason: string }> {
 }
 
 const { brain, reason } = await pickBrain();
-const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, brainInfo: { modelId, region }, webDir });
+// Polly is tried lazily per phrase; without credentials or permission the browser speaks.
+const speech = brain.kind === "agent" || process.env.SIMULATOR_SPEECH === "polly" ? new PollySpeech(region, resolve(dataDir, "polly-cache")) : undefined;
+const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, brainInfo: { modelId, region }, webDir, ...(speech ? { speech } : {}) });
 
 if (existsSync(webDir)) {
   app.use("/*", serveStatic({ root: relativeToCwd(webDir) }));

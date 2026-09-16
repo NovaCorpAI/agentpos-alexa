@@ -23,6 +23,8 @@ export interface TurnInspection {
   addon: string;
   input: string;
   brain: "scripted-router" | "agent" | "recorded";
+  /** Scene id when the turn was part of a scripted Scene. */
+  scene?: string;
   toolCalls: Array<{
     name: string;
     latencyMs: number;
@@ -48,7 +50,7 @@ export interface InspectionSummary {
   totals: { turns: number; toolCalls: number; failedChecks: number };
 }
 
-export function inspectTurn(turnId: string, addon: string, input: string, brain: TurnInspection["brain"], calls: ToolCallRecord[]): TurnInspection {
+export function inspectTurn(turnId: string, addon: string, input: string, brain: TurnInspection["brain"], calls: ToolCallRecord[], scene?: string): TurnInspection {
   const toolCalls = calls.map((c) => {
     const first = c.result.content[0] as { type?: string; text?: string } | undefined;
     const sc = c.result.structuredContent as { items?: unknown[]; error?: unknown } | undefined;
@@ -69,6 +71,7 @@ export function inspectTurn(turnId: string, addon: string, input: string, brain:
     addon,
     input,
     brain,
+    ...(scene ? { scene } : {}),
     toolCalls,
     checks: {
       voiceFirst: toolCalls.every((t) => t.voiceTextLength > 0),

@@ -1,14 +1,53 @@
 /**
- * Voice in and out for the skeleton: the browser's own speech APIs. Polly with a per-phrase
- * cache replaces the output in Scene 1 (#12); the input stays here. Both degrade to text.
+ * Voice in and out. Output tries the Simulator's Polly endpoint first (generative voice,
+ * cached per phrase) and falls back to the browser's own voice when it answers 503 or
+ * fails; input is the browser's speech recognition. Both degrade to text.
  */
-export function speak(text: string, lang = "en-US"): void {
-  if (typeof speechSynthesis === "undefined") return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang;
-  u.rate = 1.02;
-  speechSynthesis.speak(u);
+export type SpeechSource = "polly" | "browser" | "none";
+
+let current: HTMLAudioElement | null = null;
+
+function browserSpeak(text: string, lang: string): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof speechSynthesis === "undefined") return resolve();
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang;
+    u.rate = 1.02;
+    u.onend = () => resolve();
+    u.onerror = () => resolve();
+    speechSynthesis.speak(u);
+  });
+}
+
+/** Speaks and resolves when playback ends, so a Scene can pace its steps. */
+export async function speak(text: string, lang = "en-US"): Promise<SpeechSource> {
+  if (!text.trim()) return "none";
+  try {
+    const res = await fetch(`/api/speech?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`);
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (current) {
+        current.pause();
+        current = null;
+      }
+      if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
+      await new Promise<void>((resolve) => {
+        const audio = new Audio(url);
+        current = audio;
+        audio.onended = () => resolve();
+        audio.onerror = () => resolve();
+        audio.play().catch(() => resolve());
+      });
+      URL.revokeObjectURL(url);
+      return "polly";
+    }
+  } catch {
+    // fall through to the browser voice
+  }
+  await browserSpeak(text, lang);
+  return "browser";
 }
 
 type RecognitionCtor = new () => {
