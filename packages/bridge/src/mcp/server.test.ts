@@ -21,9 +21,10 @@ describe("Store MCP server over Streamable HTTP", () => {
   let bridge: Hono;
   let client: Client;
   let logs: ReturnType<typeof memorySink>;
+  let fixture: ReturnType<typeof createFixtureStore>;
 
   beforeEach(async () => {
-    const fixture = createFixtureStore({ baseUrl: STORE, policy: {} });
+    fixture = createFixtureStore({ baseUrl: STORE, policy: {} });
     storage = openStorage({ path: ":memory:" });
     logs = memorySink();
     const profile = await (await fixture.app.request("/.well-known/ucp")).json();
@@ -106,6 +107,27 @@ describe("Store MCP server over Streamable HTTP", () => {
     expect(bad.isError).toBe(true);
   });
 
+  it("get_order and get_receipt describe a settled order in the Store's words and label fixture receipts", async () => {
+    const { app: fixtureApp } = fixture;
+    const buyer = { email: "alex.demo@example.com", name: "Alex Demo" };
+    const shipping = { name: "Alex Demo", line1: "1 Fixture Street", city: "Santiago", postalCode: "8320000", country: "CL" };
+    const quote = (await (await fixtureApp.request("/agentpos/cart", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: [{ itemId: "baguette", quantity: 2 }], buyer, shipping }) })).json()) as { cartId: string };
+    const paid = (await (await fixtureApp.request(`/agentpos/checkout?cart=${quote.cartId}`, { method: "POST", headers: { "Payment-Signature": "sig-1" } })).json()) as { orderId: string };
+
+    const order = await client.callTool({ name: "get_order", arguments: { orderId: paid.orderId } });
+    expect(order.isError).toBeFalsy();
+    expect((order.content as Array<{ text: string }>)[0]?.text).toMatch(/^Order 1000 is paid: 2 Baguette\. Total 5\.6 USDC\./);
+    expect(order.structuredContent).toMatchObject({ order: { orderId: paid.orderId, status: "paid", asset: "USDC", payment: { simulated: false, network: "stellar:testnet" } } });
+
+    const receipt = await client.callTool({ name: "get_receipt", arguments: { orderId: paid.orderId } });
+    expect((receipt.content as Array<{ text: string }>)[0]?.text).toMatch(/^This is a fixture receipt, unsigned\./);
+    expect(receipt.structuredContent).toMatchObject({ receipt: { verification: { valid: true, mode: "fixture" }, receipts: [{ type: "order.paid", signed: false }] } });
+
+    const missing = await client.callTool({ name: "get_order", arguments: { orderId: "ord_nope" } });
+    expect(missing.isError).toBe(true);
+    expect(missing.structuredContent).toMatchObject({ error: { code: "ORDER_NOT_FOUND" } });
+  });
+
   it("records one usage_events row per tool call with the trace id", async () => {
     await client.callTool({ name: "search_items", arguments: {} });
     const rows = storage.usageEvents.list({ source: "bridge.mcp" });
@@ -138,7 +160,7 @@ describe("MCP Apps views", () => {
 
     const { resources } = await client.listResources();
     const uris = resources.map((r) => r.uri).sort();
-    expect(uris).toEqual(["ui://agentpos-alexa/carousel.html", "ui://agentpos-alexa/item-card.html"]);
+    expect(uris).toEqual(["ui://agentpos-alexa/carousel.html", "ui://agentpos-alexa/item-card.html", "ui://agentpos-alexa/order-card.html", "ui://agentpos-alexa/receipt-card.html"]);
     expect(resources.every((r) => r.mimeType === "text/html;profile=mcp-app")).toBe(true);
 
     const { tools } = await client.listTools();

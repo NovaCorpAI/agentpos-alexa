@@ -47,3 +47,19 @@ export function speakQuote(lines: QuoteLine[], totalMinor: string, asset: string
   const said = lines.map((l) => `${l.quantity} ${l.title}`).join(", ");
   return `${said}. Total ${speakPrice(totalMinor, asset)}.`;
 }
+
+/** Spoken order status: "Order 1001 is paid: 2 Baguette. Total 5.6 USDC." */
+export function speakOrder(order: { externalOrderId?: string; orderId: string; status: string }, lines: Array<{ title: string; quantity: number }>, totalMinor: string | undefined, asset: string, simulated: boolean): string {
+  const said = lines.length ? lines.map((l) => `${l.quantity} ${l.title}`).join(", ") : "your items";
+  const status = order.status === "paid" ? "is paid" : order.status === "pending_approval" ? "is waiting for the merchant" : `is ${order.status.replace(/_/g, " ")}`;
+  const total = totalMinor ? ` Total ${speakPrice(totalMinor, asset)}.` : "";
+  const sim = simulated ? " This was a simulated payment: no money moved." : "";
+  return `Order ${order.externalOrderId ?? order.orderId} ${status}: ${said}.${total}${sim}`;
+}
+
+/** Spoken receipt: verification result first, then the reference. */
+export function speakReceipt(verification: { valid: boolean; mode?: string }, reference: string | undefined, count: number): string {
+  const v = verification.mode === "fixture" ? "This is a fixture receipt, unsigned." : verification.valid ? "The store's signed receipt checks out." : "The receipt did not verify.";
+  const ref = reference ? ` Settlement reference ${reference.slice(0, 18)}${reference.length > 18 ? " and so on" : ""}.` : "";
+  return `${v} ${count === 1 ? "One receipt" : `${count} receipts`} on record.${ref}`;
+}

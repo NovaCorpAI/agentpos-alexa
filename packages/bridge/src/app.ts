@@ -123,6 +123,7 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails =
       traceId,
       log: c.get("log").child({ slug, mcp: true }),
       record: (e) => storage.usageEvents.record(e),
+      checkout: storage.checkout,
     });
     // Stateless and JSON-bodied: one request, one server, one plain JSON response. No SSE
     // stream to keep open, so nothing outlives the request.

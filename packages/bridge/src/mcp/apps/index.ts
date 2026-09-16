@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { registerAppResource, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 
-export type ViewName = "carousel" | "item-card";
+export type ViewName = "carousel" | "item-card" | "order-card" | "receipt-card";
 
 const dist = new URL("./dist/", import.meta.url);
 
@@ -29,6 +29,18 @@ export const APP_VIEWS: Record<ViewName, { uri: string; title: string; descripti
     title: "Item card",
     description: "One item from get_item: description, price, allergens, ingredients, weight. One action: buy.",
     html: load("item-card"),
+  },
+  "order-card": {
+    uri: "ui://agentpos-alexa/order-card.html",
+    title: "Order card",
+    description: "One order from get_order: status, lines, total, how it was paid, SIMULATED label when it was. One action: show the receipt.",
+    html: load("order-card"),
+  },
+  "receipt-card": {
+    uri: "ui://agentpos-alexa/receipt-card.html",
+    title: "Receipt card",
+    description: "The receipt chain from get_receipt with its verification badge: verified only when the store's signature checks out.",
+    html: load("receipt-card"),
   },
 };
 

@@ -60,6 +60,8 @@ export interface CheckoutRepo {
   get(id: string): StoredSession | undefined;
   /** Newest last. */
   listBySlug(slug: string, limit?: number): StoredSession[];
+  /** The completed session that produced a Store order, if this Bridge did. */
+  findByStoreOrderId(slug: string, storeOrderId: string): StoredSession | undefined;
 }
 
 export interface IdempotencyRepo {
@@ -99,6 +101,14 @@ export class SqliteCheckoutRepo implements CheckoutRepo {
     const row = this.db.prepare(`SELECT * FROM checkout_sessions WHERE id = ?`).get(id) as unknown as
       | { body: string; internal: string; created_at: string; updated_at: string }
       | undefined;
+    if (!row) return undefined;
+    return { session: JSON.parse(row.body) as CheckoutSession, internal: JSON.parse(row.internal) as SessionInternal, createdAt: row.created_at, updatedAt: row.updated_at };
+  }
+
+  findByStoreOrderId(slug: string, storeOrderId: string): StoredSession | undefined {
+    const row = this.db
+      .prepare(`SELECT * FROM checkout_sessions WHERE slug = ? AND json_extract(internal, '$.storeOrderId') = ? ORDER BY updated_at DESC LIMIT 1`)
+      .get(slug, storeOrderId) as unknown as { body: string; internal: string; created_at: string; updated_at: string } | undefined;
     if (!row) return undefined;
     return { session: JSON.parse(row.body) as CheckoutSession, internal: JSON.parse(row.internal) as SessionInternal, createdAt: row.created_at, updatedAt: row.updated_at };
   }

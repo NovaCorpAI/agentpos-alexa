@@ -19,7 +19,9 @@ import type { Logger } from "../logging.js";
 import type { RegisteredStore } from "../storage/store-registry.js";
 import type { NewUsageEvent } from "../storage/usage-events-repo.js";
 import { BRIDGE_VERSION } from "../versions.js";
-import { speakItemDetail, speakPrice, speakSearch } from "./voice.js";
+import type { CheckoutRepo } from "../storage/checkout-store.js";
+import { loadOrderView, loadReceiptView } from "./orders.js";
+import { speakItemDetail, speakOrder, speakPrice, speakReceipt, speakSearch } from "./voice.js";
 
 export interface StoreMcpDeps {
   store: RegisteredStore;
@@ -29,9 +31,11 @@ export interface StoreMcpDeps {
   traceId: string;
   log: Logger;
   record: (event: NewUsageEvent) => void;
+  /** The Bridge's own checkout sessions, to say how an order was paid. */
+  checkout: CheckoutRepo;
 }
 
-export const MCP_TOOL_NAMES = ["search_items", "get_item", "get_policies", "start_checkout"] as const;
+export const MCP_TOOL_NAMES = ["search_items", "get_item", "get_policies", "start_checkout", "get_order", "get_receipt"] as const;
 
 /** Wire shape of an item in structured content: minor units as strings, never floats. */
 export interface ItemView {
@@ -89,6 +93,10 @@ const SearchInput = z.object({
 
 const GetItemInput = z.object({
   itemId: z.string().min(1).describe("Item id from search_items."),
+});
+
+const OrderInput = z.object({
+  orderId: z.string().min(1).describe("Order id returned by the store at checkout completion."),
 });
 
 const StartCheckoutInput = z.object({
@@ -253,6 +261,48 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
             requiresShipping,
           },
         });
+      }),
+  );
+
+  registerAppTool(
+    server,
+    "get_order",
+    {
+      title: "Get order",
+      description: "Status of an order placed at this store: what was bought, the total, how it was paid and whether the payment was simulated. Call when the customer asks about an order they placed.",
+      inputSchema: OrderInput,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      _meta: { ui: { resourceUri: APP_VIEWS["order-card"].uri } },
+    },
+    async ({ orderId }) =>
+      timed("get_order", async () => {
+        const order = await loadOrderView(store, client, deps.checkout, orderId).catch((e: unknown) => {
+          if (e instanceof StoreRequestError && e.code === "STORE_NOT_FOUND") return null;
+          throw e;
+        });
+        if (!order) return fail("ORDER_NOT_FOUND", `No order ${orderId} at ${store.origin}`, "Use the order id from a completed checkout.", "I could not find that order.");
+        return ok(speakOrder({ orderId: order.orderId, status: order.status, ...(order.externalOrderId ? { externalOrderId: order.externalOrderId } : {}) }, order.lines, order.totalMinor ?? undefined, order.asset, order.payment.simulated), { order });
+      }),
+  );
+
+  registerAppTool(
+    server,
+    "get_receipt",
+    {
+      title: "Get receipt",
+      description: "The store's receipt chain for an order and its verification result. Call when the customer asks for a receipt or proof of purchase.",
+      inputSchema: OrderInput,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      _meta: { ui: { resourceUri: APP_VIEWS["receipt-card"].uri } },
+    },
+    async ({ orderId }) =>
+      timed("get_receipt", async () => {
+        const receipt = await loadReceiptView(store, client, deps.checkout, orderId).catch((e: unknown) => {
+          if (e instanceof StoreRequestError && e.code === "STORE_NOT_FOUND") return null;
+          throw e;
+        });
+        if (!receipt) return fail("RECEIPT_NOT_FOUND", `No receipt for ${orderId} at ${store.origin}`, "Receipts exist only for settled orders.", "There is no receipt for that order yet.");
+        return ok(speakReceipt({ valid: receipt.verification.valid, ...(receipt.verification.mode ? { mode: receipt.verification.mode } : {}) }, receipt.payment.settlementReference ?? undefined, receipt.receipts.length), { receipt });
       }),
   );
 

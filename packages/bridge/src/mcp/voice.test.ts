@@ -46,3 +46,14 @@ describe("voice text", () => {
     ).toBe("2 Sourdough loaf. Total 13 USDC.");
   });
 });
+
+describe("order and receipt voice", () => {
+  it("speaks status, lines, total and the simulated label", async () => {
+    const { speakOrder, speakReceipt } = await import("./voice.js");
+    expect(speakOrder({ orderId: "ord_1", externalOrderId: "1001", status: "paid" }, [{ title: "Baguette", quantity: 2 }], "56000000", "USDC", true)).toBe(
+      "Order 1001 is paid: 2 Baguette. Total 5.6 USDC. This was a simulated payment: no money moved.",
+    );
+    expect(speakReceipt({ valid: true, mode: "fixture" }, "simulated:amazon:sim_ch_1", 1)).toContain("fixture receipt, unsigned");
+    expect(speakReceipt({ valid: true }, undefined, 2)).toBe("The store's signed receipt checks out. 2 receipts on record.");
+  });
+});
