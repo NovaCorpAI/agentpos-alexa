@@ -136,6 +136,12 @@ and the receipt card that follow are the bridge's own MCP Apps views.
 
 ![The host's checkout pattern with the simulated Amazon handlers](docs/assets/simulator-checkout.png)
 
+Scene 1 on the real Household agent (Amazon Bedrock, Nova 2 Lite) with Amazon Polly speaking:
+
+![Scene 1: the agent starts the checkout and the host renders it](docs/assets/scene1-checkout-agent.png)
+
+![Scene 1: the receipt card with honest badges: fixture receipt, simulated payment](docs/assets/scene1-receipt.png)
+
 ## Principles we do not bend
 
 - The store is merchant of record. No commission, no custody, no marketplace.

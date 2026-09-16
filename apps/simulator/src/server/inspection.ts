@@ -99,7 +99,8 @@ export class InspectionLog {
     const turn = this.turns.get(turnId);
     if (!turn) return undefined;
     turn.render = render;
-    if (render.firstItemMs !== undefined) turn.checks.firstItemUnder500ms = render.firstItemMs <= 500;
+    // The 500 ms rule is the carousel's ("start delivering the first item within 500ms").
+    if (render.firstItemMs !== undefined && render.component === "carousel") turn.checks.firstItemUnder500ms = render.firstItemMs <= 500;
     this.flush();
     return turn;
   }

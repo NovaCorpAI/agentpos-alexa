@@ -111,7 +111,11 @@ export function App() {
 
   /** Applies what a turn brought back: speech, a checkout to confirm, or a view to render. */
   const applyTurn = useCallback(
-    async (turn: Turn, submittedAt: number) => {
+    async (turn: Turn, _requestedAt: number) => {
+      // Render timing starts when the tool result is in hand: the 500 ms rule is about the
+      // view showing its first item, not about the model's thinking time.
+      const submittedAt = performance.now();
+      void _requestedAt;
       setLastTurn(turn);
       if (turn.fallbackReason) setBrain((b) => (b ? { ...b, kind: turn.brain, degraded: turn.fallbackReason ?? null } : b));
       for (const s of turn.speak) setLines((l) => [...l, { who: "alexa", text: s }]);
