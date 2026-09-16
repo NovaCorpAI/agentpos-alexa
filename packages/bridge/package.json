@@ -9,6 +9,12 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@agentpos-alexa/store-client": "workspace:*"
+    "@agentpos-alexa/store-client": "workspace:*",
+    "@hono/node-server": "^2.1.1",
+    "hono": "^4.13.7"
+  },
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts"
   }
 }

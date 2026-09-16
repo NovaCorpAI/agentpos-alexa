@@ -3,11 +3,11 @@
  *
  * The bridge never talks to a store's database or admin: only to what any agent on the
  * internet can already reach. Discovery starts at `/.well-known/ucp`, which every AgentPOS
- * store serves, and falls back to `/openapi.json`.
+ * store serves.
  */
 
 export interface StoreClientError {
-  code: "STORE_UNREACHABLE" | "STORE_PROFILE_INVALID" | "STORE_NOT_AGENTPOS";
+  code: "STORE_URL_INVALID" | "STORE_UNREACHABLE" | "STORE_PROFILE_INVALID" | "STORE_NOT_AGENTPOS";
   message: string;
   hint: string;
 }
@@ -37,6 +37,8 @@ export interface StoreEndpoints {
   mcpEndpoint: string;
   /** Payment handler ids declared by the store, e.g. `x402-stellar`. */
   paymentHandlers: string[];
+  /** The UCP business profile exactly as the store published it. */
+  profile: unknown;
 }
 
 interface UcpServiceEntry {
@@ -57,6 +59,21 @@ const AGENTPOS_SERVICE = "com.novacorplabs.agentpos";
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** Normalizes a store URL to its origin, with a typed error when it is not a URL at all. */
+export function storeOrigin(storeUrl: string): string {
+  try {
+    const url = new URL(storeUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("not http");
+    return url.origin;
+  } catch {
+    throw new StoreDiscoveryError({
+      code: "STORE_URL_INVALID",
+      message: `${JSON.stringify(storeUrl)} is not an http(s) URL`,
+      hint: "Pass the store's public address, e.g. https://shop.example.",
+    });
+  }
 }
 
 /**
@@ -104,7 +121,7 @@ export function parseStoreProfile(origin: string, profile: unknown): StoreEndpoi
       if (isRecord(h) && typeof h.id === "string") paymentHandlers.push(h.id);
     }
   }
-  return { origin, ucpVersion: ucp.version, restBase, mcpEndpoint, paymentHandlers };
+  return { origin, ucpVersion: ucp.version, restBase, mcpEndpoint, paymentHandlers, profile };
 }
 
 /** Fetches and parses a store's UCP profile. */
@@ -112,7 +129,7 @@ export async function discoverStore(
   storeUrl: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<StoreEndpoints> {
-  const origin = new URL(storeUrl).origin;
+  const origin = storeOrigin(storeUrl);
   let res: Response;
   try {
     res = await fetchImpl(`${origin}/.well-known/ucp`, {
@@ -132,6 +149,15 @@ export async function discoverStore(
       hint: "An AgentPOS store always serves its UCP profile at that path.",
     });
   }
-  const json: unknown = await res.json();
+  let json: unknown;
+  try {
+    json = await res.json();
+  } catch {
+    throw new StoreDiscoveryError({
+      code: "STORE_PROFILE_INVALID",
+      message: `${origin}/.well-known/ucp did not return JSON`,
+      hint: "The profile must be a JSON document with a top-level `ucp` object.",
+    });
+  }
   return parseStoreProfile(origin, json);
 }

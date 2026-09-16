@@ -60,12 +60,22 @@ Requirements: Node >= 22.13 (uses `node:sqlite` unflagged, no native dependencie
 pnpm install
 pnpm typecheck
 pnpm test
+pnpm dev:bridge        # registers AGENTPOS_STORE_URL (default: the public demo store) and listens on :8787
 ```
 
-The bridge, the simulator and the agents land in that order (see "Build order" in
-`CLAUDE.md`); each one adds its `dev` command here the day it runs. Environment variables are
-listed in `.env.example`. Nothing in this repository ever holds a merchant's or a household's
-private key or PSP secret.
+Then:
+
+```bash
+curl http://127.0.0.1:8787/health
+curl http://127.0.0.1:8787/stores/demo-agentposhq-com/.well-known/ucp
+```
+
+The bridge is multi-tenant: every Store it serves lives under `/stores/{slug}/`, and the
+first one is registered at boot from `AGENTPOS_STORE_URL`. Every response carries a
+`Request-Id` that is the trace id across the bridge's JSON logs, the Store request and the
+settlement. The simulator and the agents land next (see "Build order" in `CLAUDE.md`).
+Environment variables are listed in `.env.example`. Nothing in this repository ever holds a
+merchant's or a household's private key or PSP secret.
 
 ## Principles we do not bend
 
