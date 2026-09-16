@@ -1,8 +1,22 @@
 # Submission draft: Build, Ship, Shape Amazon Developer Hackathon 2026
 
 Working draft of every field the Devpost form asks for. Sources: rules at
-https://amazonappdev2026.devpost.com/rules, checked on 2026-09-15. Deadline: Friday 23 October
-2026, 12:00 pm Pacific Time. Internal freeze: 19 October 2026.
+https://amazonappdev2026.devpost.com/rules, checked on 2026-09-15.
+
+## Dates and mechanics
+
+| Step | When | Notes |
+| --- | --- | --- |
+| Register ("Join Hackathon") | now; no separate deadline | Devpost account, one click |
+| Draft submission | now, edited as often as needed | "Prior to the end of the Submission Period, you may save draft versions of your submission on Devpost" |
+| Internal freeze | Monday 19 October 2026 | final video uploaded, numbers filled |
+| Submission deadline | Friday 23 October 2026, 12:00 pm Pacific Time | nothing can change after this |
+| Judging, Stage One | 9 to 20 November 2026 | pass or fail on baseline viability |
+| Judging, Stage Two | same window | four equally weighted criteria, up to 10 percent bonus for friction logs |
+| Winners announced | on or around Thursday 3 December 2026 | |
+
+The draft is created on day one with the description below and the repository link, and
+updated at every milestone, so that a missed freeze still leaves a complete entry on file.
 
 ## Form fields
 
