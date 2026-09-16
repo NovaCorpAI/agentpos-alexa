@@ -45,7 +45,8 @@ AgentPOS itself. This bridge runs today against the public demo store at
 ## Layout
 
 ```
-packages/store-client   typed client for the public surfaces of an AgentPOS store
+packages/store-client   typed client for the public surfaces of an AgentPOS store (discovery, REST, x402 challenge)
+packages/fixture-store  test double of an AgentPOS Store: the real OpenAPI shapes, a bakery with physical goods, recorded demo responses
 packages/bridge         the add-on: MCP server for Alexa+, UCP checkout sessions, payment rails, UCP profile
 packages/agents         onboarding, catalog and policy guardian agents (Strands on AgentCore, Bedrock)
 apps/simulator          simulated Alexa+ experience (Bedrock + Strands client, voice or text)
@@ -60,8 +61,12 @@ Requirements: Node >= 22.13 (uses `node:sqlite` unflagged, no native dependencie
 pnpm install
 pnpm typecheck
 pnpm test
+pnpm dev:fixture-store # a bakery-shaped test double of an AgentPOS Store on :8790 (optional)
 pnpm dev:bridge        # registers AGENTPOS_STORE_URL (default: the public demo store) and listens on :8787
 ```
+
+To run the bridge against the bakery instead of the public demo store, set
+`AGENTPOS_STORE_URL=http://127.0.0.1:8790`.
 
 Then:
 
