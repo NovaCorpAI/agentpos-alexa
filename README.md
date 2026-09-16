@@ -117,8 +117,10 @@ The bridge is multi-tenant: every Store it serves lives under `/stores/{slug}/`,
 first one is registered at boot from `AGENTPOS_STORE_URL`. Every response carries a
 `Request-Id` that is the trace id across the bridge's JSON logs, the Store request and the
 settlement. The simulator and the agents land next (see "Build order" in `CLAUDE.md`).
-Environment variables are listed in `.env.example`. Nothing in this repository ever holds a
-merchant's or a household's private key or PSP secret.
+Environment variables are listed in `.env.example`; `bash scripts/setup-wizard.sh` walks a
+human through the ones only a human can create (AWS keys for Bedrock, model access, the
+Stripe test publishable key) and writes them to `.env`. Nothing in this repository ever holds
+a merchant's or a household's private key or PSP secret.
 
 ## Principles we do not bend
 
