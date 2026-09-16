@@ -74,7 +74,16 @@ add-ons the bridge serves, voice or text input, and an inspection summary per tu
 first, three to five carousel items, first item within 500 ms, typed errors. Until the
 Household agent lands, a scripted router with no model maps the text to one Bridge tool.
 
+Checkout is the host's own pattern, as it is in Alexa+: when the customer confirms what to
+buy, the simulator opens a UCP checkout session on the bridge, fills the Demo household's
+synthetic address, shows the store's quote with the payment handlers the session accepts
+(the Amazon handlers, labeled SIMULATED), and completes with the chosen one. The order card
+and the receipt card that follow are the bridge's own MCP Apps views (`get_order`,
+`get_receipt`).
+
 ![The simulator rendering the bridge's carousel view inside an Echo Show frame](docs/assets/simulator-carousel.png)
+
+![The host's checkout pattern with the simulated Amazon handlers](docs/assets/simulator-checkout.png)
 
 To run the bridge against the bakery instead of the public demo store, set
 `AGENTPOS_STORE_URL=http://127.0.0.1:8790`.

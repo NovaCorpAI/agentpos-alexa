@@ -49,7 +49,10 @@ export async function loadOrderView(store: RegisteredStore, client: AgentPosStor
     : stored
       ? stored.session.line_items.map((l) => ({ itemId: l.item.id, title: l.item.title, quantity: l.quantity, lineTotalMinor: "" }))
       : [];
-  const simulated = payment.fixture === true ? false : stored?.internal.settlementReference?.startsWith("simulated:") === true;
+  // The Bridge's own settlement reference is the source of truth for how it paid; the Store's
+  // payment block describes the Store's rail (x402 on the fixture) and says nothing about ours.
+  const reference = stored?.internal.settlementReference ?? str(payment.txHash) ?? null;
+  const simulated = reference?.startsWith("simulated:") === true;
   const handlerEvent = stored ? handlerFromSession : null;
   return {
     orderId: order.orderId,
@@ -60,10 +63,10 @@ export async function loadOrderView(store: RegisteredStore, client: AgentPosStor
     asset: str(payment.asset) ?? "USDC",
     payment: {
       handler: handlerEvent,
-      pspMode: stored?.internal.settlementReference?.startsWith("simulated:") ? "simulated" : handlerEvent ? "test_mode" : null,
+      pspMode: simulated ? "simulated" : handlerEvent ? "test_mode" : null,
       simulated,
-      settlementReference: str(payment.txHash) ?? stored?.internal.settlementReference ?? null,
-      network: str(payment.network),
+      settlementReference: reference,
+      network: simulated ? null : str(payment.network),
     },
     checkoutSessionId: stored?.session.id ?? null,
     permalinkUrl: stored?.session.order?.permalink_url ?? null,

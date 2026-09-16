@@ -97,3 +97,52 @@ export class BridgeClient {
     this.clients.clear();
   }
 }
+
+/** UCP checkout session calls, the way Alexa+ makes them: bearer, UCP-Agent, Request-Id, Idempotency-Key. */
+export interface SessionCall {
+  status: number;
+  body: Record<string, unknown>;
+}
+
+export class BridgeCheckoutClient {
+  constructor(
+    private readonly config: BridgeConfig,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  private headers(traceId: string, idempotencyKey?: string): Record<string, string> {
+    const h: Record<string, string> = {
+      Authorization: `Bearer ${this.config.bearerToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "UCP-Agent": 'profile="https://simulator.agentposhq.com/.well-known/ucp"',
+      "Request-Id": traceId,
+    };
+    if (idempotencyKey) h["Idempotency-Key"] = idempotencyKey;
+    return h;
+  }
+
+  private async call(method: string, path: string, traceId: string, body?: unknown, idempotencyKey?: string): Promise<SessionCall> {
+    const init: RequestInit = { method, headers: this.headers(traceId, idempotencyKey) };
+    if (body !== undefined) init.body = JSON.stringify(body);
+    const res = await this.fetchImpl(`${this.config.url}${path}`, init);
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    return { status: res.status, body: json };
+  }
+
+  create(slug: string, body: unknown, traceId: string, key: string) {
+    return this.call("POST", `/stores/${slug}/checkout-sessions`, traceId, body, key);
+  }
+  get(slug: string, id: string, traceId: string) {
+    return this.call("GET", `/stores/${slug}/checkout-sessions/${id}`, traceId);
+  }
+  update(slug: string, id: string, body: unknown, traceId: string, key: string) {
+    return this.call("PUT", `/stores/${slug}/checkout-sessions/${id}`, traceId, body, key);
+  }
+  complete(slug: string, id: string, body: unknown, traceId: string, key: string) {
+    return this.call("POST", `/stores/${slug}/checkout-sessions/${id}/complete`, traceId, body, key);
+  }
+  cancel(slug: string, id: string, traceId: string, key: string) {
+    return this.call("POST", `/stores/${slug}/checkout-sessions/${id}/cancel`, traceId, {}, key);
+  }
+}

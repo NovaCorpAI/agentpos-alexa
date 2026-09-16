@@ -32,6 +32,11 @@ export interface OpenStorageOptions {
   path: string;
 }
 
+function addColumnIfMissing(db: DatabaseSync, table: string, column: string, type: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as unknown as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+}
+
 export function openStorage(opts: OpenStorageOptions): Storage {
   if (opts.path !== ":memory:") mkdirSync(dirname(opts.path), { recursive: true });
   const db = new DatabaseSync(opts.path);
@@ -40,6 +45,8 @@ export function openStorage(opts: OpenStorageOptions): Storage {
   db.exec(STORES_DDL);
   db.exec(USAGE_EVENTS_DDL);
   db.exec(CHECKOUT_DDL);
+  // Additive migrations for databases created by earlier runs: columns the DDL gained later.
+  addColumnIfMissing(db, "usage_events", "psp_mode", "TEXT");
   return {
     stores: new SqliteStoreRegistry(db),
     usageEvents: new SqliteUsageEventsRepo(db),

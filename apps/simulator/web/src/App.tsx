@@ -1,11 +1,12 @@
 /**
  * The simulated Alexa+ experience: an Echo Show frame, the four display modes, the list of
- * Enabled add-ons, voice or text input, and the inspection summary. Everything visible in
- * the frame came from a Bridge tool result.
+ * Enabled add-ons, voice or text input, the host's own checkout pattern, and the inspection
+ * summary. Everything visible in the frame came from a Bridge tool result or a UCP session.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, type Addon, type Inspection, type Turn } from "./api";
+import { api, checkoutApi, type Addon, type CheckoutState, type Inspection, type Turn } from "./api";
 import { AppHost, type DisplayMode } from "./AppHost";
+import { Checkout } from "./Checkout";
 import { listenOnce, recognitionAvailable, speak } from "./speech";
 
 type Mode = "inline" | "fullscreen" | "voice-only" | "hydrated";
@@ -16,6 +17,8 @@ const FRAMES: Record<Frame, { label: string; width: number; height: number }> = 
   show8: { label: "Echo Show 8", width: 1280, height: 800 },
   show5: { label: "Echo Show 5", width: 960, height: 480 },
 };
+
+const SUGGESTIONS = ["What bread do you have?", "Tell me about the gluten-free seeded loaf", "Do you deliver?", "Buy two sourdough loaf", "Show my order", "Show me the receipt"];
 
 interface Line {
   who: "household" | "alexa";
@@ -28,7 +31,7 @@ interface ViewState {
   html: string;
   toolName: string;
   toolArguments: Record<string, unknown>;
-  result: Turn["view"] extends infer V ? (V extends { result: infer R } ? R : never) : never;
+  result: NonNullable<Turn["view"]>["result"];
   resourceUri: string;
 }
 
@@ -72,6 +75,7 @@ export function App() {
   const [view, setView] = useState<ViewState | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [lastTurn, setLastTurn] = useState<Turn | null>(null);
+  const [checkout, setCheckout] = useState<CheckoutState | null>(null);
   const stopListen = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -88,6 +92,25 @@ export function App() {
     api.inspection().then(setInspection).catch(() => undefined);
   }, []);
 
+  /** Applies what a turn brought back: speech, a checkout to confirm, or a view to render. */
+  const applyTurn = useCallback(
+    async (turn: Turn, submittedAt: number) => {
+      setLastTurn(turn);
+      for (const s of turn.speak) setLines((l) => [...l, { who: "alexa", text: s }]);
+      if (voiceOut && turn.speak[0]) speak(turn.speak.join(" "), lang);
+      setCheckout(turn.checkout ?? null);
+      if (turn.view && mode !== "voice-only" && mode !== "hydrated") {
+        const r = await api.resource(addon, turn.view.resourceUri);
+        setView({ turnId: turn.turnId, submittedAt, html: r.html, toolName: turn.view.toolName, toolArguments: turn.view.arguments, result: turn.view.result, resourceUri: turn.view.resourceUri });
+      } else {
+        setView(null);
+        if (turn.view) void api.render(turn.turnId, { displayMode: mode, component: null });
+      }
+      refreshInspection();
+    },
+    [addon, mode, voiceOut, lang, refreshInspection],
+  );
+
   const submit = useCallback(
     async (text: string) => {
       if (!addon || !text.trim() || busy) return;
@@ -96,26 +119,41 @@ export function App() {
       setLines((l) => [...l, { who: "household", text }]);
       const submittedAt = performance.now();
       try {
-        const turn = await api.turn(addon, text);
-        setLastTurn(turn);
-        for (const s of turn.speak) setLines((l) => [...l, { who: "alexa", text: s }]);
-        if (voiceOut && turn.speak[0]) speak(turn.speak.join(" "), lang);
-        if (turn.view && mode !== "voice-only" && mode !== "hydrated") {
-          const r = await api.resource(addon, turn.view.resourceUri);
-          setView({ turnId: turn.turnId, submittedAt, html: r.html, toolName: turn.view.toolName, toolArguments: turn.view.arguments, result: turn.view.result as ViewState["result"], resourceUri: turn.view.resourceUri });
-        } else {
-          setView(null);
-          if (turn.view) void api.render(turn.turnId, { displayMode: mode, component: null });
-        }
-        refreshInspection();
+        await applyTurn(await api.turn(addon, text), submittedAt);
       } catch (e) {
         setLines((l) => [...l, { who: "alexa", text: `Something went wrong: ${(e as Error).message}` }]);
       } finally {
         setBusy(false);
       }
     },
-    [addon, busy, mode, voiceOut, lang, refreshInspection],
+    [addon, busy, applyTurn],
   );
+
+  const confirmCheckout = useCallback(
+    async (handlerId: string, instrumentId?: string) => {
+      if (!checkout || busy) return;
+      setBusy(true);
+      const submittedAt = performance.now();
+      try {
+        await applyTurn(await checkoutApi.confirm(checkout.sessionId, handlerId, instrumentId), submittedAt);
+      } catch (e) {
+        setLines((l) => [...l, { who: "alexa", text: `Payment failed: ${(e as Error).message}` }]);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [checkout, busy, applyTurn],
+  );
+
+  const cancelCheckout = useCallback(async () => {
+    if (!checkout) return;
+    try {
+      const r = await checkoutApi.cancel(checkout.sessionId);
+      for (const s of r.speak) setLines((l) => [...l, { who: "alexa", text: s }]);
+    } finally {
+      setCheckout(null);
+    }
+  }, [checkout]);
 
   const onViewInitialized = useCallback(() => {
     if (!view) return;
@@ -148,7 +186,9 @@ export function App() {
     <div className={`sim theme-${theme}`}>
       <aside className="panel">
         <h1>AgentPOS Alexa+ simulator</h1>
-        <p className="muted">Simulated Alexa+ experience. Brain: <b>scripted router, no model</b> until the Household agent lands.</p>
+        <p className="muted">
+          Simulated Alexa+ experience. Brain: <b>scripted router, no model</b> until the Household agent lands.
+        </p>
         {error ? <p className="error">{error}</p> : null}
 
         <label>Enabled add-ons</label>
@@ -196,7 +236,7 @@ export function App() {
 
         <label>Try</label>
         <div className="chips">
-          {["What bread do you have?", "Tell me about the gluten-free seeded loaf", "Do you deliver?", "Buy two sourdough loaf"].map((t) => (
+          {SUGGESTIONS.map((t) => (
             <button key={t} onClick={() => void submit(t)} disabled={busy || !addon}>
               {t}
             </button>
@@ -244,14 +284,19 @@ export function App() {
               <span>{mode}</span>
             </div>
             <div className="conversation">
-              {lines.slice(-6).map((l, i) => (
+              {lines.slice(-4).map((l, i) => (
                 <div key={i} className={`bubble ${l.who}`}>
                   {l.text}
                 </div>
               ))}
               {busy ? <div className="bubble alexa thinking">...</div> : null}
             </div>
-            {mode !== "voice-only" && view ? (
+            {checkout && mode !== "voice-only" ? (
+              <div className="viewport inline">
+                <Checkout state={checkout} busy={busy} onConfirm={(h, i) => void confirmCheckout(h, i)} onCancel={() => void cancelCheckout()} />
+              </div>
+            ) : null}
+            {mode !== "voice-only" && view && !checkout ? (
               <div className={`viewport ${displayMode}`}>
                 <AppHost
                   html={view.html}
@@ -267,7 +312,7 @@ export function App() {
                 />
               </div>
             ) : null}
-            {mode === "hydrated" && lastTurn?.view ? (
+            {mode === "hydrated" && lastTurn?.view && !checkout ? (
               <div className="viewport inline">
                 <Hydrated result={lastTurn.view.result} />
               </div>

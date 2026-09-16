@@ -18,11 +18,12 @@ access. Every rule here is checked in code review of `packages/bridge/src/mcp/` 
   placeholder, or non-functional entries."
 - "Ship only your own content: no third-party tracking parameters, or upstream deep links."
 
-Planned tool set for a store, one intent each: `search_items`, `get_item`, `get_policies`,
-`start_checkout` (creates the UCP checkout session and returns its id). Cart, quote, payment
-and completion go through the UCP checkout endpoints, which Alexa handles as "standardized
-patterns so customers always experience a consistent, familiar flow regardless of which
-add-on triggers it".
+Tool set for a store, one intent each: `search_items`, `get_item`, `get_policies`,
+`start_checkout` (validates the lines and hands them to the checkout service), `get_order`
+and `get_receipt`. Cart, quote, payment and completion go through the UCP checkout
+endpoints, which Alexa handles as "standardized patterns so customers always experience a
+consistent, familiar flow regardless of which add-on triggers it"; the simulator renders that
+pattern natively and never as an add-on view.
 
 ## Components and display modes
 

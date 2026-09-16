@@ -9,11 +9,16 @@ export type Intent =
   | { tool: "get_item"; arguments: { itemId: string } }
   | { tool: "get_policies"; arguments: Record<string, never> }
   | { tool: "start_checkout"; arguments: { items: Array<{ itemId: string; quantity: number }> } }
+  | { tool: "get_order"; arguments: { orderId: string } }
+  | { tool: "get_receipt"; arguments: { orderId: string } }
   | { tool: null; reply: string };
 
 const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
 
 const POLICY_WORDS = /(polic|deliver|shipping|ship\b|pay\b|payment|accept|review|refund)/;
+const ORDER_WORDS = /\bmy order\b|\bwhere is my\b|\border status\b|\bwhat did i (?:buy|order)\b|\bshow (?:me )?(?:the )?order\b/;
+const RECEIPT_WORDS = /\breceipt\b|\bproof of purchase\b/;
+const NO_ORDER = "There is no order yet in this session.";
 
 function clean(s: string): string {
   return s.trim().replace(/[?.!]+$/, "").trim();
@@ -37,9 +42,18 @@ export function matchItem(name: string, known: Array<{ id: string; title: string
   return contains?.id;
 }
 
-export function route(text: string, known: Array<{ id: string; title: string }>): Intent {
+export function route(text: string, known: Array<{ id: string; title: string }>, lastOrderId?: string): Intent {
   const t = clean(text).toLowerCase();
   if (!t) return { tool: null, reply: "Say what you would like to find, or ask about delivery and payment." };
+
+  // Orders and receipts: an explicit order id in the text, else the last order of the session.
+  const orderRef = /\b(ord_[a-z0-9_-]+)\b/i.exec(clean(text))?.[1] ?? lastOrderId;
+  if (RECEIPT_WORDS.test(t)) {
+    return orderRef ? { tool: "get_receipt", arguments: { orderId: orderRef } } : { tool: null, reply: NO_ORDER };
+  }
+  if (ORDER_WORDS.test(t) && !/^(?:buy|order)\s/.test(t)) {
+    return orderRef ? { tool: "get_order", arguments: { orderId: orderRef } } : { tool: null, reply: NO_ORDER };
+  }
 
   const buy = /^(?:buy|order|add|i want|i'd like|get me)\s+(?:(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(.+?)(?:\s+please)?$/.exec(t);
   if (buy) {

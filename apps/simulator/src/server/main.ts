@@ -6,7 +6,8 @@ import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { createSimulatorApp, SIMULATOR_VERSION } from "./app.js";
-import { BridgeClient } from "./bridge-client.js";
+import { BridgeCheckoutClient, BridgeClient } from "./bridge-client.js";
+import { CheckoutFlow } from "./checkout.js";
 import { InspectionLog } from "./inspection.js";
 
 const port = Number(process.env.SIMULATOR_PORT ?? 8788);
@@ -20,7 +21,8 @@ if (!bearerToken || bearerToken === "change-me") {
 const webDir = resolve(import.meta.dirname, "../../dist/web");
 const bridge = new BridgeClient({ url: bridgeUrl, bearerToken });
 const inspection = new InspectionLog(resolve(process.env.SIMULATOR_DATA_DIR ?? "./.data", "inspection-summary.json"), SIMULATOR_VERSION);
-const app = createSimulatorApp({ bridge, inspection, webDir });
+const checkout = new CheckoutFlow(new BridgeCheckoutClient({ url: bridgeUrl, bearerToken }));
+const app = createSimulatorApp({ bridge, checkout, inspection, webDir });
 
 if (existsSync(webDir)) {
   app.use("/*", serveStatic({ root: relativeToCwd(webDir) }));
