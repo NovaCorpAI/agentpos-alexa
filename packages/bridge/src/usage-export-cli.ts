@@ -4,13 +4,18 @@
  * file. With --summary, prints the per-source and per-session totals docs/COSTS.md uses.
  */
 import { writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { dataDir, loadDotenv } from "./env.js";
 import { openStorage } from "./storage/sqlite.js";
+
+loadDotenv();
 import { summarizeUsage, usageEventsToCsv } from "./storage/usage-export.js";
 
 const args = process.argv.slice(2);
 const outIdx = args.indexOf("--out");
 const out = outIdx >= 0 ? args[outIdx + 1] : undefined;
-const dbPath = process.env.BRIDGE_DB_PATH ?? "./.data/bridge.sqlite";
+const dbIdx = args.indexOf("--db");
+const dbPath = dbIdx >= 0 ? args[dbIdx + 1]! : (process.env.BRIDGE_DB_PATH ?? resolve(dataDir(), "bridge.sqlite"));
 
 const storage = openStorage({ path: dbPath });
 const events = storage.usageEvents.list({ limit: 1_000_000 });

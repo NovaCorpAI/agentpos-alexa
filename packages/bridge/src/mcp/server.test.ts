@@ -71,6 +71,15 @@ describe("Store MCP server over Streamable HTTP", () => {
     expect(sc.items[0]?.price.display).toMatch(/USDC$/);
   });
 
+  it("search_items with no match lists what the store sells and says matched false", async () => {
+    const res = await client.callTool({ name: "search_items", arguments: { query: "bread", limit: 5 } });
+    expect(res.isError).toBeFalsy();
+    expect((res.content as Array<{ text: string }>)[0]?.text).toMatch(/^I did not find anything for bread\. The store sells/);
+    const sc = res.structuredContent as { matched: boolean; items: unknown[] };
+    expect(sc.matched).toBe(false);
+    expect(sc.items).toHaveLength(5);
+  });
+
   it("get_item states the gluten fact from the catalog and fails typed on unknown ids", async () => {
     const gf = await client.callTool({ name: "get_item", arguments: { itemId: "gluten-free-loaf" } });
     expect((gf.content as Array<{ text: string }>)[0]?.text).toContain("It is gluten free.");

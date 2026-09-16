@@ -12,10 +12,15 @@ import { createLogger, stdoutSink } from "./logging.js";
 import { openStorage } from "./storage/sqlite.js";
 import { slugFromOrigin } from "./storage/store-registry.js";
 import { BRIDGE_VERSION } from "./versions.js";
+import { resolve } from "node:path";
+import { dataDir, loadDotenv } from "./env.js";
+
+// Values from .env fill in what the environment does not set; nothing is ever printed.
+loadDotenv();
 
 const logger = createLogger(stdoutSink, { service: "bridge", bridgeVersion: BRIDGE_VERSION });
 const port = Number(process.env.PORT ?? 8787);
-const dbPath = process.env.BRIDGE_DB_PATH ?? "./.data/bridge.sqlite";
+const dbPath = process.env.BRIDGE_DB_PATH ?? resolve(dataDir(), "bridge.sqlite");
 const storeUrl = process.env.AGENTPOS_STORE_URL;
 const bridgeBaseUrl = (process.env.BRIDGE_BASE_URL ?? `http://127.0.0.1:${port}`).replace(/\/+$/, "");
 // A judge without a .env still gets a working, authenticated MCP endpoint: the token is printed once.

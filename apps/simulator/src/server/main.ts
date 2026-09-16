@@ -6,13 +6,16 @@ import { resolve } from "node:path";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { openStorage } from "@agentpos-alexa/bridge";
+import { dataDir as workspaceDataDir, loadDotenv, openStorage } from "@agentpos-alexa/bridge";
 import { AgentBrain, ScriptedRouterBrain, type Brain } from "./agent/brain.js";
 import { createSimulatorApp, SIMULATOR_VERSION } from "./app.js";
 import { BridgeCheckoutClient, BridgeClient } from "./bridge-client.js";
 import { CheckoutFlow } from "./checkout.js";
 import { InspectionLog } from "./inspection.js";
 import { SqliteHouseholdMemory } from "./memory.js";
+
+// Values from .env fill in what the environment does not set; nothing is ever printed.
+loadDotenv();
 
 const port = Number(process.env.SIMULATOR_PORT ?? 8788);
 const bridgeUrl = (process.env.BRIDGE_URL ?? process.env.BRIDGE_BASE_URL ?? "http://127.0.0.1:8787").replace(/\/+$/, "");
@@ -22,7 +25,7 @@ if (!bearerToken || bearerToken === "change-me") {
   process.exit(1);
 }
 
-const dataDir = process.env.SIMULATOR_DATA_DIR ?? "./.data";
+const dataDir = process.env.SIMULATOR_DATA_DIR ?? workspaceDataDir();
 const webDir = resolve(import.meta.dirname, "../../dist/web");
 const bridge = new BridgeClient({ url: bridgeUrl, bearerToken });
 const inspection = new InspectionLog(resolve(dataDir, "inspection-summary.json"), SIMULATOR_VERSION);

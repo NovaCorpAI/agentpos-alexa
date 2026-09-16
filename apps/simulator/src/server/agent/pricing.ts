@@ -15,7 +15,8 @@ const DEFAULTS: Record<string, ModelPrice> = {
   "amazon.nova-2-lite-v1:0": { inputPerMillionUsd: 0.06, outputPerMillionUsd: 0.24 },
   "amazon.nova-pro-v1:0": { inputPerMillionUsd: 0.8, outputPerMillionUsd: 3.2 },
   "anthropic.claude-sonnet-4-5-20250929-v1:0": { inputPerMillionUsd: 3, outputPerMillionUsd: 15 },
-  // Claude Sonnet 5 list price on the first-party API; verify the Bedrock rate before publishing numbers.
+  // Claude Sonnet 4.6 and 5 list prices on the first-party API; verify the Bedrock rate before publishing numbers.
+  "anthropic.claude-sonnet-4-6": { inputPerMillionUsd: 3, outputPerMillionUsd: 15 },
   "anthropic.claude-sonnet-5": { inputPerMillionUsd: 2, outputPerMillionUsd: 10 },
 };
 

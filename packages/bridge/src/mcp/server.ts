@@ -21,7 +21,7 @@ import type { NewUsageEvent } from "../storage/usage-events-repo.js";
 import { BRIDGE_VERSION } from "../versions.js";
 import type { CheckoutRepo } from "../storage/checkout-store.js";
 import { loadOrderView, loadReceiptView } from "./orders.js";
-import { speakItemDetail, speakOrder, speakPrice, speakReceipt, speakSearch } from "./voice.js";
+import { speakItemDetail, speakNoMatch, speakOrder, speakPrice, speakReceipt, speakSearch } from "./voice.js";
 
 export interface StoreMcpDeps {
   store: RegisteredStore;
@@ -153,10 +153,17 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
     },
     async ({ query, limit }) =>
       timed("search_items", async () => {
-        const catalog = await client.catalog(query);
+        let catalog = await client.catalog(query);
+        let matched = true;
+        if (query && catalog.items.length === 0) {
+          // The Store matched nothing: offer what it sells instead of a dead end, and say so.
+          catalog = await client.catalog();
+          matched = false;
+        }
         const items = catalog.items.slice(0, limit ?? 5);
-        return ok(speakSearch(items, query), {
+        return ok(matched ? speakSearch(items, query) : speakNoMatch(items, query!), {
           query: query ?? null,
+          matched,
           total: catalog.items.length,
           items: items.map(itemView),
           store: { name: catalog.site.name, url: catalog.site.url },

@@ -6,10 +6,17 @@ checkout session** (the variable cost a store generates).
 
 | Step | Model | Calls | Tokens in | Tokens out | Cost |
 | --- | --- | --- | --- | --- | --- |
+| Household agent, 3 turns to a started checkout (first measurement, 2026-09-16) | us.amazon.nova-2-lite-v1:0 | 6 | 16,406 | 189 | US$0.0010 (estimate table) |
 | Catalog agent (in conversation) | Nova 2 Lite | | | | |
 | Voice-ready ranking and summaries | Nova 2 Lite | | | | |
-| Policy guardian (only at completion) | Claude Sonnet via Bedrock | | | | |
+| Policy guardian (only at completion) | Claude Sonnet 4.6 via Bedrock | | | | |
 | Total per closed session | | | | | |
+
+The first row comes from a real run against the fixture bakery: search, an item question and
+"buy two sourdough loaves", each turn costing two model calls (tool use, then the answer).
+Input tokens dominate because the six tool schemas travel with every call; prompt caching on
+Bedrock is the obvious next lever. Prices are the estimate table in
+`apps/simulator/src/server/agent/pricing.ts` until verified against the Bedrock pricing page.
 
 Target: under US$0.05 per closed session in inference; hosted fixed cost under US$3 per store
 per month. Pricing rule: list price between 3x and 10x unit cost. If the guardian makes a

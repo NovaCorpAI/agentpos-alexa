@@ -237,9 +237,9 @@ else
   warn "node or scripts/bedrock-check.mjs not found; use the ids from the Bedrock console's model catalog."
 fi
 ask BEDROCK_MODEL_FAST "Model id for frequent cheap steps [us.amazon.nova-2-lite-v1:0]:"
-ask BEDROCK_MODEL_STRONG "Model id for critical decisions (Claude Sonnet) [us.anthropic.claude-sonnet-5]:"
+ask BEDROCK_MODEL_STRONG "Model id for critical decisions (Claude Sonnet) [us.anthropic.claude-sonnet-4-6]:"
 write_env BEDROCK_MODEL_FAST "${BEDROCK_MODEL_FAST:-us.amazon.nova-2-lite-v1:0}"
-write_env BEDROCK_MODEL_STRONG "${BEDROCK_MODEL_STRONG:-us.anthropic.claude-sonnet-5}"
+write_env BEDROCK_MODEL_STRONG "${BEDROCK_MODEL_STRONG:-us.anthropic.claude-sonnet-4-6}"
 
 # ── 5. Stripe test mode for the merchant PSP rail ─────────────────────────
 stage "Stripe: test mode keys for the demo store"

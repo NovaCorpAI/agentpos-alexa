@@ -57,3 +57,13 @@ describe("order and receipt voice", () => {
     expect(speakReceipt({ valid: true }, undefined, 2)).toBe("The store's signed receipt checks out. 2 receipts on record.");
   });
 });
+
+describe("no-match voice", () => {
+  it("is honest about the miss and names what the store sells", async () => {
+    const { speakNoMatch } = await import("./voice.js");
+    expect(speakNoMatch([item("a", "Sourdough loaf", "65000000"), item("b", "Baguette", "28000000")], "bread")).toBe(
+      "I did not find anything for bread. The store sells Sourdough loaf, 6.5 USDC; Baguette, 2.8 USDC.",
+    );
+    expect(speakNoMatch([], "cake")).toBe("I did not find anything for cake, and the catalog is empty.");
+  });
+});

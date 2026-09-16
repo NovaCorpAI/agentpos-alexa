@@ -35,3 +35,4 @@ export { RailRegistry } from "./rails/rail.js";
 export type { PaymentRail, PspMode, RailContext, RailOutcome, SessionInternal } from "./rails/rail.js";
 export { amazonNetworkTokenSimulated, amazonRailsFromMode, amazonStoredPaymentMethodSimulated, SIMULATED_LABEL } from "./rails/amazon-simulated.js";
 export { summarizeUsage, usageEventsToCsv } from "./storage/usage-export.js";
+export { dataDir, findDotenv, loadDotenv, workspaceRoot } from "./env.js";

@@ -71,10 +71,13 @@ To run the bridge against the bakery instead of the public demo store, set
 `BRIDGE_BEARER_TOKEN` as the bridge: set it in `.env` for both, or copy the one-run token the
 bridge prints at boot when the variable is missing.
 
-Environment variables are listed in `.env.example`; `bash scripts/setup-wizard.sh` walks a
-human through the ones only a human can create (AWS keys for Bedrock, model access, the
-Stripe test publishable key) and writes them to `.env`. Nothing in this repository ever holds
-a merchant's or a household's private key or PSP secret.
+Environment variables are listed in `.env.example`; `bash scripts/setup-wizard.sh` (Git Bash
+on Windows) walks a human through the ones only a human can create (AWS keys for Bedrock,
+model access, the Stripe test publishable key) and writes them to `.env`. Every service loads
+the nearest `.env` at boot and keeps its data under `.data/` at the workspace root, whatever
+folder it was started from. `pnpm bedrock:check` lists the models the account can invoke and
+makes one minimal call per configured model, never printing credentials. Nothing in this
+repository ever holds a merchant's or a household's private key or PSP secret.
 
 ```bash
 curl http://127.0.0.1:8787/health
