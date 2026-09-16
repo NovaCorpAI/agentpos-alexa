@@ -15,4 +15,7 @@ Target: under US$0.05 per closed session in inference; hosted fixed cost under U
 per month. Pricing rule: list price between 3x and 10x unit cost. If the guardian makes a
 session expensive, gate it to sessions above a threshold or use Nova Pro.
 
-Export: `pnpm --filter @agentpos-alexa/bridge usage:export` (planned) writes a CSV.
+Export: `pnpm --filter @agentpos-alexa/bridge usage:export --summary` prints the totals for
+this table; `usage:export --out docs/impact/usage-events.csv` writes the CSV committed with
+the submission. Model rows appear once the agents run against Bedrock; until then every row
+is a bridge or checkout event with zero tokens.

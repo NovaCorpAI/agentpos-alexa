@@ -22,7 +22,8 @@
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
     "build:apps": "node scripts/build-apps.mjs",
-    "typecheck:apps": "tsc -p apps/tsconfig.json"
+    "typecheck:apps": "tsc -p apps/tsconfig.json",
+    "usage:export": "tsx src/usage-export-cli.ts"
   },
   "devDependencies": {
     "@agentpos-alexa/fixture-store": "workspace:*",

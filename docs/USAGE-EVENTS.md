@@ -35,6 +35,7 @@ it so the numbers are comparable across components.
 
 ## Export
 
-`pnpm --filter @agentpos-alexa/bridge usage:export` (lands with the storage adapter) writes a
-CSV with the columns above in the order of `USAGE_EVENTS_CSV_COLUMNS`. No PII is stored: no
+`pnpm --filter @agentpos-alexa/bridge usage:export` writes the CSV to stdout (`--out file.csv`
+for a file) with the columns above in the order of `USAGE_EVENTS_CSV_COLUMNS`; `--summary`
+prints the per-source and per-session totals that `docs/COSTS.md` reports. No PII is stored: no
 addresses, emails or names; the household is referenced only through the checkout session.
