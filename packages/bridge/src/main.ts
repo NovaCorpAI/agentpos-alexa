@@ -6,6 +6,8 @@ import { randomBytes } from "node:crypto";
 import { serve } from "@hono/node-server";
 import { discoverStore, StoreDiscoveryError } from "@agentpos-alexa/store-client";
 import { createApp } from "./app.js";
+import { amazonRailsFromMode } from "./rails/amazon-simulated.js";
+import { RailRegistry } from "./rails/rail.js";
 import { createLogger, stdoutSink } from "./logging.js";
 import { openStorage } from "./storage/sqlite.js";
 import { slugFromOrigin } from "./storage/store-registry.js";
@@ -42,7 +44,11 @@ if (process.env.BRIDGE_OAUTH_CLIENT_ID && process.env.BRIDGE_OAUTH_CLIENT_SECRET
   storage.oauth.registerClient(process.env.BRIDGE_OAUTH_CLIENT_ID, process.env.BRIDGE_OAUTH_CLIENT_SECRET);
 }
 
-const app = createApp({ storage, logger, bridgeBaseUrl, bearerToken });
+// Payment rails. Amazon handlers are simulated only (hard rule 9); AMAZON_PSP_MODE=off disables them.
+const rails = new RailRegistry();
+for (const rail of amazonRailsFromMode(process.env.AMAZON_PSP_MODE ?? "simulated")) rails.register(rail);
+
+const app = createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails });
 serve({ fetch: app.fetch, port }, (info) => {
   logger.log("info", "listening", {
     port: info.port,

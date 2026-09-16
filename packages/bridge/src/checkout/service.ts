@@ -199,6 +199,7 @@ export class CheckoutService {
       paymentHandler: `${rail.namespace}/${rail.id}`,
       simulated: rail.pspMode === "simulated",
       purchaseOrigin: "own",
+      pspMode: rail.pspMode,
     });
     if (outcome.kind === "settled") {
       internal.settlementReference = outcome.settlementReference;
@@ -306,6 +307,10 @@ export class CheckoutService {
 
     const priced = await this.quote(ctx, session, internal, storeClient, destination);
     if (priced) session.status = "ready_for_complete";
+    // Stored payment methods the household may pick (Alexa+: returned on create and update).
+    const offered = this.deps.rails.offeredInstruments(ctx.store);
+    if (offered.length) session.payment = { instruments: offered };
+    else delete session.payment;
   }
 
   private selectedDestination(req: SessionRequest, lines: LineItem[]): ShippingDestination | undefined {

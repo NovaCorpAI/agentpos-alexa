@@ -26,6 +26,7 @@ interface Row {
   purchase_origin: string | null;
   payment_handler: string | null;
   simulated: number;
+  psp_mode: string | null;
 }
 
 function rowToEvent(r: Row): UsageEvent {
@@ -46,6 +47,7 @@ function rowToEvent(r: Row): UsageEvent {
   if (r.onboarding_stage) e.onboardingStage = r.onboarding_stage as OnboardingStage;
   if (r.purchase_origin) e.purchaseOrigin = r.purchase_origin as PurchaseOrigin;
   if (r.payment_handler) e.paymentHandler = r.payment_handler;
+  if (r.psp_mode) e.pspMode = r.psp_mode as UsageEvent["pspMode"] & string;
   return e;
 }
 
@@ -60,8 +62,8 @@ export class SqliteUsageEventsRepo implements UsageEventsRepo {
     this.db
       .prepare(
         `INSERT INTO usage_events (id, trace_id, at, source, store_origin, checkout_session_id, model, input_tokens, output_tokens,
-           latency_ms, estimated_cost_usd_micros, onboarding_stage, purchase_origin, payment_handler, simulated)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           latency_ms, estimated_cost_usd_micros, onboarding_stage, purchase_origin, payment_handler, simulated, psp_mode)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         full.id,
@@ -79,6 +81,7 @@ export class SqliteUsageEventsRepo implements UsageEventsRepo {
         full.purchaseOrigin ?? null,
         full.paymentHandler ?? null,
         full.simulated ? 1 : 0,
+        full.pspMode ?? null,
       );
     return full;
   }

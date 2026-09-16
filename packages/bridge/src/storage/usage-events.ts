@@ -54,6 +54,8 @@ export interface UsageEvent {
   paymentHandler?: string;
   /** True when the rail or PSP behind this event is simulated. Never inferred; always written. */
   simulated: boolean;
+  /** live, test_mode or simulated on rail events (CONTEXT.md). Null elsewhere. */
+  pspMode?: "live" | "test_mode" | "simulated";
 }
 
 /** DDL for node:sqlite. Applied by the storage adapter on open. */
@@ -73,7 +75,8 @@ CREATE TABLE IF NOT EXISTS usage_events (
   onboarding_stage          TEXT,
   purchase_origin           TEXT,
   payment_handler           TEXT,
-  simulated                 INTEGER NOT NULL DEFAULT 0
+  simulated                 INTEGER NOT NULL DEFAULT 0,
+  psp_mode                  TEXT
 );
 CREATE INDEX IF NOT EXISTS usage_events_trace ON usage_events (trace_id);
 CREATE INDEX IF NOT EXISTS usage_events_session ON usage_events (checkout_session_id);
@@ -97,4 +100,5 @@ export const USAGE_EVENTS_CSV_COLUMNS = [
   "purchase_origin",
   "payment_handler",
   "simulated",
+  "psp_mode",
 ] as const;

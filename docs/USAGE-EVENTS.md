@@ -21,6 +21,7 @@ it so the numbers are comparable across components.
 | `purchase_origin` | text, nullable | `own` (our team, tests) or `third_party` (public simulator) |
 | `payment_handler` | text, nullable | handler id on rail events, e.g. `dev.ucp.processor_tokenizer` |
 | `simulated` | integer 0/1 | 1 when the rail or PSP behind the event is simulated. Always written, never inferred |
+| `psp_mode` | text, nullable | `live`, `test_mode` or `simulated` on rail events (see CONTEXT.md) |
 
 ## Questions the table answers
 

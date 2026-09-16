@@ -58,6 +58,11 @@ export interface PaymentRail {
   /** Extra fields for the profile declaration (config, spec, schema). */
   declarationExtras?: Record<string, unknown>;
   supports(store: RegisteredStore): boolean;
+  /**
+   * Instruments to list in create and update responses (stored payment methods the
+   * linked user can pick). Omitted by handlers whose wallet holds the card.
+   */
+  offeredInstruments?(store: RegisteredStore): PaymentInstrument[];
   settle(ctx: RailContext): Promise<RailOutcome>;
 }
 
@@ -78,6 +83,11 @@ export class RailRegistry {
 
   find(store: RegisteredStore, handlerId: string): PaymentRail | undefined {
     return this.forStore(store).find((r) => r.id === handlerId);
+  }
+
+  /** Saved instruments every rail offers for this Store, for create and update responses. */
+  offeredInstruments(store: RegisteredStore): PaymentInstrument[] {
+    return this.forStore(store).flatMap((r) => r.offeredInstruments?.(store) ?? []);
   }
 
   /** The ucp.payment_handlers block for a Store: profile and every session response. */

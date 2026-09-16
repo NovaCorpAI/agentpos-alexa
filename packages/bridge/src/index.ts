@@ -32,3 +32,4 @@ export { loadUcpConformance } from "./checkout/conformance.js";
 export { centsToUsdcMinor, SESSION_CURRENCY, usdcMinorToCents } from "./checkout/money.js";
 export { RailRegistry } from "./rails/rail.js";
 export type { PaymentRail, PspMode, RailContext, RailOutcome, SessionInternal } from "./rails/rail.js";
+export { amazonNetworkTokenSimulated, amazonRailsFromMode, amazonStoredPaymentMethodSimulated, SIMULATED_LABEL } from "./rails/amazon-simulated.js";
