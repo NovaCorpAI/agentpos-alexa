@@ -161,3 +161,22 @@ export async function discoverStore(
   }
   return parseStoreProfile(origin, json);
 }
+
+export { parseCartQuote, parseCatalog, parsePaymentRequired } from "./agentpos.js";
+export type {
+  CartLineRequest,
+  CartQuote,
+  CartRequest,
+  Catalog,
+  CatalogItem,
+  CatalogPrice,
+  CheckoutPaid,
+  CheckoutParked,
+  Order,
+  PaymentRequired,
+  PolicyDecision,
+  Quote,
+  QuoteLine,
+  ReceiptChain,
+  StoreHealth,
+} from "./agentpos.js";

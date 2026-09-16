@@ -1,0 +1,23 @@
+{
+  "x402Version": 2,
+  "error": "Payment required",
+  "resource": {
+    "url": "http://demo.agentposhq.com/agentpos/checkout?cart=cart_nDUssZVFsy02",
+    "description": "AgentPOS Demo Store: pay for a cart. Create one at https://demo.agentposhq.com/agentpos/cart.",
+    "mimeType": "application/json"
+  },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "stellar:pubnet",
+      "amount": "10000000",
+      "asset": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+      "payTo": "GDTD355XEM6S5DAZGZUO46I3X6YYB4EBHP2UPKA6F7NVGTRCQ7SZNG5P",
+      "maxTimeoutSeconds": 300,
+      "extra": {
+        "adapterVersion": "0.2.0",
+        "areFeesSponsored": true
+      }
+    }
+  ]
+}

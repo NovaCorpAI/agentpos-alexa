@@ -1,0 +1,23 @@
+{
+  "name": "@agentpos-alexa/fixture-store",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Test double of an AgentPOS Store with the real OpenAPI shapes and physical goods (a bakery). Used by tests and by the Simulator skeleton. Not a real store: nothing here settles money.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@agentpos-alexa/store-client": "workspace:*",
+    "@hono/node-server": "^2.1.1",
+    "hono": "^4.13.7"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0"
+  }
+}

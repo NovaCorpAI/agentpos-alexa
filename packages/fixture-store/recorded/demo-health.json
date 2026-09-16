@@ -1,0 +1,1 @@
+{"ok":true,"name":"AgentPOS Demo Store","adapterVersion":"0.2.0","network":"stellar:pubnet","asset":"USDC","facilitator":{"ok":true,"status":200,"supportsNetwork":true,"checkedAt":"2026-09-16T02:58:55.595Z"},"orders":{"stuck":0},"receipts":{"signer":"GDL3GWOZ3XUM6OQ44VUX7G3HVRAWNTBPVHSNDDGVECA4XYBSCNTHQZV2","chainHeight":5}}
