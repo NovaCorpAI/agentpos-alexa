@@ -3,6 +3,7 @@ import { createFixtureStore } from "@agentpos-alexa/fixture-store";
 import { parseStoreProfile } from "@agentpos-alexa/store-client";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { ScriptedRouterBrain } from "./agent/brain.js";
 import { createSimulatorApp, type TurnResponse } from "./app.js";
 import { BridgeCheckoutClient, BridgeClient } from "./bridge-client.js";
 import { CheckoutFlow } from "./checkout.js";
@@ -60,7 +61,7 @@ describe("Simulator server against an in-memory Bridge and fixture bakery", () =
     const checkout = new CheckoutFlow(new BridgeCheckoutClient({ url: BRIDGE, bearerToken: TOKEN }, fetchInto(bridge)));
     inspection = new InspectionLog(":memory:/never-written.json", "test");
     memory = new SqliteHouseholdMemory(":memory:");
-    sim = createSimulatorApp({ bridge: bridgeClient, checkout, inspection, memory });
+    sim = createSimulatorApp({ bridge: bridgeClient, brain: new ScriptedRouterBrain(bridgeClient), checkout, inspection, memory });
   });
   afterEach(async () => {
     await bridgeClient.close();

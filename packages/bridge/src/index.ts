@@ -23,6 +23,7 @@ export { slugFromOrigin, SqliteStoreRegistry } from "./storage/store-registry.js
 export type { RegisteredStore, StoreRegistry } from "./storage/store-registry.js";
 export { USAGE_EVENTS_CSV_COLUMNS, USAGE_EVENTS_DDL } from "./storage/usage-events.js";
 export type { OnboardingStage, PurchaseOrigin, UsageEvent, UsageSource } from "./storage/usage-events.js";
+export type { NewUsageEvent, UsageEventsRepo } from "./storage/usage-events-repo.js";
 export { BRIDGE_VERSION, PROTOCOL_VERSIONS } from "./versions.js";
 export { discoverStore, parseStoreProfile, StoreDiscoveryError, storeOrigin } from "@agentpos-alexa/store-client";
 export type { StoreEndpoints } from "@agentpos-alexa/store-client";

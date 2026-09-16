@@ -1,10 +1,13 @@
 /**
- * Boot: connect to the Bridge, serve the web build and the API. One command.
+ * Boot: connect to the Bridge, pick the brain, serve the web build and the API. One command.
  */
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { openStorage } from "@agentpos-alexa/bridge";
+import { AgentBrain, ScriptedRouterBrain, type Brain } from "./agent/brain.js";
 import { createSimulatorApp, SIMULATOR_VERSION } from "./app.js";
 import { BridgeCheckoutClient, BridgeClient } from "./bridge-client.js";
 import { CheckoutFlow } from "./checkout.js";
@@ -19,12 +22,33 @@ if (!bearerToken || bearerToken === "change-me") {
   process.exit(1);
 }
 
+const dataDir = process.env.SIMULATOR_DATA_DIR ?? "./.data";
 const webDir = resolve(import.meta.dirname, "../../dist/web");
 const bridge = new BridgeClient({ url: bridgeUrl, bearerToken });
-const inspection = new InspectionLog(resolve(process.env.SIMULATOR_DATA_DIR ?? "./.data", "inspection-summary.json"), SIMULATOR_VERSION);
+const inspection = new InspectionLog(resolve(dataDir, "inspection-summary.json"), SIMULATOR_VERSION);
 const checkout = new CheckoutFlow(new BridgeCheckoutClient({ url: bridgeUrl, bearerToken }));
-const memory = new SqliteHouseholdMemory(resolve(process.env.SIMULATOR_DATA_DIR ?? "./.data", "household-memory.sqlite"));
-const app = createSimulatorApp({ bridge, checkout, inspection, memory, webDir });
+const memory = new SqliteHouseholdMemory(resolve(dataDir, "household-memory.sqlite"));
+/** The Simulator's own usage_events (same schema as the Bridge's), for the agent's model calls. */
+const usage = openStorage({ path: resolve(dataDir, "simulator.sqlite") });
+
+const modelId = process.env.BEDROCK_MODEL_FAST ?? "amazon.nova-2-lite-v1:0";
+const region = process.env.AWS_REGION ?? "us-east-1";
+const wanted = process.env.SIMULATOR_BRAIN ?? "auto";
+
+async function pickBrain(): Promise<{ brain: Brain; reason: string }> {
+  if (wanted === "router") return { brain: new ScriptedRouterBrain(bridge), reason: "SIMULATOR_BRAIN=router" };
+  const agent = new AgentBrain({ bridge, modelId, region, record: (e) => usage.usageEvents.record(e) });
+  if (wanted === "agent") return { brain: agent, reason: "SIMULATOR_BRAIN=agent" };
+  try {
+    await fromNodeProviderChain()();
+    return { brain: agent, reason: `AWS credentials found; Household agent on ${modelId} in ${region}` };
+  } catch {
+    return { brain: new ScriptedRouterBrain(bridge), reason: "no AWS credentials in the default provider chain; scripted router, no model" };
+  }
+}
+
+const { brain, reason } = await pickBrain();
+const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, brainInfo: { modelId, region }, webDir });
 
 if (existsSync(webDir)) {
   app.use("/*", serveStatic({ root: relativeToCwd(webDir) }));
@@ -34,7 +58,7 @@ if (existsSync(webDir)) {
 }
 
 serve({ fetch: app.fetch, port }, (info) => {
-  process.stdout.write(JSON.stringify({ service: "simulator", msg: "listening", port: info.port, bridgeUrl, webDir, url: `http://127.0.0.1:${info.port}/` }) + "\n");
+  process.stdout.write(JSON.stringify({ service: "simulator", msg: "listening", port: info.port, bridgeUrl, brain: brain.kind, brainReason: reason, url: `http://127.0.0.1:${info.port}/` }) + "\n");
 });
 
 function relativeToCwd(abs: string): string {

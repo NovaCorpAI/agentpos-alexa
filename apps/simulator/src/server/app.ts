@@ -4,20 +4,23 @@
  */
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
+import type { Brain, BrainKind } from "./agent/brain.js";
 import type { BridgeClient, ToolCallRecord } from "./bridge-client.js";
 import type { CheckoutFlow, CheckoutState } from "./checkout.js";
-import type { HouseholdMemory } from "./memory.js";
 import { inspectTurn, type InspectionLog, type RenderTiming } from "./inspection.js";
-import { route } from "./router.js";
+import type { HouseholdMemory } from "./memory.js";
 
 export const SIMULATOR_VERSION = "0.0.1";
 
 export interface SimulatorDeps {
   bridge: BridgeClient;
+  brain: Brain;
   checkout: CheckoutFlow;
   inspection: InspectionLog;
   /** Household memory: previous orders as references, for "the same as last week". */
   memory: HouseholdMemory;
+  /** What the /api/brain endpoint reports about the model in use. */
+  brainInfo?: { modelId?: string; region?: string };
   /** Where the served static web build lives; undefined in tests. */
   webDir?: string;
 }
@@ -37,7 +40,8 @@ export interface TurnView {
 export interface TurnResponse {
   turnId: string;
   traceId: string;
-  brain: "scripted-router" | "agent" | "recorded";
+  brain: BrainKind;
+  fallbackReason?: string;
   /** What the assistant says, in order. */
   speak: string[];
   toolCalls: ToolCallRecord[];
@@ -53,12 +57,32 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
   const known = new Map<string, KnownItem[]>();
   /** The last order per add-on, so "show my order" resolves. */
   const lastOrder = new Map<string, string>();
+  /** Store origin per add-on slug, for the agent's prompt and usage rows. */
+  const origins = new Map<string, string>();
+
+  const originOf = async (addon: string): Promise<string> => {
+    const cached = origins.get(addon);
+    if (cached) return cached;
+    for (const a of await deps.bridge.listAddons()) origins.set(a.slug, a.origin);
+    return origins.get(addon) ?? addon;
+  };
 
   app.get("/api/health", (c) => c.json({ status: "ok", simulatorVersion: SIMULATOR_VERSION }));
 
+  app.get("/api/brain", (c) =>
+    c.json({
+      kind: deps.brain.kind,
+      degraded: (deps.brain as { degradedReason?: string }).degradedReason ?? null,
+      modelId: deps.brainInfo?.modelId ?? null,
+      region: deps.brainInfo?.region ?? null,
+    }),
+  );
+
   app.get("/api/addons", async (c) => {
     try {
-      return c.json({ addons: await deps.bridge.listAddons() });
+      const addons = await deps.bridge.listAddons();
+      for (const a of addons) origins.set(a.slug, a.origin);
+      return c.json({ addons });
     } catch (e) {
       return c.json({ code: "BRIDGE_UNREACHABLE", message: String(e), hint: "Start the Bridge first (pnpm dev:bridge)." }, 502);
     }
@@ -67,48 +91,51 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
   const viewOf = (rec: ToolCallRecord | undefined): TurnView | null =>
     rec?.resourceUri && !rec.result.isError ? { resourceUri: rec.resourceUri, toolName: rec.name, arguments: rec.arguments, result: rec.result } : null;
 
-  const speakOf = (rec: ToolCallRecord): string | undefined => {
-    const first = rec.result.content[0] as { type?: string; text?: string } | undefined;
-    return first?.type === "text" && first.text ? first.text : undefined;
+  const learn = (addon: string, calls: ToolCallRecord[]): void => {
+    for (const rec of calls) {
+      const sc = rec.result.structuredContent as { items?: KnownItem[]; item?: KnownItem } | undefined;
+      if (Array.isArray(sc?.items)) known.set(addon, sc!.items!.map((i) => ({ id: i.id, title: i.title })));
+      if (sc?.item) known.set(addon, [...(known.get(addon) ?? []).filter((k) => k.id !== sc.item!.id), { id: sc.item.id, title: sc.item.title }]);
+    }
   };
 
   app.post("/api/turn", async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { addon?: string; text?: string };
+    const body = (await c.req.json().catch(() => ({}))) as { addon?: string; text?: string; language?: string };
     if (!body.addon || typeof body.text !== "string") {
       return c.json({ code: "BAD_TURN", message: "addon and text are required", hint: "" }, 400);
     }
     const addon = body.addon;
+    const language = body.language === "es-CL" ? "es-CL" : "en-US";
     const turnId = `turn_${randomUUID()}`;
     const traceId = `sim-${turnId.slice(5, 13)}`;
-    const intent = route(body.text, known.get(addon) ?? [], lastOrder.get(addon), deps.memory.recall(addon, 1)[0]);
-    const calls: ToolCallRecord[] = [];
-    const speak: string[] = [];
+    let brainTurn;
+    try {
+      const ctx = { addon, storeOrigin: await originOf(addon), traceId, language, known: known.get(addon) ?? [], remembered: deps.memory.recall(addon, 1)[0] } as Parameters<Brain["turn"]>[1];
+      const last = lastOrder.get(addon);
+      if (last) ctx.lastOrderId = last;
+      brainTurn = await deps.brain.turn(body.text, ctx);
+    } catch (e) {
+      c.status(502);
+      return c.json({ turnId, traceId, brain: deps.brain.kind, speak: ["I could not reach the store right now."], toolCalls: [], view: null, checkout: null, error: String(e) });
+    }
+    learn(addon, brainTurn.toolCalls);
     let checkout: CheckoutState | null = null;
-    if (intent.tool === null) {
-      speak.push(intent.reply);
-    } else {
+    const started = brainTurn.toolCalls.find((r) => r.name === "start_checkout" && !r.result.isError);
+    const sc = started?.result.structuredContent as { checkout?: { lineItems: Array<{ itemId: string; title: string; quantity: number }> } } | undefined;
+    // The router's speech for start_checkout is the tool's estimate; the checkout's own line replaces it.
+    const speak = started && brainTurn.brain === "scripted-router" ? [] : [...brainTurn.speak];
+    if (started && sc?.checkout) {
+      // The host's checkout pattern: open the session right away and read back the quote.
       try {
-        const rec = await deps.bridge.callTool(addon, intent.tool, intent.arguments, traceId);
-        calls.push(rec);
-        const said = speakOf(rec);
-        const sc = rec.result.structuredContent as { items?: KnownItem[]; item?: KnownItem; checkout?: { lineItems: Array<{ itemId: string; title: string; quantity: number }> } } | undefined;
-        if (Array.isArray(sc?.items)) known.set(addon, sc!.items!.map((i) => ({ id: i.id, title: i.title })));
-        if (sc?.item) known.set(addon, [...(known.get(addon) ?? []).filter((k) => k.id !== sc.item!.id), { id: sc.item.id, title: sc.item.title }]);
-        if (intent.tool === "start_checkout" && !rec.result.isError && sc?.checkout) {
-          // The host's checkout pattern: open the session right away and read back the quote.
-          checkout = await deps.checkout.start(addon, sc.checkout.lineItems, traceId);
-          speak.push(checkout.speak);
-        } else if (said) {
-          speak.push(said);
-        }
+        checkout = await deps.checkout.start(addon, sc.checkout.lineItems, traceId);
+        speak.push(checkout.speak);
       } catch (e) {
-        speak.push("I could not reach the store right now.");
-        c.status(502);
-        return c.json({ turnId, traceId, brain: "scripted-router", speak, toolCalls: [], view: null, checkout: null, error: String(e) });
+        speak.push(`I could not open the checkout: ${(e as Error).message}`);
       }
     }
-    deps.inspection.add(inspectTurn(turnId, addon, body.text, "scripted-router", calls));
-    const res: TurnResponse = { turnId, traceId, brain: "scripted-router", speak, toolCalls: calls, view: checkout ? null : viewOf(calls.at(-1)), checkout };
+    deps.inspection.add(inspectTurn(turnId, addon, body.text, brainTurn.brain, brainTurn.toolCalls));
+    const res: TurnResponse = { turnId, traceId, brain: brainTurn.brain, speak, toolCalls: brainTurn.toolCalls, view: checkout ? null : viewOf(brainTurn.toolCalls.at(-1)), checkout };
+    if (brainTurn.fallbackReason) res.fallbackReason = brainTurn.fallbackReason;
     return c.json(res);
   });
 
@@ -135,8 +162,8 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
         calls.push(rec);
         view = viewOf(rec);
       }
-      deps.inspection.add(inspectTurn(turnId, state.addon, `[confirm checkout ${state.sessionId} with ${body.handlerId}]`, "scripted-router", calls));
-      const res: TurnResponse = { turnId, traceId, brain: "scripted-router", speak, toolCalls: calls, view, checkout: state.session.status === "completed" ? null : state };
+      deps.inspection.add(inspectTurn(turnId, state.addon, `[confirm checkout ${state.sessionId} with ${body.handlerId}]`, deps.brain.kind, calls));
+      const res: TurnResponse = { turnId, traceId, brain: deps.brain.kind, speak, toolCalls: calls, view, checkout: state.session.status === "completed" ? null : state };
       return c.json(res);
     } catch (e) {
       return c.json({ code: "CHECKOUT_FAILED", message: String(e), hint: "" }, 502);
@@ -151,6 +178,17 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     } catch (e) {
       return c.json({ code: "CHECKOUT_FAILED", message: String(e), hint: "" }, 502);
     }
+  });
+
+  /** Forget the conversation with an add-on: a Scene starts clean. */
+  app.post("/api/reset", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { addon?: string };
+    if (body.addon) {
+      deps.brain.reset(body.addon);
+      known.delete(body.addon);
+      lastOrder.delete(body.addon);
+    }
+    return c.json({ ok: true });
   });
 
   app.get("/api/resource", async (c) => {

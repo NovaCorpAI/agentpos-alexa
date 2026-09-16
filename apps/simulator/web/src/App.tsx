@@ -4,7 +4,7 @@
  * summary. Everything visible in the frame came from a Bridge tool result or a UCP session.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, checkoutApi, type Addon, type CheckoutState, type Inspection, type Turn } from "./api";
+import { api, checkoutApi, type Addon, type BrainInfo, type CheckoutState, type Inspection, type Turn } from "./api";
 import { AppHost, type DisplayMode } from "./AppHost";
 import { Checkout } from "./Checkout";
 import { listenOnce, recognitionAvailable, speak } from "./speech";
@@ -76,6 +76,7 @@ export function App() {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [lastTurn, setLastTurn] = useState<Turn | null>(null);
   const [checkout, setCheckout] = useState<CheckoutState | null>(null);
+  const [brain, setBrain] = useState<BrainInfo | null>(null);
   const stopListen = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -86,6 +87,7 @@ export function App() {
         if (addons[0]) setAddon(addons[0].slug);
       })
       .catch((e: Error) => setError(e.message));
+    api.brain().then(setBrain).catch(() => undefined);
   }, []);
 
   const refreshInspection = useCallback(() => {
@@ -96,6 +98,7 @@ export function App() {
   const applyTurn = useCallback(
     async (turn: Turn, submittedAt: number) => {
       setLastTurn(turn);
+      if (turn.fallbackReason) setBrain((b) => (b ? { ...b, kind: turn.brain, degraded: turn.fallbackReason ?? null } : b));
       for (const s of turn.speak) setLines((l) => [...l, { who: "alexa", text: s }]);
       if (voiceOut && turn.speak[0]) speak(turn.speak.join(" "), lang);
       setCheckout(turn.checkout ?? null);
@@ -119,14 +122,14 @@ export function App() {
       setLines((l) => [...l, { who: "household", text }]);
       const submittedAt = performance.now();
       try {
-        await applyTurn(await api.turn(addon, text), submittedAt);
+        await applyTurn(await api.turn(addon, text, lang), submittedAt);
       } catch (e) {
         setLines((l) => [...l, { who: "alexa", text: `Something went wrong: ${(e as Error).message}` }]);
       } finally {
         setBusy(false);
       }
     },
-    [addon, busy, applyTurn],
+    [addon, busy, applyTurn, lang],
   );
 
   const confirmCheckout = useCallback(
@@ -187,7 +190,9 @@ export function App() {
       <aside className="panel">
         <h1>AgentPOS Alexa+ simulator</h1>
         <p className="muted">
-          Simulated Alexa+ experience. Brain: <b>scripted router, no model</b> until the Household agent lands.
+          Simulated Alexa+ experience. Brain:{" "}
+          <b>{brain?.kind === "agent" ? `Household agent on Bedrock (${brain.modelId ?? "model"}, ${brain.region ?? "region"})` : brain?.kind === "recorded" ? "recorded responses, no model" : "scripted router, no model"}</b>
+          {brain?.degraded ? <span className="small"> {brain.degraded}</span> : null}
         </p>
         {error ? <p className="error">{error}</p> : null}
 

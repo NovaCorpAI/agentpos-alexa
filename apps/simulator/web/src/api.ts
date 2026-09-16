@@ -45,6 +45,7 @@ export interface Turn {
   turnId: string;
   traceId: string;
   brain: "scripted-router" | "agent" | "recorded";
+  fallbackReason?: string;
   speak: string[];
   toolCalls: Array<{ name: string; arguments: Record<string, unknown>; result: ToolResult; resourceUri: string | null; latencyMs: number }>;
   view: { resourceUri: string; toolName: string; arguments: Record<string, unknown>; result: ToolResult } | null;
@@ -70,10 +71,19 @@ async function json<T>(res: Response): Promise<T> {
   return body;
 }
 
+export interface BrainInfo {
+  kind: "agent" | "scripted-router" | "recorded";
+  degraded: string | null;
+  modelId: string | null;
+  region: string | null;
+}
+
 export const api = {
   addons: () => fetch("/api/addons").then((r) => json<{ addons: Addon[] }>(r)),
-  turn: (addon: string, text: string) =>
-    fetch("/api/turn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ addon, text }) }).then((r) => json<Turn>(r)),
+  brain: () => fetch("/api/brain").then((r) => json<BrainInfo>(r)),
+  reset: (addon: string) => fetch("/api/reset", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ addon }) }).then((r) => json<unknown>(r)),
+  turn: (addon: string, text: string, language: string) =>
+    fetch("/api/turn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ addon, text, language }) }).then((r) => json<Turn>(r)),
   resource: (addon: string, uri: string) =>
     fetch(`/api/resource?addon=${encodeURIComponent(addon)}&uri=${encodeURIComponent(uri)}`).then((r) => json<{ html: string; mimeType: string; meta: unknown }>(r)),
   inspection: () => fetch("/api/inspection").then((r) => json<Inspection>(r)),
