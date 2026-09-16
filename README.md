@@ -72,7 +72,11 @@ The MCP endpoint for Alexa+ (or any MCP client) is `/stores/{slug}/mcp`: Streama
 spec 2025-11-25, bearer auth. Without `BRIDGE_BEARER_TOKEN` in the environment the bridge
 prints a one-run token in its first log line. Four tools, one intent each: `search_items`,
 `get_item`, `get_policies`, `start_checkout`. Every result speaks first (a short text block)
-and carries structured content with prices as integer minor units.
+and carries structured content with prices as integer minor units. `search_items` and
+`get_item` also carry an MCP Apps view (carousel, item card) that the bridge serves as a
+`ui://` resource: one self-contained HTML file each, built from `packages/bridge/apps/` with
+`pnpm --filter @agentpos-alexa/bridge build:apps` and committed, so nothing needs building
+to run.
 
 The UCP checkout Alexa+ documents lives at `/stores/{slug}/checkout-sessions` (create, get,
 update, complete, cancel). Sessions are priced from the Store's catalog, quoted by the Store

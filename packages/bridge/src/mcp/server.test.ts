@@ -126,3 +126,38 @@ describe("MCP endpoint auth", () => {
     storage.close();
   });
 });
+
+describe("MCP Apps views", () => {
+  it("lists ui:// resources with the MCP Apps mime type, tools point at them, and the HTML is self-contained", async () => {
+    const fixture = createFixtureStore({ baseUrl: STORE });
+    const storage = openStorage({ path: ":memory:" });
+    storage.stores.register("bakery", parseStoreProfile(STORE, await (await fixture.app.request("/.well-known/ucp")).json()));
+    const bridge = createApp({ storage, logger: createLogger(memorySink().sink), bridgeBaseUrl: BRIDGE, bearerToken: TOKEN, storeFetch: fetchInto(fixture.app) }) as unknown as Hono;
+    const client = new Client({ name: "test-host", version: "0.0.0" });
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${BRIDGE}/stores/bakery/mcp`), { fetch: fetchInto(bridge), requestInit: { headers: { Authorization: `Bearer ${TOKEN}` } } }));
+
+    const { resources } = await client.listResources();
+    const uris = resources.map((r) => r.uri).sort();
+    expect(uris).toEqual(["ui://agentpos-alexa/carousel.html", "ui://agentpos-alexa/item-card.html"]);
+    expect(resources.every((r) => r.mimeType === "text/html;profile=mcp-app")).toBe(true);
+
+    const { tools } = await client.listTools();
+    const byName = new Map(tools.map((t) => [t.name, t]));
+    expect((byName.get("search_items")?._meta as { ui?: { resourceUri?: string } })?.ui?.resourceUri).toBe("ui://agentpos-alexa/carousel.html");
+    expect((byName.get("get_item")?._meta as { ui?: { resourceUri?: string } })?.ui?.resourceUri).toBe("ui://agentpos-alexa/item-card.html");
+    for (const t of tools) {
+      const uri = (t._meta as { ui?: { resourceUri?: string } } | undefined)?.ui?.resourceUri;
+      if (uri) expect(uris).toContain(uri);
+    }
+
+    const read = await client.readResource({ uri: "ui://agentpos-alexa/carousel.html" });
+    const content = read.contents[0] as { text?: string; mimeType?: string; _meta?: { ui?: { csp?: { resourceDomains?: string[] } } } };
+    expect(content.mimeType).toBe("text/html;profile=mcp-app");
+    expect(content.text).toContain('id="root"');
+    expect(content.text).not.toMatch(/<script[^>]*src="https?:/);
+    expect(content._meta?.ui?.csp?.resourceDomains).toEqual([STORE]);
+
+    await client.close();
+    storage.close();
+  });
+});

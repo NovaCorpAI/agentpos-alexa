@@ -1,0 +1,35 @@
+/* Shared look for the Bridge's MCP Apps views. Follows the host theme (light or dark) and
+   Amazon's guidance: large touch targets, high contrast, no third-party assets. */
+:root {
+  --bg: #ffffff;
+  --fg: #111318;
+  --muted: #5b6270;
+  --card: #f4f6fa;
+  --accent: #0b6fd6;
+  --accent-fg: #ffffff;
+  --border: #dfe3ea;
+  --radius: 14px;
+  color-scheme: light;
+  font-family: "Amazon Ember", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+[data-theme="dark"] {
+  --bg: #0f1218;
+  --fg: #f2f4f8;
+  --muted: #a3abb8;
+  --card: #1a1f2a;
+  --accent: #4aa3ff;
+  --accent-fg: #0b0e14;
+  --border: #2a3140;
+  color-scheme: dark;
+}
+html, body { margin: 0; background: var(--bg); color: var(--fg); }
+body { padding: 8px; }
+* { box-sizing: border-box; }
+button { font: inherit; cursor: pointer; }
+.price { font-variant-numeric: tabular-nums; font-weight: 600; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--card); border: 1px solid var(--border); color: var(--muted);
+}
+.badge.ok { color: #0a7f3f; border-color: #0a7f3f33; }
+.badge.warn { color: #a05a00; border-color: #a05a0033; }

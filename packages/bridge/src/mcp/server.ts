@@ -2,7 +2,7 @@
  * The MCP server Alexa+ talks to, one per Store, built per request (stateless Streamable
  * HTTP). Four tools, one customer intent each (docs/ALEXA-MCP-DESIGN.md):
  *
- *   search_items    find things to buy                       -> carousel (view lands in #5)
+ *   search_items    find things to buy                       -> carousel (MCP Apps view)
  *   get_item        one item in detail, voice-ready           -> item card
  *   get_policies    what the Store publishes about payment, shipping and human review
  *   start_checkout  hand the chosen lines to the UCP checkout pattern (#7)
@@ -11,6 +11,8 @@
  * typed error { code, message, hint } with isError, never an empty result.
  */
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
+import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
+import { APP_VIEWS, registerAppViews } from "./apps/index.js";
 import { z } from "zod";
 import { AgentPosStoreClient, StoreRequestError, type CatalogItem } from "@agentpos-alexa/store-client";
 import type { Logger } from "../logging.js";
@@ -129,13 +131,17 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
     return result;
   };
 
-  server.registerTool(
+  registerAppViews(server, { imageOrigins: [store.origin] });
+
+  registerAppTool(
+    server,
     "search_items",
     {
       title: "Search items",
       description: `Find items to buy at ${storeName(store)}. Call when the customer asks what is available or names something to buy. Returns up to 5 items with exact prices, ready for a carousel.`,
       inputSchema: SearchInput,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      _meta: { ui: { resourceUri: APP_VIEWS.carousel.uri } },
     },
     async ({ query, limit }) =>
       timed("search_items", async () => {
@@ -150,13 +156,15 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
       }),
   );
 
-  server.registerTool(
+  registerAppTool(
+    server,
     "get_item",
     {
       title: "Get item",
       description: "One item in detail: description, price and the attributes the store publishes (allergens, gluten, weight). Call before answering a question about a specific item.",
       inputSchema: GetItemInput,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      _meta: { ui: { resourceUri: APP_VIEWS["item-card"].uri } },
     },
     async ({ itemId }) =>
       timed("get_item", async () => {
