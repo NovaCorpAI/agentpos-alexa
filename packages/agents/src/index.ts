@@ -29,5 +29,7 @@ export const AGENT_MODEL_POLICY: Readonly<Record<AgentRole, AgentModelPolicy>> =
 
 export { findings, Guardian } from "./guardian.js";
 export type { GuardianDecision, GuardianFinding, GuardianInput, GuardianLine, GuardianOptions, GuardianOrderRef, GuardianUsage, GuardianVerdict } from "./guardian.js";
+export { answerFromFacts, CatalogAgent, matchItems } from "./catalog.js";
+export type { CatalogAgentOptions, CatalogAnswer, CatalogFact, CatalogQuestion, CatalogUsage, OverlayEntry } from "./catalog.js";
 export { estimateCostUsdMicros, priceFor } from "./pricing.js";
 export type { ModelPrice } from "./pricing.js";

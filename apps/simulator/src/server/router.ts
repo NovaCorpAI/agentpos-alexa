@@ -7,6 +7,7 @@
 export type Intent =
   | { tool: "search_items"; arguments: { query?: string; limit?: number } }
   | { tool: "get_item"; arguments: { itemId: string } }
+  | { tool: "ask_catalog"; arguments: { question: string } }
   | { tool: "get_policies"; arguments: Record<string, never> }
   | { tool: "start_checkout"; arguments: { items: Array<{ itemId: string; quantity: number }> } }
   | { tool: "get_order"; arguments: { orderId: string } }
@@ -20,6 +21,9 @@ const ORDER_WORDS = /\bmy order\b|\bwhere is my\b|\border status\b|\bwhat did i 
 const RECEIPT_WORDS = /\breceipt\b|\bproof of purchase\b/;
 const REORDER_WORDS = /\bsame as (?:last|the last) (?:week|time)\b|\bmy usual\b|\breorder\b|\border (?:it |that )?again\b|\bwhat i (?:had|got|ordered) last (?:week|time)\b/;
 const NO_ORDER = "There is no order yet in this session.";
+
+/** Words that ask about a property the item card may not state: the catalog agent answers those. */
+const PROPERTY_WORDS = /gluten|vegan|organic|contain|allerg|ingredient|nuts?\b|milk|dairy|egg|sesame|soy|weigh|grams|how many|pieces|made (?:of|with|from)/i;
 
 function clean(s: string): string {
   return s.trim().replace(/[?.!]+$/, "").trim();
@@ -78,8 +82,11 @@ export function route(text: string, known: Array<{ id: string; title: string }>,
   const detail = /^(?:tell me (?:more )?about|what about|is|does|describe|details? (?:of|on)|show)\s+(?:the\s+)?(.+)$/.exec(t);
   if (detail) {
     // "is the X gluten free" / "does the X contain nuts": the item is the head of the phrase.
-    const subject = detail[1]!.replace(/\s+(?:gluten[ -]free|vegan|have\b.*|contain\b.*|come\b.*|weigh\b.*)$/, "");
+    const subject = detail[1]!.replace(/\s+(?:gluten[ -]free|vegan|organic|have\b.*|contain\b.*|come\b.*|weigh\b.*|made\b.*)$/, "");
     const itemId = matchItem(subject, known);
+    // A question about a property of the item goes to the catalog agent with the words as said;
+    // "tell me about X" stays with the item card.
+    if (itemId && PROPERTY_WORDS.test(t) && /^(?:is|does|what|how)\b/.test(t)) return { tool: "ask_catalog", arguments: { question: text.trim() } };
     if (itemId) return { tool: "get_item", arguments: { itemId } };
     if (!POLICY_WORDS.test(t)) {
       const q = stripGeneric(subject);

@@ -4,7 +4,7 @@ Services used, why each, and where in the code. Updated as modules land.
 
 | Service | Why | Where |
 | --- | --- | --- |
-| Amazon Bedrock (Nova 2 Lite) | frequent, cheap steps: catalog answers, ranking, voice-ready summaries | `packages/agents/src/catalog/*` (planned) |
+| Amazon Bedrock (Nova 2 Lite, via Strands TypeScript) | the catalog agent behind `ask_catalog`: words the answer from published facts only; one usage_events row per call (`agent.catalog`) | `packages/agents/src/catalog.ts`, wired in `packages/bridge/src/mcp/server.ts` and `packages/bridge/src/main.ts` |
 | Amazon Bedrock (Claude Sonnet 4.6, via Strands TypeScript) | the policy guardian's one spoken sentence at checkout completion, only when a rule fires; one usage_events row per call (`agent.guardian`) | `packages/agents/src/guardian.ts`, wired in `packages/bridge/src/checkout/service.ts` and `packages/bridge/src/main.ts` |
 | Amazon Bedrock (Claude Sonnet or Nova Pro) | rare, critical decisions: onboarding draft | `packages/agents/src/onboarding/*` (planned) |
 | Bedrock AgentCore Runtime | hosts the merchant agents with traces for the demo | `packages/agents/deploy/*` (planned) |

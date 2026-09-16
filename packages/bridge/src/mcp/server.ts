@@ -4,6 +4,7 @@
  *
  *   search_items    find things to buy                       -> carousel (MCP Apps view)
  *   get_item        one item in detail, voice-ready           -> item card
+ *   ask_catalog     a question about an item, answered only from what the Store publishes (#14)
  *   get_policies    what the Store publishes about payment, shipping and human review
  *   start_checkout  hand the chosen lines to the UCP checkout pattern (#7)
  *
@@ -15,6 +16,7 @@ import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { APP_VIEWS, registerAppViews } from "./apps/index.js";
 import { z } from "zod";
 import { AgentPosStoreClient, StoreRequestError, type CatalogItem } from "@agentpos-alexa/store-client";
+import { CatalogAgent, estimateCostUsdMicros } from "@agentpos-alexa/agents";
 import type { Logger } from "../logging.js";
 import type { RegisteredStore } from "../storage/store-registry.js";
 import type { NewUsageEvent } from "../storage/usage-events-repo.js";
@@ -33,9 +35,11 @@ export interface StoreMcpDeps {
   record: (event: NewUsageEvent) => void;
   /** The Bridge's own checkout sessions, to say how an order was paid. */
   checkout: CheckoutRepo;
+  /** Answers ask_catalog. Omitted: the deterministic answerer alone (no model). */
+  catalogAgent?: CatalogAgent;
 }
 
-export const MCP_TOOL_NAMES = ["search_items", "get_item", "get_policies", "start_checkout", "get_order", "get_receipt"] as const;
+export const MCP_TOOL_NAMES = ["search_items", "get_item", "ask_catalog", "get_policies", "start_checkout", "get_order", "get_receipt"] as const;
 
 /** Wire shape of an item in structured content: minor units as strings, never floats. */
 export interface ItemView {
@@ -95,6 +99,10 @@ const GetItemInput = z.object({
   itemId: z.string().min(1).describe("Item id from search_items."),
 });
 
+const AskCatalogInput = z.object({
+  question: z.string().min(1).max(300).describe("The customer's question as they said it, e.g. 'Is the seeded loaf gluten free?'"),
+});
+
 const OrderInput = z.object({
   orderId: z.string().min(1).describe("Order id returned by the store at checkout completion."),
 });
@@ -140,6 +148,45 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
   };
 
   registerAppViews(server, { imageOrigins: [store.origin] });
+
+  const catalogAgent = deps.catalogAgent ?? new CatalogAgent();
+  server.registerTool(
+    "ask_catalog",
+    {
+      title: "Ask about an item",
+      description:
+        "Answers a question about an item (ingredients, allergens, gluten, weight, pieces, anything the item card does not say) from what the store publishes. Says when the store has not published it. Returns the spoken answer and whether it is grounded.",
+      inputSchema: AskCatalogInput,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async (input) =>
+      timed("ask_catalog", async () => {
+        const { question } = AskCatalogInput.parse(input);
+        const catalog = await client.catalog();
+        const started = performance.now();
+        const a = await catalogAgent.answer({
+          question,
+          language: "en-US",
+          storeName: catalog.site.name,
+          items: catalog.items.map((it) => ({ id: it.id, title: it.title, description: it.description, priceDisplay: speakPrice(it.price.minor, it.price.asset), attributes: it.attributes ?? {} })),
+        });
+        if (a.fallbackReason) log.log("warn", "catalog agent fell back to the facts", { fallbackReason: a.fallbackReason });
+        if (a.usage) {
+          deps.record({
+            traceId: deps.traceId,
+            source: "agent.catalog",
+            storeOrigin: store.origin,
+            model: a.usage.modelId,
+            inputTokens: a.usage.inputTokens,
+            outputTokens: a.usage.outputTokens,
+            latencyMs: Math.round(performance.now() - started),
+            estimatedCostUsdMicros: estimateCostUsdMicros(a.usage.modelId, a.usage.inputTokens, a.usage.outputTokens).micros,
+            simulated: false,
+          });
+        }
+        return ok(a.answer, { answer: a.answer, grounded: a.grounded, itemIds: a.itemIds, modelUsed: a.modelUsed, model: a.usage?.modelId ?? null });
+      }),
+  );
 
   registerAppTool(
     server,

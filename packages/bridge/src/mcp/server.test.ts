@@ -1,3 +1,5 @@
+import { CatalogAgent } from "@agentpos-alexa/agents";
+import { FakeModel } from "@agentpos-alexa/agents/testing";
 import { createFixtureStore } from "@agentpos-alexa/fixture-store";
 import { parseStoreProfile } from "@agentpos-alexa/store-client";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
@@ -50,7 +52,7 @@ describe("Store MCP server over Streamable HTTP", () => {
     storage.close();
   });
 
-  it("lists exactly the four intent tools, each with a description and schema", async () => {
+  it("lists exactly the intent tools, each with a description and schema", async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([...MCP_TOOL_NAMES].sort());
     for (const t of tools) {
@@ -87,6 +89,28 @@ describe("Store MCP server over Streamable HTTP", () => {
     expect(missing.isError).toBe(true);
     expect(missing.structuredContent).toMatchObject({ error: { code: "ITEM_NOT_FOUND" } });
     expect((missing.content as Array<{ text: string }>)[0]?.text.length).toBeGreaterThan(0);
+  });
+
+  it("ask_catalog answers from the published attributes without a model and says when a fact is not published", async () => {
+    const gf = await client.callTool({ name: "ask_catalog", arguments: { question: "Is the seeded loaf gluten free?" } });
+    expect(gf.content[0]).toEqual({ type: "text", text: "Yes, Gluten-free seeded loaf is gluten free." });
+    expect(gf.structuredContent).toMatchObject({ grounded: true, itemIds: ["gluten-free-loaf"], modelUsed: false, model: null });
+    const organic = await client.callTool({ name: "ask_catalog", arguments: { question: "Is the seeded loaf organic?" } });
+    expect((organic.content[0] as { text: string }).text).toMatch(/^The store has not published whether it is organic/);
+    expect(organic.structuredContent).toMatchObject({ grounded: false });
+    expect(storage.usageEvents.list({ source: "agent.catalog" })).toHaveLength(0);
+  });
+
+  it("ask_catalog with a model records one agent.catalog row with the model that answered", async () => {
+    const model = new FakeModel([{ text: JSON.stringify({ answer: "Yes, the seeded loaf is gluten free.", grounded: true, itemIds: ["gluten-free-loaf"] }) }]);
+    bridge = createApp({ storage, logger: createLogger(logs.sink), bridgeBaseUrl: BRIDGE, bearerToken: TOKEN, storeFetch: fetchInto(fixture.app), catalogAgent: new CatalogAgent({ model, modelId: "fake.fast" }) }) as unknown as Hono;
+    const c2 = new Client({ name: "test-host", version: "0.0.0" });
+    await c2.connect(new StreamableHTTPClientTransport(new URL(`${BRIDGE}/stores/bakery/mcp`), { fetch: fetchInto(bridge), requestInit: { headers: { Authorization: `Bearer ${TOKEN}`, "Request-Id": "trace-mcp-2" } } }));
+    const res = await c2.callTool({ name: "ask_catalog", arguments: { question: "Is the seeded loaf gluten free?" } });
+    expect(res.content[0]).toEqual({ type: "text", text: "Yes, the seeded loaf is gluten free." });
+    expect(res.structuredContent).toMatchObject({ grounded: true, modelUsed: true, model: "fake.fast" });
+    expect(storage.usageEvents.list({ source: "agent.catalog" })).toMatchObject([{ traceId: "trace-mcp-2", model: "fake.fast", storeOrigin: STORE }]);
+    await c2.close();
   });
 
   it("get_policies reports payment, shipping and human review from what the Store publishes", async () => {

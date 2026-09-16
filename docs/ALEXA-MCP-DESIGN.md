@@ -18,7 +18,8 @@ access. Every rule here is checked in code review of `packages/bridge/src/mcp/` 
   placeholder, or non-functional entries."
 - "Ship only your own content: no third-party tracking parameters, or upstream deep links."
 
-Tool set for a store, one intent each: `search_items`, `get_item`, `get_policies`,
+Tool set for a store, one intent each: `search_items`, `get_item`, `ask_catalog` (a question
+about an item, answered by the catalog agent from published facts only), `get_policies`,
 `start_checkout` (validates the lines and hands them to the checkout service), `get_order`
 and `get_receipt`. Cart, quote, payment and completion go through the UCP checkout
 endpoints, which Alexa handles as "standardized patterns so customers always experience a

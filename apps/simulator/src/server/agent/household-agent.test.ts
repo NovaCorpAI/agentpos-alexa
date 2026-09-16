@@ -50,7 +50,7 @@ describe("Household agent on Strands (scripted model)", () => {
 
     // The model saw the Bridge's six tools with their schemas and the voice-first system prompt.
     const first = model.calls[0]!.options!;
-    expect(first.toolSpecs?.map((t) => t.name).sort()).toEqual(["get_item", "get_order", "get_policies", "get_receipt", "search_items", "start_checkout"]);
+    expect(first.toolSpecs?.map((t) => t.name).sort()).toEqual(["ask_catalog", "get_item", "get_order", "get_policies", "get_receipt", "search_items", "start_checkout"]);
     expect(JSON.stringify(first.systemPrompt)).toContain("Never invent");
 
     // Two model calls, two usage rows with tokens and an estimated cost.

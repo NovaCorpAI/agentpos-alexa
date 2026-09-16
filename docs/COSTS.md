@@ -7,7 +7,7 @@ checkout session** (the variable cost a store generates).
 | Step | Model | Calls | Tokens in | Tokens out | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Household agent, 3 turns to a started checkout (first measurement, 2026-09-16) | us.amazon.nova-2-lite-v1:0 | 6 | 16,406 | 189 | US$0.0010 (estimate table) |
-| Catalog agent (in conversation) | Nova 2 Lite | | | | |
+| Catalog agent, one question (measured 2026-09-16, three questions averaged) | us.amazon.nova-2-lite-v1:0 | 1 | 948 | 38 | US$0.00007 (estimate table) |
 | Voice-ready ranking and summaries | Nova 2 Lite | | | | |
 | Policy guardian, one duplicate review (measured 2026-09-16; Sonnet gated by the use case form, FL-006) | us.amazon.nova-pro-v1:0 | 1 | 313 | 29 | US$0.0003 (estimate table) |
 | Policy guardian, no rule fired | none | 0 | 0 | 0 | US$0 |

@@ -29,7 +29,9 @@ describe("scripted router", () => {
     expect(route("Do you have croissants?", [])).toEqual({ tool: "search_items", arguments: { query: "croissants", limit: 5 } });
     expect(route("Do you deliver?", [])).toEqual({ tool: "get_policies", arguments: {} });
     expect(route("Tell me about the gluten-free seeded loaf", known)).toEqual({ tool: "get_item", arguments: { itemId: "gluten-free-loaf" } });
-    expect(route("Is the sourdough loaf gluten free?", known)).toEqual({ tool: "get_item", arguments: { itemId: "sourdough-loaf" } });
+    expect(route("Is the sourdough loaf gluten free?", known)).toEqual({ tool: "ask_catalog", arguments: { question: "Is the sourdough loaf gluten free?" } });
+    expect(route("Does the gluten-free seeded loaf contain nuts?", known)).toEqual({ tool: "ask_catalog", arguments: { question: "Does the gluten-free seeded loaf contain nuts?" } });
+    expect(route("Is the seeded loaf organic?", known)).toEqual({ tool: "ask_catalog", arguments: { question: "Is the seeded loaf organic?" } });
     expect(route("Buy two sourdough loaf", known)).toEqual({ tool: "start_checkout", arguments: { items: [{ itemId: "sourdough-loaf", quantity: 2 }] } });
     expect(route("buy 3 croissants", known)).toEqual({ tool: "search_items", arguments: { query: "croissants", limit: 5 } });
     expect(route("Show my order", known, "ord_1")).toEqual({ tool: "get_order", arguments: { orderId: "ord_1" } });
@@ -109,8 +111,13 @@ describe("Simulator server against an in-memory Bridge and fixture bakery", () =
   it("resolves a follow-up about an item heard in the last search", async () => {
     await turn("any gluten-free bread?");
     const t = await turn("Is the gluten-free seeded loaf gluten free?");
-    expect(t.speak[0]).toContain("It is gluten free.");
-    expect(t.view?.resourceUri).toBe("ui://agentpos-alexa/item-card.html");
+    expect(t.speak[0]).toBe("Yes, Gluten-free seeded loaf is gluten free.");
+    expect(t.view).toBeNull();
+    const card = await turn("Tell me about the gluten-free seeded loaf");
+    expect(card.speak[0]).toContain("It is gluten free.");
+    expect(card.view?.resourceUri).toBe("ui://agentpos-alexa/item-card.html");
+    const organic = await turn("Is the gluten-free seeded loaf organic?");
+    expect(organic.speak[0]).toMatch(/^The store has not published whether it is organic/);
   });
 
   it("buys end to end with the host's checkout pattern, then shows the order and the receipt", async () => {

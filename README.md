@@ -92,7 +92,7 @@ first one is registered at boot from `AGENTPOS_STORE_URL`. Every response carrie
 settlement.
 
 **MCP for Alexa+** at `/stores/{slug}/mcp`: Streamable HTTP, spec 2025-11-25, bearer auth.
-Six tools, one intent each: `search_items`, `get_item`, `get_policies`, `start_checkout`,
+Seven tools, one intent each: `search_items`, `get_item`, `ask_catalog`, `get_policies`, `start_checkout`,
 `get_order`, `get_receipt`. Every result speaks first (a short text block) and carries
 structured content with prices as integer minor units; every failure is a typed error, never
 an empty result. Four tools carry an MCP Apps view (carousel, item card, order card, receipt
@@ -131,6 +131,13 @@ buy, the simulator opens a UCP checkout session on the bridge, fills the Demo ho
 synthetic address, shows the store's quote with the payment handlers the session accepts
 (the Amazon handlers, labeled SIMULATED), and completes with the chosen one. The order card
 and the receipt card that follow are the bridge's own MCP Apps views.
+
+The catalog agent answers the question the item card cannot: "is the seeded loaf gluten
+free?", "does it contain nuts?", "is it organic?". It reads only what the store publishes
+(attributes, description, the Voice overlay once onboarding lands) and a deterministic
+answerer runs first; the fast model (Nova 2 Lite) words the answer and can never upgrade an
+unpublished fact to a published one. When the store has not published the fact, it says so.
+Scene 2 plays the three questions. Tool: `ask_catalog`.
 
 The policy guardian sits inside `complete`: when this household orders the same lines it
 ordered within the last seven days, the Bridge does not settle. It answers with one spoken

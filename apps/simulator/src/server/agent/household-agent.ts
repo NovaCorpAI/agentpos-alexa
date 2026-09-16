@@ -34,7 +34,7 @@ export function systemPrompt(language: "en-US" | "es-CL", storeName: string): st
     "Prices returned by tools are exact. Read them as they come, do not round or convert.",
     "When the customer names what to buy, call start_checkout with the exact item ids and quantities, then answer only 'Starting the checkout.' The checkout screen asks for the address and the payment; never ask for them yourself.",
     "When a search matched nothing (matched is false), say so in one sentence and name what the store sells instead.",
-    "For a question about an item, call get_item with its id from a previous search. For delivery or payment questions, call get_policies.",
+    "To describe an item, call get_item with its id from a previous search. For a question about an item's ingredients, allergens, gluten, weight, pieces or any other property, call ask_catalog with the customer's question as they said it, and repeat its answer; it answers only from what the store publishes. For delivery or payment questions, call get_policies.",
     "For an order the customer placed, call get_order; for a receipt, get_receipt.",
     "Do not describe the tools or the screen. Do not use markdown.",
   ].join(" ");

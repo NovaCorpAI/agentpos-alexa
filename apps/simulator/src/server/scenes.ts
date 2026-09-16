@@ -28,8 +28,8 @@ export const SCENES: Scene[] = [
   {
     id: "gluten-free",
     title: "Scene 2: is it gluten free?",
-    proves: "The answer comes only from what the store publishes; the agent never invents ingredients.",
-    steps: [{ reset: true }, { say: "What bread do you have?" }, { say: "Is the seeded loaf gluten free?" }],
+    proves: "The answer comes only from what the store publishes; the agent never invents ingredients, and says when a fact is not published.",
+    steps: [{ reset: true }, { say: "What bread do you have?" }, { say: "Is the seeded loaf gluten free?" }, { say: "Does the seeded loaf contain nuts?" }, { say: "Is the seeded loaf organic?" }],
   },
   {
     id: "duplicate-blocked",
