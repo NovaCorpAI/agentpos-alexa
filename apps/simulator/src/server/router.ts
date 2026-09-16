@@ -18,6 +18,7 @@ const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, thre
 const POLICY_WORDS = /(polic|deliver|shipping|ship\b|pay\b|payment|accept|review|refund)/;
 const ORDER_WORDS = /\bmy order\b|\bwhere is my\b|\border status\b|\bwhat did i (?:buy|order)\b|\bshow (?:me )?(?:the )?order\b/;
 const RECEIPT_WORDS = /\breceipt\b|\bproof of purchase\b/;
+const REORDER_WORDS = /\bsame as (?:last|the last) (?:week|time)\b|\bmy usual\b|\breorder\b|\border (?:it |that )?again\b|\bwhat i (?:had|got|ordered) last (?:week|time)\b/;
 const NO_ORDER = "There is no order yet in this session.";
 
 function clean(s: string): string {
@@ -42,9 +43,20 @@ export function matchItem(name: string, known: Array<{ id: string; title: string
   return contains?.id;
 }
 
-export function route(text: string, known: Array<{ id: string; title: string }>, lastOrderId?: string): Intent {
+export interface RememberedOrder {
+  orderId: string;
+  lines: Array<{ itemId: string; title: string; quantity: number }>;
+}
+
+export function route(text: string, known: Array<{ id: string; title: string }>, lastOrderId?: string, remembered?: RememberedOrder): Intent {
   const t = clean(text).toLowerCase();
   if (!t) return { tool: null, reply: "Say what you would like to find, or ask about delivery and payment." };
+
+  // "The same as last week": reorder from Household memory, references only.
+  if (REORDER_WORDS.test(t)) {
+    if (!remembered || remembered.lines.length === 0) return { tool: null, reply: "I do not have a previous order from this store to repeat." };
+    return { tool: "start_checkout", arguments: { items: remembered.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })) } };
+  }
 
   // Orders and receipts: an explicit order id in the text, else the last order of the session.
   const orderRef = /\b(ord_[a-z0-9_-]+)\b/i.exec(clean(text))?.[1] ?? lastOrderId;

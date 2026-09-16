@@ -7,6 +7,7 @@ import { createSimulatorApp, type TurnResponse } from "./app.js";
 import { BridgeCheckoutClient, BridgeClient } from "./bridge-client.js";
 import { CheckoutFlow } from "./checkout.js";
 import { InspectionLog } from "./inspection.js";
+import { SqliteHouseholdMemory } from "./memory.js";
 import { matchItem, route } from "./router.js";
 
 const STORE = "http://bakery.test";
@@ -42,6 +43,7 @@ describe("Simulator server against an in-memory Bridge and fixture bakery", () =
   let storage: Storage;
   let sim: Hono;
   let inspection: InspectionLog;
+  let memory: SqliteHouseholdMemory;
   let bridgeClient: BridgeClient;
 
   const post = (path: string, body: unknown) => sim.request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -57,11 +59,27 @@ describe("Simulator server against an in-memory Bridge and fixture bakery", () =
     bridgeClient = new BridgeClient({ url: BRIDGE, bearerToken: TOKEN }, fetchInto(bridge));
     const checkout = new CheckoutFlow(new BridgeCheckoutClient({ url: BRIDGE, bearerToken: TOKEN }, fetchInto(bridge)));
     inspection = new InspectionLog(":memory:/never-written.json", "test");
-    sim = createSimulatorApp({ bridge: bridgeClient, checkout, inspection });
+    memory = new SqliteHouseholdMemory(":memory:");
+    sim = createSimulatorApp({ bridge: bridgeClient, checkout, inspection, memory });
   });
   afterEach(async () => {
     await bridgeClient.close();
+    memory.close();
     storage.close();
+  });
+
+  it("remembers a completed order as references and reorders it on 'the same as last week'", async () => {
+    expect((await turn("The same as last week")).speak[0]).toMatch(/do not have a previous order/);
+    await turn("What bread do you have?");
+    const started = await turn("Buy two sourdough loaf");
+    await post(`/api/checkout/${started.checkout!.sessionId}/confirm`, { handlerId: "amazon_pay_network_token" });
+    const remembered = memory.recall("bakery");
+    expect(remembered).toHaveLength(1);
+    expect(remembered[0]?.lines).toEqual([{ itemId: "sourdough-loaf", title: "Sourdough loaf", quantity: 2 }]);
+    expect(JSON.stringify(remembered)).not.toMatch(/alex|demo@|Fixture Street/i);
+    const again = await turn("The same as last week");
+    expect(again.checkout?.session.line_items.map((l) => [l.item.id, l.quantity])).toEqual([["sourdough-loaf", 2]]);
+    expect(again.speak[0]).toContain("Your total is $13.00");
   });
 
   it("lists the Bridge's Stores as Enabled add-ons", async () => {

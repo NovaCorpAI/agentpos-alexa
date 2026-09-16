@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import type { BridgeClient, ToolCallRecord } from "./bridge-client.js";
 import type { CheckoutFlow, CheckoutState } from "./checkout.js";
+import type { HouseholdMemory } from "./memory.js";
 import { inspectTurn, type InspectionLog, type RenderTiming } from "./inspection.js";
 import { route } from "./router.js";
 
@@ -15,6 +16,8 @@ export interface SimulatorDeps {
   bridge: BridgeClient;
   checkout: CheckoutFlow;
   inspection: InspectionLog;
+  /** Household memory: previous orders as references, for "the same as last week". */
+  memory: HouseholdMemory;
   /** Where the served static web build lives; undefined in tests. */
   webDir?: string;
 }
@@ -77,7 +80,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     const addon = body.addon;
     const turnId = `turn_${randomUUID()}`;
     const traceId = `sim-${turnId.slice(5, 13)}`;
-    const intent = route(body.text, known.get(addon) ?? [], lastOrder.get(addon));
+    const intent = route(body.text, known.get(addon) ?? [], lastOrder.get(addon), deps.memory.recall(addon, 1)[0]);
     const calls: ToolCallRecord[] = [];
     const speak: string[] = [];
     let checkout: CheckoutState | null = null;
@@ -122,6 +125,12 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
       let view: TurnView | null = null;
       if (state.session.status === "completed" && state.session.order) {
         lastOrder.set(state.addon, state.session.order.id);
+        deps.memory.remember({
+          addon: state.addon,
+          orderId: state.session.order.id,
+          at: new Date().toISOString(),
+          lines: state.session.line_items.map((l) => ({ itemId: l.item.id, title: l.item.title, quantity: l.quantity })),
+        });
         const rec = await deps.bridge.callTool(state.addon, "get_order", { orderId: state.session.order.id }, traceId);
         calls.push(rec);
         view = viewOf(rec);

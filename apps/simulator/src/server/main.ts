@@ -9,6 +9,7 @@ import { createSimulatorApp, SIMULATOR_VERSION } from "./app.js";
 import { BridgeCheckoutClient, BridgeClient } from "./bridge-client.js";
 import { CheckoutFlow } from "./checkout.js";
 import { InspectionLog } from "./inspection.js";
+import { SqliteHouseholdMemory } from "./memory.js";
 
 const port = Number(process.env.SIMULATOR_PORT ?? 8788);
 const bridgeUrl = (process.env.BRIDGE_URL ?? process.env.BRIDGE_BASE_URL ?? "http://127.0.0.1:8787").replace(/\/+$/, "");
@@ -22,7 +23,8 @@ const webDir = resolve(import.meta.dirname, "../../dist/web");
 const bridge = new BridgeClient({ url: bridgeUrl, bearerToken });
 const inspection = new InspectionLog(resolve(process.env.SIMULATOR_DATA_DIR ?? "./.data", "inspection-summary.json"), SIMULATOR_VERSION);
 const checkout = new CheckoutFlow(new BridgeCheckoutClient({ url: bridgeUrl, bearerToken }));
-const app = createSimulatorApp({ bridge, checkout, inspection, webDir });
+const memory = new SqliteHouseholdMemory(resolve(process.env.SIMULATOR_DATA_DIR ?? "./.data", "household-memory.sqlite"));
+const app = createSimulatorApp({ bridge, checkout, inspection, memory, webDir });
 
 if (existsSync(webDir)) {
   app.use("/*", serveStatic({ root: relativeToCwd(webDir) }));

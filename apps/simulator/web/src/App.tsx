@@ -18,7 +18,7 @@ const FRAMES: Record<Frame, { label: string; width: number; height: number }> = 
   show5: { label: "Echo Show 5", width: 960, height: 480 },
 };
 
-const SUGGESTIONS = ["What bread do you have?", "Tell me about the gluten-free seeded loaf", "Do you deliver?", "Buy two sourdough loaf", "Show my order", "Show me the receipt"];
+const SUGGESTIONS = ["What bread do you have?", "Tell me about the gluten-free seeded loaf", "Do you deliver?", "Buy two sourdough loaf", "Show my order", "Show me the receipt", "The same as last week"];
 
 interface Line {
   who: "household" | "alexa";
