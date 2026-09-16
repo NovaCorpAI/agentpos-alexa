@@ -42,9 +42,11 @@ describe("Bridge app", () => {
 
     const res = await app().request("/stores/bakery-example/.well-known/ucp");
     expect(res.status).toBe(200);
-    const body = (await res.json()) as Record<string, unknown>;
-    expect(body.ucp).toEqual(bakeryProfile.ucp);
-    expect(body[BRIDGE_VENDOR_KEY]).toMatchObject({ slug: "bakery-example", mcp: "2025-11-25" });
+    const body = (await res.json()) as { ucp: { version: string; services: Record<string, unknown>; payment_handlers: Record<string, unknown> } } & Record<string, unknown>;
+    expect(body.ucp.version).toBe("2026-04-08");
+    expect(body.ucp.services["com.novacorplabs.agentpos"]).toEqual(bakeryProfile.ucp.services["com.novacorplabs.agentpos"]);
+    expect(body.ucp.payment_handlers["org.x402.stellar"]).toEqual(bakeryProfile.ucp.payment_handlers["org.x402.stellar"]);
+    expect(body[BRIDGE_VENDOR_KEY]).toMatchObject({ slug: "bakery-example", mcp: { spec: "2025-11-25" } });
   });
 
   it("answers an unknown slug with a typed 404", async () => {
@@ -75,6 +77,8 @@ describe("Bridge app", () => {
         ucpVersion: "2026-08-25",
         paymentHandlers: ["x402-stellar"],
         mcp: "http://bridge.test/stores/bakery/mcp",
+        checkout: "http://bridge.test/stores/bakery/checkout-sessions",
+        profile: "http://bridge.test/stores/bakery/.well-known/ucp",
       },
     ]);
   });

@@ -104,6 +104,17 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
   With no AWS credentials at all, Scenes that need an agent run in Recorded mode and say so on
   screen.
 
+- **Sessions in USD cents, settlement in USDC.** A UCP session needs an ISO 4217 currency and
+  integer minor units, and USDC has seven decimals. Sessions are denominated in USD cents, one
+  to one with USDC; the conversion is exact or the item is reported unavailable, never rounded.
+  The Store's quote in USDC minor units stays the amount that settles.
+- **Two UCP releases vendored.** Alexa+ pins 2026-04-08, so sessions and the profile are shaped
+  and conformance-tested against that release; 2026-08-25 is vendored for forward reference.
+- **Payment rails own the Store call.** The checkout service hands the instrument to the rail
+  and never keeps a credential; the session keeps only id, handler and display of the
+  instrument that paid. A decline is a 200 with `payment_failed`; a merchant review is a 200
+  with `requires_buyer_review`; only protocol errors are 4xx.
+
 ## Versions
 
 Pinned in `packages/bridge/src/versions.ts`. MCP spec 2025-11-25 (SDK >= 1.30), UCP checkout

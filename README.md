@@ -74,6 +74,14 @@ prints a one-run token in its first log line. Four tools, one intent each: `sear
 `get_item`, `get_policies`, `start_checkout`. Every result speaks first (a short text block)
 and carries structured content with prices as integer minor units.
 
+The UCP checkout Alexa+ documents lives at `/stores/{slug}/checkout-sessions` (create, get,
+update, complete, cancel). Sessions are priced from the Store's catalog, quoted by the Store
+once a delivery address exists, and completed only when a payment rail reports settlement
+with a reference. Idempotency-Key is required on every state change and replayed for 24
+hours; every response is validated in tests against the vendored official UCP schemas
+(`packages/bridge/vendor/ucp`). Platforms get bearer tokens from `POST /oauth/token` with
+client credentials (`BRIDGE_OAUTH_CLIENT_ID` and `BRIDGE_OAUTH_CLIENT_SECRET`).
+
 Then:
 
 ```bash

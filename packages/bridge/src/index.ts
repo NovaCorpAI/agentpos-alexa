@@ -26,3 +26,9 @@ export type { OnboardingStage, PurchaseOrigin, UsageEvent, UsageSource } from ".
 export { BRIDGE_VERSION, PROTOCOL_VERSIONS } from "./versions.js";
 export { discoverStore, parseStoreProfile, StoreDiscoveryError, storeOrigin } from "@agentpos-alexa/store-client";
 export type { StoreEndpoints } from "@agentpos-alexa/store-client";
+export { CheckoutService } from "./checkout/service.js";
+export type { CheckoutSession, CompleteRequest, Message, PaymentInstrument, SessionRequest, SessionStatus } from "./checkout/types.js";
+export { loadUcpConformance } from "./checkout/conformance.js";
+export { centsToUsdcMinor, SESSION_CURRENCY, usdcMinorToCents } from "./checkout/money.js";
+export { RailRegistry } from "./rails/rail.js";
+export type { PaymentRail, PspMode, RailContext, RailOutcome, SessionInternal } from "./rails/rail.js";

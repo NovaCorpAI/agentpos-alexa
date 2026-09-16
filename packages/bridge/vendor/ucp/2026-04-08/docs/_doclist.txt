@@ -1,0 +1,12 @@
+docs/index.md
+docs/specification/catalog/index.md
+docs/specification/checkout-a2a.md
+docs/specification/checkout-mcp.md
+docs/specification/checkout-rest.md
+docs/specification/checkout.md
+docs/specification/embedded-checkout.md
+docs/specification/examples/platform-tokenizer-payment-handler.md
+docs/specification/examples/processor-tokenizer-payment-handler.md
+docs/specification/overview.md
+docs/specification/payment-handler-guide.md
+docs/specification/payment-handler-template.md

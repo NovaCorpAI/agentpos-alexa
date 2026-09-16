@@ -4,13 +4,16 @@
  */
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/server";
+import { requireBearerAuth, WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/server";
 import { AgentPosStoreClient } from "@agentpos-alexa/store-client";
+import { anyOf, staticTokenVerifier, storedTokenVerifier, tokenEndpoint } from "./auth/oauth.js";
+import { registerCheckoutRoutes } from "./checkout/routes.js";
+import { CheckoutService } from "./checkout/service.js";
 import { BridgeError, storeNotFound } from "./errors.js";
 import type { Logger } from "./logging.js";
-import { bearerGate, staticTokenVerifier } from "./mcp/auth.js";
 import { createStoreMcpServer } from "./mcp/server.js";
 import { buildServedProfile } from "./profile/serve.js";
+import { RailRegistry } from "./rails/rail.js";
 import type { Storage } from "./storage/sqlite.js";
 import { BRIDGE_VERSION } from "./versions.js";
 
@@ -19,10 +22,13 @@ export interface AppDeps {
   logger: Logger;
   /** Public base URL of this Bridge, e.g. https://bridge.example. */
   bridgeBaseUrl: string;
-  /** Static bearer accepted on the MCP endpoint until the OAuth issuer lands (#7). */
+  /** Static bearer accepted next to OAuth-issued tokens (tests, first run). */
   bearerToken: string;
+  /** Payment rails available to Stores. Empty until #9, #10 and #17 register theirs. */
+  rails?: RailRegistry;
   /** fetch used to reach Stores; tests route it into an in-memory fixture. */
   storeFetch?: typeof fetch;
+  now?: () => Date;
 }
 
 /** Header that carries the traceId end to end; the UCP checkout contract already defines it. */
@@ -30,9 +36,11 @@ export const TRACE_HEADER = "Request-Id";
 
 type Env = { Variables: { traceId: string; log: Logger } };
 
-export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, storeFetch }: AppDeps): Hono<Env> {
+export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails = new RailRegistry(), storeFetch, now }: AppDeps): Hono<Env> {
   const app = new Hono<Env>();
-  const gate = bearerGate(staticTokenVerifier(bearerToken));
+  const verifier = anyOf(storedTokenVerifier(storage.oauth), staticTokenVerifier(bearerToken));
+  const gate = requireBearerAuth({ verifier });
+  const checkout = new CheckoutService({ storage, rails, bridgeBaseUrl, ...(storeFetch ? { storeFetch } : {}), ...(now ? { now } : {}) });
 
   app.use("*", async (c, next) => {
     const traceId = c.req.header(TRACE_HEADER) ?? randomUUID();
@@ -72,6 +80,8 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, storeFe
     c.json({ status: "ok", bridgeVersion: BRIDGE_VERSION, stores: storage.stores.list().length }),
   );
 
+  app.post("/oauth/token", (c) => tokenEndpoint(c, storage.oauth));
+
   app.get("/stores", (c) =>
     c.json({
       stores: storage.stores.list().map((s) => ({
@@ -80,6 +90,8 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, storeFe
         ucpVersion: s.ucpVersion,
         paymentHandlers: s.paymentHandlers,
         mcp: `${bridgeBaseUrl}/stores/${s.slug}/mcp`,
+        checkout: `${bridgeBaseUrl}/stores/${s.slug}/checkout-sessions`,
+        profile: `${bridgeBaseUrl}/stores/${s.slug}/.well-known/ucp`,
       })),
     }),
   );
@@ -88,7 +100,8 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, storeFe
     const slug = c.req.param("slug");
     const store = storage.stores.get(slug);
     if (!store) throw storeNotFound(slug);
-    return c.json(buildServedProfile(store));
+    c.header("Cache-Control", "public, max-age=900");
+    return c.json(buildServedProfile(store, { bridgeBaseUrl, rails }));
   });
 
   /**
@@ -117,6 +130,8 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, storeFe
     await server.connect(transport);
     return transport.handleRequest(c.req.raw, { authInfo: auth });
   });
+
+  registerCheckoutRoutes(app, { storage, service: checkout, gate });
 
   return app;
 }

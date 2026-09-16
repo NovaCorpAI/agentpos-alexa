@@ -23,6 +23,8 @@
     "start": "tsx src/main.ts"
   },
   "devDependencies": {
-    "@agentpos-alexa/fixture-store": "workspace:*"
+    "@agentpos-alexa/fixture-store": "workspace:*",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
   }
 }

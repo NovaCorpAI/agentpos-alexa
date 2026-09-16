@@ -37,6 +37,11 @@ if (storeUrl) {
   }
 }
 
+// OAuth client credentials for platforms (the Simulator, a judge's MCP client). Optional.
+if (process.env.BRIDGE_OAUTH_CLIENT_ID && process.env.BRIDGE_OAUTH_CLIENT_SECRET) {
+  storage.oauth.registerClient(process.env.BRIDGE_OAUTH_CLIENT_ID, process.env.BRIDGE_OAUTH_CLIENT_SECRET);
+}
+
 const app = createApp({ storage, logger, bridgeBaseUrl, bearerToken });
 serve({ fetch: app.fetch, port }, (info) => {
   logger.log("info", "listening", {
