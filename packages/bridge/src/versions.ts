@@ -8,9 +8,12 @@ export const PROTOCOL_VERSIONS = {
   mcp: {
     /** Alexa+ for Builders supports the 2025-11-25 version of the MCP specification. */
     spec: "2025-11-25",
-    sdk: ">=1.30.0",
+    /** MCP TypeScript SDK v2 split packages (server, client, core); the Simulator's agent client via Strands still uses sdk 1.x. */
+    sdk: "@modelcontextprotocol/server ^2.0.0",
     transport: "streamable-http",
-    checkedAt: "2026-09-14",
+    /** MCP Apps extension (io.modelcontextprotocol/ui), served by the Bridge as ui:// resources. */
+    apps: { spec: "2026-01-26", sdk: "@modelcontextprotocol/ext-apps ^2.0.0" },
+    checkedAt: "2026-09-16",
     source: "https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-overview.html",
   },
   ucpCheckout: {
@@ -43,4 +46,6 @@ export const PROTOCOL_VERSIONS = {
     /** Real: settles USDC on Stellar through the store's x402 checkout, when the agent brings a wallet. */
     x402Stellar: "org.x402.stellar",
   },
+  /** AgentPOS store adapter this bridge is built against (vendored OpenAPI in packages/fixture-store/vendor). */
+  agentpos: { adapterVersion: "0.2.0", ucpProfile: "2026-08-25" },
 } as const;

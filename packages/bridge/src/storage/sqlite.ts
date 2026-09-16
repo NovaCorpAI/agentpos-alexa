@@ -6,10 +6,12 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { SqliteStoreRegistry, STORES_DDL, type StoreRegistry } from "./store-registry.js";
+import { SqliteUsageEventsRepo, type UsageEventsRepo } from "./usage-events-repo.js";
 import { USAGE_EVENTS_DDL } from "./usage-events.js";
 
 export interface Storage {
   readonly stores: StoreRegistry;
+  readonly usageEvents: UsageEventsRepo;
   close(): void;
 }
 
@@ -27,6 +29,7 @@ export function openStorage(opts: OpenStorageOptions): Storage {
   db.exec(USAGE_EVENTS_DDL);
   return {
     stores: new SqliteStoreRegistry(db),
+    usageEvents: new SqliteUsageEventsRepo(db),
     close: () => db.close(),
   };
 }

@@ -33,7 +33,7 @@ describe("Bridge app", () => {
   afterEach(() => storage.close());
 
   function app() {
-    return createApp({ storage, logger: createLogger(logs.sink) });
+    return createApp({ storage, logger: createLogger(logs.sink), bridgeBaseUrl: "http://bridge.test", bearerToken: "t" });
   }
 
   it("serves a registered Store's UCP profile under its slug, with the Bridge's vendor block", async () => {
@@ -74,6 +74,7 @@ describe("Bridge app", () => {
         origin: "https://bakery.example",
         ucpVersion: "2026-08-25",
         paymentHandlers: ["x402-stellar"],
+        mcp: "http://bridge.test/stores/bakery/mcp",
       },
     ]);
   });

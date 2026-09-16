@@ -11,10 +11,18 @@
   "dependencies": {
     "@agentpos-alexa/store-client": "workspace:*",
     "@hono/node-server": "^2.1.1",
-    "hono": "^4.13.7"
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@modelcontextprotocol/ext-apps": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "hono": "^4.13.7",
+    "zod": "^4.6.5"
   },
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts"
+  },
+  "devDependencies": {
+    "@agentpos-alexa/fixture-store": "workspace:*"
   }
 }

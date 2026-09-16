@@ -68,6 +68,12 @@ pnpm dev:bridge        # registers AGENTPOS_STORE_URL (default: the public demo 
 To run the bridge against the bakery instead of the public demo store, set
 `AGENTPOS_STORE_URL=http://127.0.0.1:8790`.
 
+The MCP endpoint for Alexa+ (or any MCP client) is `/stores/{slug}/mcp`: Streamable HTTP,
+spec 2025-11-25, bearer auth. Without `BRIDGE_BEARER_TOKEN` in the environment the bridge
+prints a one-run token in its first log line. Four tools, one intent each: `search_items`,
+`get_item`, `get_policies`, `start_checkout`. Every result speaks first (a short text block)
+and carries structured content with prices as integer minor units.
+
 Then:
 
 ```bash
