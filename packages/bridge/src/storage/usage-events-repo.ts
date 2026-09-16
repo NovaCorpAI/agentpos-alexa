@@ -7,7 +7,7 @@ export type NewUsageEvent = Omit<UsageEvent, "id" | "at"> & { id?: string; at?: 
 export interface UsageEventsRepo {
   record(event: NewUsageEvent): UsageEvent;
   /** Newest last. */
-  list(filter?: { traceId?: string; source?: UsageEvent["source"]; limit?: number }): UsageEvent[];
+  list(filter?: { traceId?: string; source?: UsageEvent["source"]; storeOrigin?: string; limit?: number }): UsageEvent[];
 }
 
 interface Row {
@@ -86,7 +86,7 @@ export class SqliteUsageEventsRepo implements UsageEventsRepo {
     return full;
   }
 
-  list(filter: { traceId?: string; source?: UsageEvent["source"]; limit?: number } = {}): UsageEvent[] {
+  list(filter: { traceId?: string; source?: UsageEvent["source"]; storeOrigin?: string; limit?: number } = {}): UsageEvent[] {
     const where: string[] = [];
     const params: (string | number)[] = [];
     if (filter.traceId) {
@@ -96,6 +96,10 @@ export class SqliteUsageEventsRepo implements UsageEventsRepo {
     if (filter.source) {
       where.push("source = ?");
       params.push(filter.source);
+    }
+    if (filter.storeOrigin) {
+      where.push("store_origin = ?");
+      params.push(filter.storeOrigin);
     }
     const sql = `SELECT * FROM usage_events ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY at, rowid LIMIT ?`;
     params.push(filter.limit ?? 1000);

@@ -22,6 +22,7 @@ import type { RegisteredStore } from "../storage/store-registry.js";
 import type { NewUsageEvent } from "../storage/usage-events-repo.js";
 import { BRIDGE_VERSION } from "../versions.js";
 import type { CheckoutRepo } from "../storage/checkout-store.js";
+import type { OnboardingRepo, OverlayLine } from "../storage/onboarding-store.js";
 import { loadOrderView, loadReceiptView } from "./orders.js";
 import { speakItemDetail, speakNoMatch, speakOrder, speakPrice, speakReceipt, speakSearch } from "./voice.js";
 
@@ -37,6 +38,8 @@ export interface StoreMcpDeps {
   checkout: CheckoutRepo;
   /** Answers ask_catalog. Omitted: the deterministic answerer alone (no model). */
   catalogAgent?: CatalogAgent;
+  /** The published Voice overlay, applied to spoken names and to ask_catalog. */
+  onboarding?: OnboardingRepo;
 }
 
 export const MCP_TOOL_NAMES = ["search_items", "get_item", "ask_catalog", "get_policies", "start_checkout", "get_order", "get_receipt"] as const;
@@ -150,6 +153,13 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
   registerAppViews(server, { imageOrigins: [store.origin] });
 
   const catalogAgent = deps.catalogAgent ?? new CatalogAgent();
+  /** The catalog with the Merchant's confirmed voice names in place of the Store's titles. */
+  const voiced = (items: CatalogItem[]): { items: CatalogItem[]; overlay: OverlayLine[] } => {
+    const overlay = deps.onboarding ? deps.onboarding.overlayFor(store.slug, items).overlay : [];
+    if (overlay.length === 0) return { items, overlay };
+    const byId = new Map(overlay.map((o) => [o.itemId, o]));
+    return { items: items.map((it) => (byId.has(it.id) ? { ...it, title: byId.get(it.id)!.spokenName } : it)), overlay };
+  };
   server.registerTool(
     "ask_catalog",
     {
@@ -163,12 +173,14 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
       timed("ask_catalog", async () => {
         const { question } = AskCatalogInput.parse(input);
         const catalog = await client.catalog();
+        const overlay = deps.onboarding ? deps.onboarding.overlayFor(store.slug, catalog.items).overlay : [];
         const started = performance.now();
         const a = await catalogAgent.answer({
           question,
           language: "en-US",
           storeName: catalog.site.name,
           items: catalog.items.map((it) => ({ id: it.id, title: it.title, description: it.description, priceDisplay: speakPrice(it.price.minor, it.price.asset), attributes: it.attributes ?? {} })),
+          overlay,
         });
         if (a.fallbackReason) log.log("warn", "catalog agent fell back to the facts", { fallbackReason: a.fallbackReason });
         if (a.usage) {
@@ -207,7 +219,7 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
           catalog = await client.catalog();
           matched = false;
         }
-        const items = catalog.items.slice(0, limit ?? 5);
+        const items = voiced(catalog.items.slice(0, limit ?? 5)).items;
         return ok(matched ? speakSearch(items, query) : speakNoMatch(items, query!), {
           query: query ?? null,
           matched,
@@ -230,10 +242,11 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
     },
     async ({ itemId }) =>
       timed("get_item", async () => {
-        const it = await client.item(itemId);
-        if (!it) {
+        const found = await client.item(itemId);
+        if (!found) {
           return fail("ITEM_NOT_FOUND", `No item ${itemId} at ${store.origin}`, "Use an id returned by search_items.", "I could not find that item in the store's catalog.");
         }
+        const it = voiced([found]).items[0]!;
         return ok(speakItemDetail(it), { item: itemView(it) });
       }),
   );

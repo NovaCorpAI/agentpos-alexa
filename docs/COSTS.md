@@ -11,6 +11,7 @@ checkout session** (the variable cost a store generates).
 | Voice-ready ranking and summaries | Nova 2 Lite | | | | |
 | Policy guardian, one duplicate review (measured 2026-09-16; Sonnet gated by the use case form, FL-006) | us.amazon.nova-pro-v1:0 | 1 | 313 | 29 | US$0.0003 (estimate table) |
 | Policy guardian, no rule fired | none | 0 | 0 | 0 | US$0 |
+| Onboarding draft, 8 items (measured 2026-09-16; Sonnet gated by the use case form, FL-006) | us.amazon.nova-pro-v1:0 | 1 | 1,409 | 555 | US$0.0029 (estimate table) |
 | Total per closed session | | | | | |
 
 The first row comes from a real run against the fixture bakery: search, an item question and

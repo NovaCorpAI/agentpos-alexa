@@ -81,6 +81,13 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
 - **Merchant console in the Simulator app.** A separate route, importing nothing from the
   Household side, ready to split into `apps/merchant` when it has its own users. The
   onboarding timer starts at a Store that already runs AgentPOS.
+- **The Voice overlay is keyed by item hash and timed by usage_events.** Each published line
+  stores a hash of the item (title, description, price, attributes); when the Store changes the
+  item, the line goes stale and the tools speak the Store's own words until the Merchant
+  confirms a new line. The onboarding timer ("URL to first voice purchase") is never a clock
+  in memory: it is the difference between the `scan` row and the `first_voice_purchase` row
+  of the latest run in `usage_events`, and the checkout service writes the last row on the
+  first settled order after publication.
 - **Household memory behind an interface.** SQLite locally, AgentCore Memory in the hosted
   playground; order references only.
 - **Two services on App Runner.** The Bridge has its own public URL because it is "the bridge

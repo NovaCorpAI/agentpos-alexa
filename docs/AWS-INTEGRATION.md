@@ -6,7 +6,7 @@ Services used, why each, and where in the code. Updated as modules land.
 | --- | --- | --- |
 | Amazon Bedrock (Nova 2 Lite, via Strands TypeScript) | the catalog agent behind `ask_catalog`: words the answer from published facts only; one usage_events row per call (`agent.catalog`) | `packages/agents/src/catalog.ts`, wired in `packages/bridge/src/mcp/server.ts` and `packages/bridge/src/main.ts` |
 | Amazon Bedrock (Claude Sonnet 4.6, via Strands TypeScript) | the policy guardian's one spoken sentence at checkout completion, only when a rule fires; one usage_events row per call (`agent.guardian`) | `packages/agents/src/guardian.ts`, wired in `packages/bridge/src/checkout/service.ts` and `packages/bridge/src/main.ts` |
-| Amazon Bedrock (Claude Sonnet or Nova Pro) | rare, critical decisions: onboarding draft | `packages/agents/src/onboarding/*` (planned) |
+| Amazon Bedrock (Claude Sonnet 4.6, Nova Pro as fallback, via Strands TypeScript) | the onboarding agent: drafts the Voice overlay and voice policies from a Store's catalog, once per Store; the `catalog_draft` stage row carries the call | `packages/agents/src/onboarding.ts`, `packages/bridge/src/onboarding/service.ts`, wired in `packages/bridge/src/main.ts` |
 | Bedrock AgentCore Runtime | hosts the merchant agents with traces for the demo | `packages/agents/deploy/*` (planned) |
 | Bedrock AgentCore Memory | per-store preferences and rules across sessions | `packages/agents/src/memory.ts` (planned) |
 | Strands Agents SDK (TypeScript) | agent orchestration and tool use; our adapter wraps the Bridge's MCP tools (FL-004) | `apps/simulator/src/server/agent/household-agent.ts`; merchant agents in `packages/agents/src/*` (planned) |

@@ -79,7 +79,34 @@ export interface BrainInfo {
   region: string | null;
 }
 
-export type SceneStep = { say: string; pauseMs?: number } | { confirmCheckout: true; pauseMs?: number } | { reset: true };
+export type SceneStep = { say: string; pauseMs?: number } | { confirmCheckout: true; answerReviewYes?: boolean; pauseMs?: number } | { reset: true } | { onboard: true };
+
+export interface OverlayLine {
+  itemId: string;
+  spokenName: string;
+  summary: string;
+  synonyms: string[];
+  itemHash: string;
+}
+
+export interface Policies {
+  voiceIntro: string;
+  deliveryNote: string;
+  reviewNote: string;
+}
+
+export interface OnboardingState {
+  slug: string;
+  origin: string;
+  status: "none" | "draft" | "published";
+  language: string;
+  overlay: OverlayLine[];
+  policies: Policies | null;
+  modelUsed: boolean;
+  stale: string[];
+  stages: Partial<Record<"scan" | "catalog_draft" | "policies_draft" | "human_confirm" | "published" | "first_voice_purchase", string>>;
+  elapsedMs: { scanToPublished: number | null; scanToFirstVoicePurchase: number | null };
+}
 
 export interface Scene {
   id: string;
@@ -101,6 +128,14 @@ export const api = {
   inspection: () => fetch("/api/inspection").then((r) => json<Inspection>(r)),
   render: (turnId: string, timing: { viewInitializedMs?: number; firstItemMs?: number; displayMode: string; component: string | null }) =>
     fetch(`/api/inspection/${turnId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(timing) }).then((r) => json<unknown>(r)),
+};
+
+export const merchantApi = {
+  scan: (storeUrl: string, language: string) =>
+    fetch("/api/merchant/scan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ storeUrl, language }) }).then((r) => json<OnboardingState>(r)),
+  get: (slug: string) => fetch(`/api/merchant/${encodeURIComponent(slug)}`).then((r) => json<OnboardingState>(r)),
+  confirm: (slug: string, overlay: Array<Pick<OverlayLine, "itemId" | "spokenName" | "summary" | "synonyms">>, policies: Policies) =>
+    fetch(`/api/merchant/${encodeURIComponent(slug)}/confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ overlay, policies }) }).then((r) => json<OnboardingState>(r)),
 };
 
 export const checkoutApi = {

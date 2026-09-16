@@ -9,7 +9,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { dataDir as workspaceDataDir, loadDotenv, openStorage } from "@agentpos-alexa/bridge";
 import { AgentBrain, ScriptedRouterBrain, type Brain } from "./agent/brain.js";
 import { createSimulatorApp, SIMULATOR_VERSION } from "./app.js";
-import { BridgeCheckoutClient, BridgeClient } from "./bridge-client.js";
+import { BridgeCheckoutClient, BridgeClient, BridgeOnboardingClient } from "./bridge-client.js";
 import { CheckoutFlow } from "./checkout.js";
 import { InspectionLog } from "./inspection.js";
 import { SqliteHouseholdMemory } from "./memory.js";
@@ -31,6 +31,7 @@ const webDir = resolve(import.meta.dirname, "../../dist/web");
 const bridge = new BridgeClient({ url: bridgeUrl, bearerToken });
 const inspection = new InspectionLog(resolve(dataDir, "inspection-summary.json"), SIMULATOR_VERSION);
 const checkout = new CheckoutFlow(new BridgeCheckoutClient({ url: bridgeUrl, bearerToken }));
+const merchant = new BridgeOnboardingClient({ url: bridgeUrl, bearerToken });
 const memory = new SqliteHouseholdMemory(resolve(dataDir, "household-memory.sqlite"));
 /** The Simulator's own usage_events (same schema as the Bridge's), for the agent's model calls. */
 const usage = openStorage({ path: resolve(dataDir, "simulator.sqlite") });
@@ -54,7 +55,7 @@ async function pickBrain(): Promise<{ brain: Brain; reason: string }> {
 const { brain, reason } = await pickBrain();
 // Polly is tried lazily per phrase; without credentials or permission the browser speaks.
 const speech = brain.kind === "agent" || process.env.SIMULATOR_SPEECH === "polly" ? new PollySpeech(region, resolve(dataDir, "polly-cache")) : undefined;
-const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, brainInfo: { modelId, region }, webDir, ...(speech ? { speech } : {}) });
+const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, brainInfo: { modelId, region }, webDir, merchant, ...(speech ? { speech } : {}) });
 
 if (existsSync(webDir)) {
   app.use("/*", serveStatic({ root: relativeToCwd(webDir) }));

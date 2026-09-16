@@ -104,6 +104,38 @@ export interface SessionCall {
   body: Record<string, unknown>;
 }
 
+/** What the Merchant console shows: the Bridge's onboarding state, passed through untouched. */
+export interface MerchantCall {
+  status: number;
+  body: Record<string, unknown>;
+}
+
+/** The Merchant console's connection to the Bridge's onboarding routes; bearer held server-side. */
+export class BridgeOnboardingClient {
+  constructor(
+    private readonly config: BridgeConfig,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  private async call(method: string, path: string, traceId: string, body?: unknown): Promise<MerchantCall> {
+    const init: RequestInit = { method, headers: { Authorization: `Bearer ${this.config.bearerToken}`, "Content-Type": "application/json", Accept: "application/json", "Request-Id": traceId } };
+    if (body !== undefined) init.body = JSON.stringify(body);
+    const res = await this.fetchImpl(`${this.config.url}${path}`, init);
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    return { status: res.status, body: json };
+  }
+
+  scan(storeUrl: string, language: string, traceId: string) {
+    return this.call("POST", "/onboarding/scan", traceId, { storeUrl, language });
+  }
+  get(slug: string, traceId: string) {
+    return this.call("GET", `/onboarding/${slug}`, traceId);
+  }
+  confirm(slug: string, body: unknown, traceId: string) {
+    return this.call("POST", `/onboarding/${slug}/confirm`, traceId, body);
+  }
+}
+
 export class BridgeCheckoutClient {
   constructor(
     private readonly config: BridgeConfig,

@@ -5,7 +5,7 @@
  * result or a UCP session.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, checkoutApi, type Addon, type BrainInfo, type CheckoutState, type Inspection, type Scene, type Turn } from "./api";
+import { api, checkoutApi, merchantApi, type Addon, type BrainInfo, type CheckoutState, type Inspection, type Scene, type Turn } from "./api";
 import { AppHost, type DisplayMode } from "./AppHost";
 import { Checkout } from "./Checkout";
 import { listenOnce, recognitionAvailable, speak, type SpeechSource } from "./speech";
@@ -43,6 +43,12 @@ function componentOf(uri: string): string | null {
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function fmtMs(ms: number | null): string {
+  if (ms === null) return "n/a";
+  const s = Math.round(ms / 1000);
+  return s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`;
+}
 
 /** Native rendering of structured content for hydrated mode: the host's own look, no view. */
 function Hydrated({ result }: { result: { structuredContent?: Record<string, unknown> } }) {
@@ -202,6 +208,21 @@ export function App() {
             lastCheckout = null;
             continue;
           }
+          if ("onboard" in step) {
+            // The Merchant side of Scene 5: scan, then wait for a human to confirm in the console.
+            const origin = addons.find((a) => a.slug === addon)?.origin;
+            if (!origin) continue;
+            setLines((l) => [...l, { who: "alexa", text: `Merchant console: scanning ${origin} and drafting the voice overlay.` }]);
+            const draft = await merchantApi.scan(origin, lang);
+            setLines((l) => [...l, { who: "alexa", text: `Draft ready: ${draft.overlay.length} items${draft.modelUsed ? " (strong model)" : " (deterministic drafter)"}. Waiting for the Merchant to confirm at #/merchant.` }]);
+            let state = draft;
+            while (state.status !== "published" || !state.stages.published || (draft.stages.scan && state.stages.published < draft.stages.scan)) {
+              await wait(2000);
+              state = await merchantApi.get(draft.slug);
+            }
+            setLines((l) => [...l, { who: "alexa", text: `Published by the Merchant ${fmtMs(state.elapsedMs.scanToPublished)} after the scan.` }]);
+            continue;
+          }
           if ("say" in step) {
             const t = await submit(step.say, scene.id);
             lastCheckout = t?.checkout ?? null;
@@ -212,18 +233,33 @@ export function App() {
               continue;
             }
             await wait(1200);
-            const t = await confirmCheckout(lastCheckout, option.handlerId, option.instrumentId, scene.id);
+            let t = await confirmCheckout(lastCheckout, option.handlerId, option.instrumentId, scene.id);
             lastCheckout = t?.checkout ?? null;
+            // The guardian may ask once; the Scene's prerecorded household answer is yes.
+            const review = lastCheckout?.session.status === "incomplete" && lastCheckout.session.messages.some((m) => m.severity === "requires_buyer_review");
+            if (review && step.answerReviewYes && lastCheckout) {
+              await speechRef.current;
+              await wait(1200);
+              setLines((l) => [...l, { who: "household", text: "Yes, order it again." }]);
+              t = await confirmCheckout(lastCheckout, option.handlerId, option.instrumentId, scene.id);
+              lastCheckout = t?.checkout ?? null;
+            }
           }
           await speechRef.current;
           await wait(step.pauseMs ?? 900);
+        }
+        if (scene.steps.some((s) => "onboard" in s)) {
+          const state = await merchantApi.get(addon).catch(() => null);
+          if (state?.elapsedMs.scanToFirstVoicePurchase !== null && state?.elapsedMs.scanToFirstVoicePurchase !== undefined) {
+            setLines((l) => [...l, { who: "alexa", text: `From URL to first voice purchase: ${fmtMs(state.elapsedMs.scanToFirstVoicePurchase)}, computed from usage_events.` }]);
+          }
         }
       } finally {
         setRunningScene(null);
         refreshInspection();
       }
     },
-    [addon, runningScene, submit, confirmCheckout, refreshInspection],
+    [addon, addons, lang, runningScene, submit, confirmCheckout, refreshInspection],
   );
 
   const onViewInitialized = useCallback(() => {
@@ -281,6 +317,10 @@ export function App() {
             handlers {current.paymentHandlers.join(", ") || "none"}
           </p>
         ) : null}
+
+        <p className="muted small">
+          <a href="#/merchant">Open the Merchant console</a> (onboarding, Scene 5).
+        </p>
 
         <label>Scenes</label>
         <div className="scenes">

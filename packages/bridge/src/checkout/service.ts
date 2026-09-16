@@ -8,6 +8,7 @@
  */
 import { createHash, randomUUID } from "node:crypto";
 import { estimateCostUsdMicros, type Guardian } from "@agentpos-alexa/agents";
+import { markFirstVoicePurchase } from "../onboarding/service.js";
 import { AgentPosStoreClient, StoreRequestError, type CartQuote, type CatalogItem } from "@agentpos-alexa/store-client";
 import { BridgeError } from "../errors.js";
 import type { Logger } from "../logging.js";
@@ -227,6 +228,10 @@ export class CheckoutService {
         ? [{ type: "info", code: "simulated_psp", content: "SIMULATED payment handler: no money moved. Labeled per the Alexa+ preview." }]
         : [];
       session.payment = { instruments: [redactInstrument(instrument)] };
+      // The onboarding timer's last stage: the first settled order after publication.
+      if (markFirstVoicePurchase(this.deps.storage, ctx.store.origin, ctx.traceId, this.now().toISOString())) {
+        ctx.log.log("info", "onboarding first_voice_purchase", { sessionId: session.id });
+      }
     } else if (outcome.kind === "parked") {
       internal.approvalId = outcome.approvalId;
       session.status = "incomplete";

@@ -10,7 +10,7 @@ it so the numbers are comparable across components.
 | `id` | text | ULID or UUID assigned by the writer |
 | `trace_id` | text | crosses MCP call, checkout session, store request and settlement |
 | `at` | text | ISO 8601 UTC |
-| `source` | text | `bridge.mcp`, `bridge.checkout`, `agent.onboarding`, `agent.catalog`, `agent.catalog` (one row per `ask_catalog` call that reached the model; none when the facts answered alone), `agent.guardian` (one row per checkout where a rule fired; `model` null when the rule spoke without a model), `simulator` |
+| `source` | text | `bridge.mcp`, `bridge.checkout`, `agent.onboarding` (one row per stage, `onboarding_stage` set; the `catalog_draft` row carries the model call), `agent.catalog` (one row per `ask_catalog` call that reached the model; none when the facts answered alone), `agent.guardian` (one row per checkout where a rule fired; `model` null when the rule spoke without a model), `simulator` |
 | `store_origin` | text | the store the event belongs to |
 | `checkout_session_id` | text, nullable | set on checkout and rail events |
 | `model` | text, nullable | Bedrock model id; null for stage marks and rail calls |

@@ -14,6 +14,7 @@ import {
   type IdempotencyRepo,
   type OAuthRepo,
 } from "./checkout-store.js";
+import { ONBOARDING_DDL, SqliteOnboardingRepo, type OnboardingRepo } from "./onboarding-store.js";
 import { SqliteStoreRegistry, STORES_DDL, type StoreRegistry } from "./store-registry.js";
 import { SqliteUsageEventsRepo, type UsageEventsRepo } from "./usage-events-repo.js";
 import { USAGE_EVENTS_DDL } from "./usage-events.js";
@@ -24,6 +25,7 @@ export interface Storage {
   readonly checkout: CheckoutRepo;
   readonly idempotency: IdempotencyRepo;
   readonly oauth: OAuthRepo;
+  readonly onboarding: OnboardingRepo;
   close(): void;
 }
 
@@ -45,6 +47,7 @@ export function openStorage(opts: OpenStorageOptions): Storage {
   db.exec(STORES_DDL);
   db.exec(USAGE_EVENTS_DDL);
   db.exec(CHECKOUT_DDL);
+  db.exec(ONBOARDING_DDL);
   // Additive migrations for databases created by earlier runs: columns the DDL gained later.
   addColumnIfMissing(db, "usage_events", "psp_mode", "TEXT");
   return {
@@ -53,6 +56,7 @@ export function openStorage(opts: OpenStorageOptions): Storage {
     checkout: new SqliteCheckoutRepo(db),
     idempotency: new SqliteIdempotencyRepo(db),
     oauth: new SqliteOAuthRepo(db),
+    onboarding: new SqliteOnboardingRepo(db),
     close: () => db.close(),
   };
 }

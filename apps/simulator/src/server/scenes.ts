@@ -5,8 +5,11 @@
  */
 export type SceneStep =
   | { say: string; pauseMs?: number }
-  | { confirmCheckout: true; pauseMs?: number }
-  | { reset: true };
+  /** Confirm the open checkout; answerReviewYes is the household's prerecorded "yes" if the guardian asks. */
+  | { confirmCheckout: true; answerReviewYes?: boolean; pauseMs?: number }
+  | { reset: true }
+  /** Scan the add-on's Store in the Merchant console and wait until a human confirms the draft. */
+  | { onboard: true };
 
 export interface Scene {
   id: string;
@@ -23,7 +26,7 @@ export const SCENES: Scene[] = [
     id: "first-voice-purchase",
     title: "Scene 1: first voice purchase",
     proves: "Search, item card, checkout as the host pattern, order card and verified receipt, in one conversation.",
-    steps: [{ reset: true }, { say: "What bread do you have?" }, { say: "Buy two sourdough loaves" }, { confirmCheckout: true }, { say: "Show me the receipt" }],
+    steps: [{ reset: true }, { say: "What bread do you have?" }, { say: "Buy two sourdough loaves" }, { confirmCheckout: true, answerReviewYes: true }, { say: "Show me the receipt" }],
   },
   {
     id: "gluten-free",
@@ -41,13 +44,12 @@ export const SCENES: Scene[] = [
     id: "same-as-last-week",
     title: "Scene 4: the same as last week",
     proves: "Household memory holds order references only and reorders on request.",
-    steps: [{ say: "The same as last week" }, { confirmCheckout: true }],
+    steps: [{ say: "The same as last week" }, { confirmCheckout: true, answerReviewYes: true }],
   },
   {
     id: "onboarding",
     title: "Scene 5: onboarding, timed",
-    proves: "From a store URL to a voice-ready catalog and policies, confirmed by a human, then the first purchase.",
-    steps: [],
-    pending: "onboarding agent and merchant console (#13)",
+    proves: "From a store URL to a voice-ready catalog and policies, confirmed by a human, then the first purchase, timed from usage_events.",
+    steps: [{ reset: true }, { onboard: true }, { say: "What bread do you have?" }, { say: "Buy two sourdough loaves" }, { confirmCheckout: true, answerReviewYes: true }],
   },
 ];

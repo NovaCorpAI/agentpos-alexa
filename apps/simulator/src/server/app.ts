@@ -5,7 +5,7 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import type { Brain, BrainKind } from "./agent/brain.js";
-import type { BridgeClient, ToolCallRecord } from "./bridge-client.js";
+import type { BridgeClient, BridgeOnboardingClient, ToolCallRecord } from "./bridge-client.js";
 import type { CheckoutFlow, CheckoutState } from "./checkout.js";
 import { inspectTurn, type InspectionLog, type RenderTiming } from "./inspection.js";
 import type { HouseholdMemory } from "./memory.js";
@@ -27,6 +27,8 @@ export interface SimulatorDeps {
   webDir?: string;
   /** Voice output; undefined means the browser speaks. */
   speech?: PollySpeech;
+  /** The Merchant console's way to the Bridge's onboarding routes (#13). */
+  merchant?: BridgeOnboardingClient;
 }
 
 interface KnownItem {
@@ -206,6 +208,26 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
   app.get("/api/inspection", (c) => c.json(deps.inspection.summary()));
 
   app.get("/api/scenes", (c) => c.json({ scenes: SCENES }));
+
+  // Merchant console: pass-through to the Bridge, the bearer never reaches the browser.
+  const merchantOnly = (c: { json: (b: unknown, s: 503) => Response }) => c.json({ code: "NO_MERCHANT", message: "The Merchant console is not wired to a Bridge.", hint: "Start the Bridge and the Simulator together." }, 503);
+  app.post("/api/merchant/scan", async (c) => {
+    if (!deps.merchant) return merchantOnly(c);
+    const body = (await c.req.json().catch(() => ({}))) as { storeUrl?: string; language?: string };
+    if (!body.storeUrl) return c.json({ code: "BAD_SCAN", message: "storeUrl is required", hint: "" }, 400);
+    const r = await deps.merchant.scan(body.storeUrl, body.language === "es-CL" ? "es-CL" : "en-US", `merchant-${randomUUID().slice(0, 8)}`);
+    return c.json(r.body, r.status as 201);
+  });
+  app.get("/api/merchant/:slug", async (c) => {
+    if (!deps.merchant) return merchantOnly(c);
+    const r = await deps.merchant.get(c.req.param("slug"), `merchant-${randomUUID().slice(0, 8)}`);
+    return c.json(r.body, r.status as 200);
+  });
+  app.post("/api/merchant/:slug/confirm", async (c) => {
+    if (!deps.merchant) return merchantOnly(c);
+    const r = await deps.merchant.confirm(c.req.param("slug"), await c.req.json().catch(() => ({})), `merchant-${randomUUID().slice(0, 8)}`);
+    return c.json(r.body, r.status as 200);
+  });
 
   /** Voice output: Polly with a per-phrase cache, or 503 so the browser speaks. */
   app.get("/api/speech", async (c) => {

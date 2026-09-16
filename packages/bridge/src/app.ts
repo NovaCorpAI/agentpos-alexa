@@ -6,7 +6,9 @@ import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { requireBearerAuth, WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/server";
 import { AgentPosStoreClient } from "@agentpos-alexa/store-client";
-import type { CatalogAgent, Guardian } from "@agentpos-alexa/agents";
+import type { CatalogAgent, Guardian, OnboardingAgent } from "@agentpos-alexa/agents";
+import { registerOnboardingRoutes } from "./onboarding/routes.js";
+import { OnboardingService } from "./onboarding/service.js";
 import { anyOf, staticTokenVerifier, storedTokenVerifier, tokenEndpoint } from "./auth/oauth.js";
 import { registerCheckoutRoutes } from "./checkout/routes.js";
 import { CheckoutService } from "./checkout/service.js";
@@ -31,6 +33,8 @@ export interface AppDeps {
   guardian?: Guardian;
   /** Catalog agent behind ask_catalog (#14). Omitted: facts only, no model. */
   catalogAgent?: CatalogAgent;
+  /** Onboarding agent behind /onboarding/scan (#13). Omitted: the deterministic drafter. */
+  onboardingAgent?: OnboardingAgent;
   /** fetch used to reach Stores; tests route it into an in-memory fixture. */
   storeFetch?: typeof fetch;
   now?: () => Date;
@@ -41,7 +45,7 @@ export const TRACE_HEADER = "Request-Id";
 
 type Env = { Variables: { traceId: string; log: Logger } };
 
-export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails = new RailRegistry(), guardian, catalogAgent, storeFetch, now }: AppDeps): Hono<Env> {
+export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails = new RailRegistry(), guardian, catalogAgent, onboardingAgent, storeFetch, now }: AppDeps): Hono<Env> {
   const app = new Hono<Env>();
   const verifier = anyOf(storedTokenVerifier(storage.oauth), staticTokenVerifier(bearerToken));
   const gate = requireBearerAuth({ verifier });
@@ -130,6 +134,7 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails =
       record: (e) => storage.usageEvents.record(e),
       checkout: storage.checkout,
       ...(catalogAgent ? { catalogAgent } : {}),
+      onboarding: storage.onboarding,
     });
     // Stateless and JSON-bodied: one request, one server, one plain JSON response. No SSE
     // stream to keep open, so nothing outlives the request.
@@ -139,6 +144,7 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails =
   });
 
   registerCheckoutRoutes(app, { storage, service: checkout, gate });
+  registerOnboardingRoutes(app, { service: new OnboardingService({ storage, ...(onboardingAgent ? { agent: onboardingAgent } : {}), ...(storeFetch ? { storeFetch } : {}), ...(now ? { now } : {}) }), gate });
 
   return app;
 }

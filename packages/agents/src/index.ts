@@ -31,5 +31,7 @@ export { findings, Guardian } from "./guardian.js";
 export type { GuardianDecision, GuardianFinding, GuardianInput, GuardianLine, GuardianOptions, GuardianOrderRef, GuardianUsage, GuardianVerdict } from "./guardian.js";
 export { answerFromFacts, CatalogAgent, matchItems } from "./catalog.js";
 export type { CatalogAgentOptions, CatalogAnswer, CatalogFact, CatalogQuestion, CatalogUsage, OverlayEntry } from "./catalog.js";
+export { draftFromCatalog, OnboardingAgent, spokenName, spokenSummary, synonymsFor } from "./onboarding.js";
+export type { OnboardingAgentOptions, OnboardingDraft, OnboardingInput, OnboardingUsage, PolicyDraft } from "./onboarding.js";
 export { estimateCostUsdMicros, priceFor } from "./pricing.js";
 export type { ModelPrice } from "./pricing.js";

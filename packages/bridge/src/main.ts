@@ -5,7 +5,7 @@
 import { randomBytes } from "node:crypto";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { serve } from "@hono/node-server";
-import { CatalogAgent, Guardian } from "@agentpos-alexa/agents";
+import { CatalogAgent, Guardian, OnboardingAgent } from "@agentpos-alexa/agents";
 import { BedrockModel } from "@strands-agents/sdk";
 import { discoverStore, StoreDiscoveryError } from "@agentpos-alexa/store-client";
 import { createApp } from "./app.js";
@@ -65,10 +65,14 @@ const fallbackModelId = process.env.BEDROCK_MODEL_STRONG_FALLBACK ?? "us.amazon.
 const region = process.env.AWS_REGION ?? "us-east-1";
 let guardian: Guardian;
 let catalogAgent: CatalogAgent;
+let onboardingAgent: OnboardingAgent;
 try {
   await fromNodeProviderChain()();
-  const bedrock = (modelId: string) => new BedrockModel({ region, modelId, maxTokens: 300, temperature: 0.1 });
+  const bedrock = (modelId: string, maxTokens = 300) => new BedrockModel({ region, modelId, maxTokens, temperature: 0.1 });
   catalogAgent = new CatalogAgent({ model: bedrock(fastModelId), modelId: fastModelId });
+  const strongFallback = fallbackModelId && fallbackModelId !== "off" ? { fallbackModel: bedrock(fallbackModelId, 4000), fallbackModelId } : {};
+  onboardingAgent = new OnboardingAgent({ model: bedrock(strongModelId, 4000), modelId: strongModelId, ...strongFallback });
+  logger.log("info", "onboarding agent", { mode: "model", modelId: strongModelId, fallbackModelId, region });
   logger.log("info", "catalog agent", { mode: "model", modelId: fastModelId, region });
   guardian = new Guardian({
     model: bedrock(strongModelId),
@@ -78,11 +82,12 @@ try {
   logger.log("info", "guardian", { mode: "model", modelId: strongModelId, fallbackModelId, region });
 } catch {
   catalogAgent = new CatalogAgent();
+  onboardingAgent = new OnboardingAgent();
   guardian = new Guardian();
   logger.log("info", "guardian", { mode: "rules-only", note: "no AWS credentials; the duplicate rule decides with a fixed sentence" });
 }
 
-const app = createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails, guardian, catalogAgent });
+const app = createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails, guardian, catalogAgent, onboardingAgent });
 serve({ fetch: app.fetch, port }, (info) => {
   logger.log("info", "listening", {
     port: info.port,

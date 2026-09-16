@@ -132,6 +132,15 @@ synthetic address, shows the store's quote with the payment handlers the session
 (the Amazon handlers, labeled SIMULATED), and completes with the chosen one. The order card
 and the receipt card that follow are the bridge's own MCP Apps views.
 
+The Merchant console (`#/merchant` in the simulator app) is the onboarding: paste a Store
+URL, the onboarding agent scans the catalog and drafts the Voice overlay (spoken name, one
+sentence, synonyms per item) and three voice policies; the Merchant edits and confirms;
+nothing is published before that click. Every stage lands in `usage_events`, and the timer
+shown ("URL to first voice purchase") is read back from those rows. Published spoken names
+replace the Store's titles on the speaker and synonyms reach the catalog agent; a line whose
+item changed in the Store goes stale and the Store's own words return until the Merchant
+confirms again. Scene 5 plays it: scan, wait for the Merchant, then the first purchase.
+
 The catalog agent answers the question the item card cannot: "is the seeded loaf gluten
 free?", "does it contain nuts?", "is it organic?". It reads only what the store publishes
 (attributes, description, the Voice overlay once onboarding lands) and a deterministic
