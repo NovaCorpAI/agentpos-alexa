@@ -13,3 +13,6 @@ Thumbs.db
 .data/
 .claude/settings.local.json
 apps/simulator/dist/
+# Built MCP Apps views are committed on purpose (no build step for judges)
+!packages/bridge/src/mcp/apps/dist/
+!packages/bridge/src/mcp/apps/dist/**
