@@ -180,3 +180,5 @@ export type {
   ReceiptChain,
   StoreHealth,
 } from "./agentpos.js";
+export { AgentPosStoreClient, StoreRequestError } from "./rest.js";
+export type { CheckoutOutcome, StoreClientOptions, StoreRequestErrorBody } from "./rest.js";
