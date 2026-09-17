@@ -4,3 +4,4 @@
 
 # Built MCP Apps views: regenerated with pnpm --filter @agentpos-alexa/bridge build:apps
 packages/bridge/src/mcp/apps/dist/** linguist-generated=true -diff
+docs/impact/*.csv -text
