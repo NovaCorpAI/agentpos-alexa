@@ -28,7 +28,7 @@ updated at every milestone, so that a missed freeze still leaves a complete entr
 | Mini challenges | AWS Builder, Open Source |
 | Repository | https://github.com/NovaCorpAI/agentpos-alexa (Apache-2.0) |
 | Video | YouTube, public, English, under 3 minutes (script below) |
-| Built with | TypeScript, Node 22, Hono, node:sqlite, MCP SDK, Amazon Bedrock (Nova 2 Lite, Claude Sonnet), Bedrock AgentCore Runtime and Memory, Strands Agents SDK, AWS App Runner, Stripe (test mode), x402, Stellar |
+| Built with | TypeScript, Node 22, Hono, node:sqlite, MCP SDK, Amazon Bedrock (Nova 2 Lite, Nova Pro, Claude Sonnet 4.6), Bedrock AgentCore Memory, Strands Agents SDK, Amazon Polly, Amazon ECS Express Mode (Fargate), Amazon ECR, AWS CodeBuild, x402, Stellar |
 | Existed before? | AgentPOS (the store side: catalog, quotes, policies, receipts, settlement) existed before the hackathon and is a separate repository. Everything in this repository is new: the MCP server for Alexa+, the UCP checkout sessions, the payment rails, the merchant agents on AgentCore, the simulated Alexa+ client. See "What we built" below. |
 
 ## Project description (draft, plain text for the form)
@@ -53,12 +53,17 @@ while the program is in preview), and USDC on Stellar through x402 when the agen
 wallet. Nothing in the bridge holds a key or funds. No order exists without settled payment.
 
 **Three merchant agents, each visible in the demo.** Onboarding turns a store URL into a
-voice-ready catalog and proposed policies, and a human confirms before anything is published.
-Catalog answers what a flat catalog cannot ("is it gluten free?") reading only what is
-published. Guardian blocks a duplicate of an order from five days ago and explains why in one
-voice-ready sentence. They run on Strands Agents on Amazon Bedrock AgentCore Runtime, with
-AgentCore Memory for "the same as last week". Every call records tokens, latency, model and
-cost in a `usage_events` table; the cost per closed checkout session is published.
+voice-ready catalog (spoken names, one-sentence summaries, synonyms) and proposed voice
+policies on Claude Sonnet 4.6, and nothing is published until the merchant confirms; every
+stage is timestamped. Catalog answers what a flat catalog cannot ("is it gluten free?", "does
+it contain nuts?") on Nova 2 Lite, reading only what is published, and says "the store has
+not published that" instead of guessing. Guardian stops a duplicate order before any money
+moves and asks the household in one spoken sentence; the next confirmation is the answer. Each
+agent runs a deterministic rule first, so the demo works without credentials, and the model
+only words what the rule found. The household's memory ("the same as last week") lives on
+Amazon Bedrock AgentCore Memory and holds order references only. Every model call records
+tokens, latency, model and cost in `usage_events`: a closed checkout session costs
+US$0.0021 in inference, measured over five sessions (`docs/COSTS.md`).
 
 **The simulated Alexa+ experience.** Amazon's tooling is available to partners only, so the
 simulator is an Echo Show style web app, voice in and out, whose agentic client runs on
@@ -76,9 +81,13 @@ Universal Commerce Protocol with this repository as reference implementation, an
 
 ## What we built during the hackathon (required when the project existed before)
 
-New in this repository: `packages/bridge` (MCP server, UCP checkout sessions, payment rails,
-UCP profile, storage), `packages/agents` (onboarding, catalog, guardian on AgentCore),
-`apps/simulator` (simulated Alexa+ client), `packages/store-client`, and all documentation.
+New in this repository: `packages/bridge` (MCP server with seven tools and four MCP Apps
+views, UCP checkout sessions, simulated Amazon handlers, onboarding routes, Voice overlay,
+storage), `packages/agents` (onboarding, catalog and guardian on Strands with Bedrock),
+`apps/simulator` (Echo Show style client with a Bedrock household agent, Polly voice, host
+checkout pattern, Scenes 1 to 5, Merchant console, AgentCore Memory), `packages/store-client`,
+`packages/fixture-store`, the deployment (`infra/`, `scripts/deploy-aws.mjs`) and all
+documentation.
 Pre-existing and unchanged: the AgentPOS store software the bridge talks to.
 
 ## Video script (under 3 minutes, English)
@@ -95,16 +104,17 @@ Pre-existing and unchanged: the AgentPOS store software the bridge talks to.
 
 ## Product feedback (required field)
 
-Taken from `docs/FRICTION-LOG.md`. Lead with FL-002 (publish the Local Inspector on public npm)
-and FL-003 (a sandbox for the network token handler). Add one entry per obstacle as they
-happen; ten real entries by submission.
+Taken from `docs/FRICTION-LOG.md` (nine entries on 2026-09-17). Lead with FL-002 (publish the
+Local Inspector on public npm), FL-003 (a sandbox for the network token handler), FL-008 (App
+Runner closed to new customers behind a `SubscriptionRequiredException`) and FL-006 (the
+Anthropic use case form on Bedrock is invisible until the first invoke fails).
 
 ## Checklist before submitting
 
 - [ ] Repository public, `LICENSE` present, README runs in one command from a clean clone.
 - [ ] Video under 3 minutes, English, public on YouTube, shows the simulated experience clearly.
-- [ ] Impact numbers filled from `usage_events` export, with the CSV committed under `docs/impact/`.
-- [ ] Friction log with at least ten entries, each with date, severity, time lost, workaround, suggestion.
+- [ ] Impact numbers filled from `usage_events` export, with the CSV committed under `docs/impact/`. Cost per closed session done (US$0.0021, `docs/impact/usage-events.csv`); onboarding time on real stores and third-party purchases pending.
+- [ ] Friction log with at least ten entries, each with date, severity, time lost, workaround, suggestion. Nine so far.
 - [ ] `.env.example` current; git history scanned for secrets.
 - [ ] Track: Alexa+. Mini challenges: AWS Builder, Open Source.
 - [ ] "Existed before" explanation matches the repository history.
