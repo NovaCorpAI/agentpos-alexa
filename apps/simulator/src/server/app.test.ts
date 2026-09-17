@@ -76,7 +76,7 @@ describe("Simulator server against an in-memory Bridge and fixture bakery", () =
     await turn("What bread do you have?");
     const started = await turn("Buy two sourdough loaf");
     await post(`/api/checkout/${started.checkout!.sessionId}/confirm`, { handlerId: "amazon_pay_network_token" });
-    const remembered = memory.recall("bakery");
+    const remembered = await memory.recall("bakery");
     expect(remembered).toHaveLength(1);
     expect(remembered[0]?.lines).toEqual([{ itemId: "sourdough-loaf", title: "Sourdough loaf", quantity: 2 }]);
     expect(JSON.stringify(remembered)).not.toMatch(/alex|demo@|Fixture Street/i);

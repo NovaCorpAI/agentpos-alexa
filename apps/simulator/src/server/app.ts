@@ -21,6 +21,8 @@ export interface SimulatorDeps {
   inspection: InspectionLog;
   /** Household memory: previous orders as references, for "the same as last week". */
   memory: HouseholdMemory;
+  /** Which runtime holds it, for /api/brain. */
+  memoryKind?: "sqlite" | "agentcore";
   /** What the /api/brain endpoint reports about the model in use. */
   brainInfo?: { modelId?: string; region?: string };
   /** Where the served static web build lives; undefined in tests. */
@@ -81,6 +83,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
       degraded: (deps.brain as { degradedReason?: string }).degradedReason ?? null,
       modelId: deps.brainInfo?.modelId ?? null,
       region: deps.brainInfo?.region ?? null,
+      memory: deps.memoryKind ?? "sqlite",
     }),
   );
 
@@ -116,7 +119,9 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     const traceId = `sim-${turnId.slice(5, 13)}`;
     let brainTurn;
     try {
-      const ctx = { addon, storeOrigin: await originOf(addon), traceId, language, known: known.get(addon) ?? [], remembered: deps.memory.recall(addon, 1)[0] } as Parameters<Brain["turn"]>[1];
+      // Memory is a convenience: if its runtime is unreachable the turn goes on without it.
+      const remembered = (await deps.memory.recall(addon, 1).catch(() => []))[0];
+      const ctx = { addon, storeOrigin: await originOf(addon), traceId, language, known: known.get(addon) ?? [], remembered } as Parameters<Brain["turn"]>[1];
       const last = lastOrder.get(addon);
       if (last) ctx.lastOrderId = last;
       brainTurn = await deps.brain.turn(body.text, ctx);
@@ -161,12 +166,15 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
       let view: TurnView | null = null;
       if (state.session.status === "completed" && state.session.order) {
         lastOrder.set(state.addon, state.session.order.id);
-        deps.memory.remember({
-          addon: state.addon,
-          orderId: state.session.order.id,
-          at: new Date().toISOString(),
-          lines: state.session.line_items.map((l) => ({ itemId: l.item.id, title: l.item.title, quantity: l.quantity })),
-        });
+        // The order is placed whatever happens to memory; a failed write only loses the reorder shortcut.
+        await deps.memory
+          .remember({
+            addon: state.addon,
+            orderId: state.session.order.id,
+            at: new Date().toISOString(),
+            lines: state.session.line_items.map((l) => ({ itemId: l.item.id, title: l.item.title, quantity: l.quantity })),
+          })
+          .catch((e: unknown) => console.error(JSON.stringify({ service: "simulator", level: "warn", msg: "household memory write failed", error: String(e) })));
         const rec = await deps.bridge.callTool(state.addon, "get_order", { orderId: state.session.order.id }, traceId);
         calls.push(rec);
         view = viewOf(rec);

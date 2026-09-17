@@ -12,7 +12,8 @@ import { createSimulatorApp, SIMULATOR_VERSION } from "./app.js";
 import { BridgeCheckoutClient, BridgeClient, BridgeOnboardingClient } from "./bridge-client.js";
 import { CheckoutFlow } from "./checkout.js";
 import { InspectionLog } from "./inspection.js";
-import { SqliteHouseholdMemory } from "./memory.js";
+import { AgentCoreHouseholdMemory, ensureMemory, sdkEvents } from "./agentcore-memory.js";
+import { SqliteHouseholdMemory, type HouseholdMemory } from "./memory.js";
 import { PollySpeech } from "./speech.js";
 
 // Values from .env fill in what the environment does not set; nothing is ever printed.
@@ -32,7 +33,22 @@ const bridge = new BridgeClient({ url: bridgeUrl, bearerToken });
 const inspection = new InspectionLog(resolve(dataDir, "inspection-summary.json"), SIMULATOR_VERSION);
 const checkout = new CheckoutFlow(new BridgeCheckoutClient({ url: bridgeUrl, bearerToken }));
 const merchant = new BridgeOnboardingClient({ url: bridgeUrl, bearerToken });
-const memory = new SqliteHouseholdMemory(resolve(dataDir, "household-memory.sqlite"));
+// Household memory: SQLite by default; AgentCore Memory when SIMULATOR_MEMORY=agentcore (#16).
+// AGENTCORE_MEMORY_ID pins an existing memory; otherwise it is found by name or created.
+let memory: HouseholdMemory = new SqliteHouseholdMemory(resolve(dataDir, "household-memory.sqlite"));
+let memoryKind: "sqlite" | "agentcore" = "sqlite";
+if (process.env.SIMULATOR_MEMORY === "agentcore") {
+  const memRegion = process.env.AWS_REGION ?? "us-east-1";
+  try {
+    const memoryId = process.env.AGENTCORE_MEMORY_ID || (await ensureMemory(memRegion, (msg) => console.log(JSON.stringify({ service: "simulator", msg }))));
+    memory.close();
+    memory = new AgentCoreHouseholdMemory(memoryId, sdkEvents(memRegion));
+    memoryKind = "agentcore";
+    console.log(JSON.stringify({ service: "simulator", msg: "household memory", runtime: "agentcore", memoryId, region: memRegion }));
+  } catch (e) {
+    console.log(JSON.stringify({ service: "simulator", level: "warn", msg: "AgentCore Memory unavailable, using SQLite", error: String(e).slice(0, 300) }));
+  }
+}
 /** The Simulator's own usage_events (same schema as the Bridge's), for the agent's model calls. */
 const usage = openStorage({ path: resolve(dataDir, "simulator.sqlite") });
 
@@ -55,7 +71,7 @@ async function pickBrain(): Promise<{ brain: Brain; reason: string }> {
 const { brain, reason } = await pickBrain();
 // Polly is tried lazily per phrase; without credentials or permission the browser speaks.
 const speech = brain.kind === "agent" || process.env.SIMULATOR_SPEECH === "polly" ? new PollySpeech(region, resolve(dataDir, "polly-cache")) : undefined;
-const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, brainInfo: { modelId, region }, webDir, merchant, ...(speech ? { speech } : {}) });
+const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, memoryKind, brainInfo: { modelId, region }, webDir, merchant, ...(speech ? { speech } : {}) });
 
 if (existsSync(webDir)) {
   app.use("/*", serveStatic({ root: relativeToCwd(webDir) }));

@@ -16,9 +16,10 @@ export interface OrderReference {
 }
 
 export interface HouseholdMemory {
-  remember(ref: OrderReference): void;
+  /** Idempotent by order id; stores only the reference fields, whatever else the input carries. */
+  remember(ref: OrderReference): Promise<void>;
   /** Newest first. */
-  recall(addon: string, limit?: number): OrderReference[];
+  recall(addon: string, limit?: number): Promise<OrderReference[]>;
   close(): void;
 }
 
@@ -41,13 +42,13 @@ export class SqliteHouseholdMemory implements HouseholdMemory {
     this.db.exec(DDL);
   }
 
-  remember(ref: OrderReference): void {
+  async remember(ref: OrderReference): Promise<void> {
     this.db
       .prepare(`INSERT OR REPLACE INTO household_orders (order_id, addon, at, lines) VALUES (?, ?, ?, ?)`)
       .run(ref.orderId, ref.addon, ref.at, JSON.stringify(ref.lines.map((l) => ({ itemId: l.itemId, title: l.title, quantity: l.quantity }))));
   }
 
-  recall(addon: string, limit = 5): OrderReference[] {
+  async recall(addon: string, limit = 5): Promise<OrderReference[]> {
     const rows = this.db.prepare(`SELECT order_id, addon, at, lines FROM household_orders WHERE addon = ? ORDER BY at DESC LIMIT ?`).all(addon, limit) as unknown as Array<{
       order_id: string;
       addon: string;
