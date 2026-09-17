@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Deploys the hosted playground (#20): builds infra/Dockerfile in CodeBuild from the public
- * GitHub repository, pushes it to ECR, and creates or updates three App Runner services
- * (fixture-store, bridge, simulator). Idempotent: every resource is found by name first.
+ * GitHub repository, pushes it to ECR, and creates or updates three Amazon ECS Express Mode
+ * services (fixture Store, Bridge, Simulator). Idempotent: every resource is found by name first.
  *
  *   node scripts/deploy-aws.mjs [--skip-build] [--ref main]
  *
@@ -12,7 +12,7 @@
 import { randomBytes } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { AppRunnerClient, CreateServiceCommand, DescribeServiceCommand, ListServicesCommand, UpdateServiceCommand } from "@aws-sdk/client-apprunner";
+import { CreateExpressGatewayServiceCommand, DescribeExpressGatewayServiceCommand, ECSClient, UpdateExpressGatewayServiceCommand } from "@aws-sdk/client-ecs";
 import { BatchGetBuildsCommand, BatchGetProjectsCommand, CodeBuildClient, CreateProjectCommand, StartBuildCommand, UpdateProjectCommand } from "@aws-sdk/client-codebuild";
 import { CreateRepositoryCommand, DescribeRepositoriesCommand, ECRClient } from "@aws-sdk/client-ecr";
 import { AttachRolePolicyCommand, CreateRoleCommand, GetRoleCommand, IAMClient, PutRolePolicyCommand } from "@aws-sdk/client-iam";
@@ -46,7 +46,6 @@ const { Account: account } = await new STSClient({ region }).send(new GetCallerI
 const iam = new IAMClient({ region });
 const ecr = new ECRClient({ region });
 const codebuild = new CodeBuildClient({ region });
-const apprunner = new AppRunnerClient({ region });
 const imageUri = `${account}.dkr.ecr.${region}.amazonaws.com/${NAME}`;
 
 async function ensureRole(roleName, trustService, { managed = [], inline } = {}) {
@@ -74,7 +73,7 @@ try {
   log("ecr repository created", { imageUri });
 }
 
-// 2. Roles: image build, App Runner's pull from ECR, and the services' own AWS access.
+// 2. Roles: the image build, and the services' own AWS access (models, voice, memory).
 const buildRole = await ensureRole(`${NAME}-codebuild`, "codebuild.amazonaws.com", {
   inline: {
     Version: "2012-10-17",
@@ -85,19 +84,17 @@ const buildRole = await ensureRole(`${NAME}-codebuild`, "codebuild.amazonaws.com
     ],
   },
 });
-const accessRole = await ensureRole(`${NAME}-apprunner-ecr`, "build.apprunner.amazonaws.com", { managed: ["arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess"] });
-const instanceRole = await ensureRole(`${NAME}-instance`, "tasks.apprunner.amazonaws.com", {
-  inline: {
+const instancePolicy = {
     Version: "2012-10-17",
     Statement: [
       { Effect: "Allow", Action: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:Converse", "bedrock:ConverseStream"], Resource: "*" },
       { Effect: "Allow", Action: ["polly:SynthesizeSpeech", "polly:DescribeVoices"], Resource: "*" },
       { Effect: "Allow", Action: ["bedrock-agentcore:CreateEvent", "bedrock-agentcore:ListEvents", "bedrock-agentcore:GetMemory", "bedrock-agentcore:ListMemories"], Resource: "*" },
     ],
-  },
-});
+};
 
-// 3. Image, built in CodeBuild from the public repository.
+// 3. Image, built in CodeBuild from the public repository and tagged with the commit.
+let builtTag;
 if (!skipBuild) {
   const buildspec = [
     "version: 0.2",
@@ -143,96 +140,93 @@ if (!skipBuild) {
     if (b.buildStatus !== "IN_PROGRESS") {
       log("image build finished", { status: b.buildStatus, phase: b.phases?.filter((p) => p.phaseStatus && p.phaseStatus !== "SUCCEEDED").map((p) => `${p.phaseType}:${p.phaseStatus}`) ?? [], logs: b.logs?.deepLink });
       if (b.buildStatus !== "SUCCEEDED") process.exit(1);
+      builtTag = b.resolvedSourceVersion;
       break;
     }
   }
 }
 
-// 4. Services.
-async function findService(name) {
-  let NextToken;
-  do {
-    const page = await apprunner.send(new ListServicesCommand({ NextToken }));
-    const s = page.ServiceSummaryList?.find((x) => x.ServiceName === name);
-    if (s) return (await apprunner.send(new DescribeServiceCommand({ ServiceArn: s.ServiceArn }))).Service;
-    NextToken = page.NextToken;
-  } while (NextToken);
-  return undefined;
-}
+// 4. Services on Amazon ECS Express Mode (App Runner is closed to new customers, FL-008).
+// Express Mode URLs are https://<service-name>.ecs.<region>.on.aws, known before creation,
+// so every service is created with its peers' addresses already set.
+const ecs = new ECSClient({ region });
+const executionRole = await ensureRole(`${NAME}-ecs-execution`, "ecs-tasks.amazonaws.com", { managed: ["arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"] });
+const infrastructureRole = await ensureRole(`${NAME}-ecs-infrastructure`, "ecs.amazonaws.com", { managed: ["arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices"] });
+const taskRole = await ensureRole(`${NAME}-task`, "ecs-tasks.amazonaws.com", { inline: instancePolicy });
 
-async function waitRunning(arn, name) {
-  for (let i = 0; i < 90; i++) {
-    const s = (await apprunner.send(new DescribeServiceCommand({ ServiceArn: arn }))).Service;
-    if (s.Status === "RUNNING") {
-      // An update keeps RUNNING while the new deployment rolls; the operation is what finishes.
-      return s;
-    }
-    if (["CREATE_FAILED", "DELETED", "DELETE_FAILED"].includes(s.Status)) throw new Error(`${name} is ${s.Status}`);
-    if (i % 3 === 0) log("waiting for service", { name, status: s.Status });
-    await sleep(20_000);
+const urlOf = (name) => `https://${name}.ecs.${region}.on.aws`;
+const serviceArnOf = (name) => `arn:aws:ecs:${region}:${account}:service/default/${name}`;
+const tag = builtTag ?? "latest";
+
+async function describe(name) {
+  try {
+    return (await ecs.send(new DescribeExpressGatewayServiceCommand({ serviceArn: serviceArnOf(name) }))).service;
+  } catch (e) {
+    if (["ServiceNotFoundException", "ResourceNotFoundException", "ClusterNotFoundException"].includes(e?.name) || /not found|does not exist/i.test(String(e?.message))) return undefined;
+    throw e;
   }
-  throw new Error(`${name} did not reach RUNNING in 30 minutes`);
 }
 
-async function upsertService(name, env, healthPath, size) {
-  const source = {
-    ImageRepository: { ImageIdentifier: `${imageUri}:latest`, ImageRepositoryType: "ECR", ImageConfiguration: { Port: "8080", RuntimeEnvironmentVariables: env } },
-    AuthenticationConfiguration: { AccessRoleArn: accessRole },
-    AutoDeploymentsEnabled: false,
-  };
-  const instance = { Cpu: size.cpu, Memory: size.memory, InstanceRoleArn: instanceRole };
-  const health = { Protocol: "HTTP", Path: healthPath, Interval: 10, Timeout: 5, HealthyThreshold: 1, UnhealthyThreshold: 5 };
-  const existing = await findService(name);
-  if (!existing) {
+async function waitHealthy(name, path) {
+  const url = `${urlOf(name)}${path}`;
+  for (let i = 0; i < 120; i++) {
+    const s = await describe(name);
+    const code = s?.status?.statusCode;
+    if (code === "INACTIVE") throw new Error(`${name} is INACTIVE: ${s?.status?.statusReason ?? ""}`);
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (r.ok && code === "ACTIVE") return s;
+    } catch {}
+    if (i % 4 === 0) log("waiting for service", { name, status: code ?? "unknown", url });
+    await sleep(15_000);
+  }
+  throw new Error(`${name} did not answer ${url} in 30 minutes`);
+}
+
+async function upsertService(name, env, healthPath) {
+  const container = { image: `${imageUri}:${tag}`, containerPort: 8080, environment: Object.entries(env).map(([k, v]) => ({ name: k, value: v })) };
+  const common = { executionRoleArn: executionRole, taskRoleArn: taskRole, healthCheckPath: healthPath, primaryContainer: container, cpu: "256", memory: "1024", cpuArchitecture: "X86_64", scalingTarget: { minTaskCount: 1, maxTaskCount: 1 } };
+  const existing = await describe(name);
+  if (existing && existing.status?.statusCode !== "INACTIVE") {
+    await ecs.send(new UpdateExpressGatewayServiceCommand({ serviceArn: existing.serviceArn, ...common }));
+    log("service updating", { name, image: container.image });
+  } else {
     for (let attempt = 0; ; attempt++) {
       try {
-        const { Service } = await apprunner.send(new CreateServiceCommand({ ServiceName: name, SourceConfiguration: source, InstanceConfiguration: instance, HealthCheckConfiguration: health, Tags: [{ Key: "project", Value: NAME }] }));
-        log("service creating", { name, url: `https://${Service.ServiceUrl}` });
-        return waitRunning(Service.ServiceArn, name);
+        await ecs.send(new CreateExpressGatewayServiceCommand({ serviceName: name, infrastructureRoleArn: infrastructureRole, ...common, tags: [{ key: "project", value: NAME }] }));
+        break;
       } catch (e) {
-        if (attempt < 5 && /role|assume/i.test(String(e?.message))) { await sleep(15_000); continue; }
+        if (attempt < 6 && /assume|role/i.test(String(e?.message))) { await sleep(20_000); continue; }
         throw e;
       }
     }
+    log("service creating", { name, url: urlOf(name) });
   }
-  await waitRunning(existing.ServiceArn, name);
-  await apprunner.send(new UpdateServiceCommand({ ServiceArn: existing.ServiceArn, SourceConfiguration: source, InstanceConfiguration: instance, HealthCheckConfiguration: health }));
-  log("service updating", { name });
-  await sleep(30_000);
-  return waitRunning(existing.ServiceArn, name);
+  // One task on purpose: each service keeps its SQLite state on the task's disk.
+  return waitHealthy(name, healthPath);
 }
 
 const models = { AWS_REGION: region, BEDROCK_MODEL_FAST: cfg("BEDROCK_MODEL_FAST", "us.amazon.nova-2-lite-v1:0"), BEDROCK_MODEL_STRONG: cfg("BEDROCK_MODEL_STRONG", "us.anthropic.claude-sonnet-4-6"), BEDROCK_MODEL_STRONG_FALLBACK: cfg("BEDROCK_MODEL_STRONG_FALLBACK", "us.amazon.nova-pro-v1:0") };
-const small = { cpu: "0.25 vCPU", memory: "1 GB" };
+const fixtureName = `${NAME}-store`;
+const bridgeName = `${NAME}-bridge`;
+const simulatorName = `${NAME}-sim`;
 
-// The fixture Store first: the Bridge registers it at boot. Its own URL is only known after creation.
-let fixture = await upsertService(`${NAME}-fixture-store`, { SERVICE: "fixture-store", FIXTURE_STORE_URL: "http://placeholder.invalid" }, "/.well-known/ucp", small);
-const fixtureUrl = `https://${fixture.ServiceUrl}`;
-if (fixture.SourceConfiguration.ImageRepository.ImageConfiguration.RuntimeEnvironmentVariables?.FIXTURE_STORE_URL !== fixtureUrl) {
-  fixture = await upsertService(`${NAME}-fixture-store`, { SERVICE: "fixture-store", FIXTURE_STORE_URL: fixtureUrl }, "/.well-known/ucp", small);
-}
+// The bearer survives redeploys: it is read back from the running Bridge's configuration.
+const priorBridge = await describe(bridgeName);
+const priorEnv = priorBridge?.activeConfigurations?.[0]?.primaryContainer?.environment ?? [];
+const bearer = priorEnv.find((e) => e.name === "BRIDGE_BEARER_TOKEN")?.value || randomBytes(32).toString("base64url");
 
-// The Bridge keeps its bearer across redeploys so the Simulator's copy stays valid.
-const prior = await findService(`${NAME}-bridge`);
-const bearer = prior?.SourceConfiguration?.ImageRepository?.ImageConfiguration?.RuntimeEnvironmentVariables?.BRIDGE_BEARER_TOKEN || randomBytes(32).toString("base64url");
-const bridgeEnv = (base) => ({ SERVICE: "bridge", AGENTPOS_STORE_URL: fixtureUrl, BRIDGE_BASE_URL: base, BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models });
-let bridge = await upsertService(`${NAME}-bridge`, bridgeEnv(prior ? `https://${prior.ServiceUrl}` : "http://placeholder.invalid"), "/health", small);
-const bridgeUrl = `https://${bridge.ServiceUrl}`;
-if (bridge.SourceConfiguration.ImageRepository.ImageConfiguration.RuntimeEnvironmentVariables?.BRIDGE_BASE_URL !== bridgeUrl) {
-  bridge = await upsertService(`${NAME}-bridge`, bridgeEnv(bridgeUrl), "/health", small);
-}
-
-// Household memory: the existing AgentCore memory when there is one.
 let memoryId = cfg("AGENTCORE_MEMORY_ID", "");
 if (!memoryId) {
   const page = await new BedrockAgentCoreControlClient({ region }).send(new ListMemoriesCommand({ maxResults: 100 }));
   memoryId = page.memories?.find((m) => m.id?.startsWith("agentpos_alexa_household-") && m.status === "ACTIVE")?.id ?? "";
 }
-const simulator = await upsertService(
-  `${NAME}-simulator`,
-  { SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models },
-  "/api/health",
-  small,
-);
 
-log("deployed", { simulator: `https://${simulator.ServiceUrl}/`, merchantConsole: `https://${simulator.ServiceUrl}/#/merchant`, bridge: bridgeUrl, fixtureStore: fixtureUrl, image: `${imageUri}:latest` });
+// The fixture Store first (the Bridge registers it at boot), then the Bridge and the Simulator together.
+await upsertService(fixtureName, { SERVICE: "fixture-store", FIXTURE_STORE_URL: urlOf(fixtureName) }, "/.well-known/ucp");
+await Promise.all([
+  upsertService(bridgeName, { SERVICE: "bridge", AGENTPOS_STORE_URL: urlOf(fixtureName), BRIDGE_BASE_URL: urlOf(bridgeName), BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models }, "/health"),
+  upsertService(simulatorName, { SERVICE: "simulator", BRIDGE_URL: urlOf(bridgeName), BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }, "/api/health"),
+]);
+
+log("deployed", { simulator: `${urlOf(simulatorName)}/`, merchantConsole: `${urlOf(simulatorName)}/#/merchant`, bridge: urlOf(bridgeName), fixtureStore: urlOf(fixtureName), image: `${imageUri}:${tag}` });

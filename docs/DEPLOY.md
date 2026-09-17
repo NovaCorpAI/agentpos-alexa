@@ -1,13 +1,12 @@
 # Deploying the hosted playground
 
-> **Status 2026-09-17:** App Runner is closed to new customers since 2026-04-30, and this
-> account is new, so `scripts/deploy-aws.mjs` fails at the first App Runner call (FL-008). The
-> registry, the roles and the CodeBuild image build work and stay. The services move to
-> Amazon ECS Express Mode (the successor AWS recommends) or to Lambda; see the decision in
-> the issue for #20.
+> **2026-09-17:** App Runner is closed to new customers since 2026-04-30 (FL-008). The
+> services run on Amazon ECS Express Mode instead: same image, one Fargate task each, HTTPS
+> URLs of the form `https://<service>.ecs.us-east-1.on.aws`. `pnpm deploy:aws` builds and
+> deploys everything.
 
-Target (#20): the Bridge, the Simulator and the fixture Store as three App Runner services
-built from one image (`infra/Dockerfile`, service chosen by `SERVICE`), household memory on
+Target (#20): the Bridge, the Simulator and the fixture Store as three ECS Express Mode
+services built from one image (`infra/Dockerfile`, service chosen by `SERVICE`), household memory on
 AgentCore Memory, us-east-1. No Docker is needed locally: the image builds in CodeBuild from
 this public repository and is pushed to ECR.
 
@@ -21,6 +20,10 @@ the policy in `infra/iam-deployer-policy.json`, which is scoped to resources nam
    `agentpos-alexa-deployer`.
 2. IAM console, Users, the development user, Add permissions, Attach policies directly:
    select `agentpos-alexa-deployer`.
+3. Repeat both steps with `infra/iam-deployer-ecs-policy.json`, named
+   `agentpos-alexa-deployer-ecs` (ECS Express Mode, read-only network lookups and its
+   service-linked roles; the load balancer is created by the infrastructure role, not by the
+   user).
 
 ## What the services receive
 
@@ -35,7 +38,7 @@ the policy in `infra/iam-deployer-policy.json`, which is scoped to resources nam
 | `SIMULATOR_MEMORY` | | `agentcore` | |
 | `AWS_REGION`, `BEDROCK_MODEL_*` | yes | yes | |
 
-AWS access comes from each service's instance role (`agentpos-alexa-instance`), never from
+AWS access comes from each service's task role (`agentpos-alexa-task`), never from
 keys in the environment. The bearer token is generated at deploy time and kept only in the
 services' configuration. SQLite lives on the instance's disk and resets on redeploy, which
 suits a playground; orders of record live in the Store.
