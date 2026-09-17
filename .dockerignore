@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+.data
+.env
+.env.*
+!.env.example
+apps/simulator/dist
+coverage
+.git
+.claude
+docs/assets
+*.log
+*.sqlite
