@@ -2,7 +2,7 @@
 
 > **2026-09-17:** App Runner is closed to new customers since 2026-04-30 (FL-008). The
 > services run on Amazon ECS Express Mode instead: same image, one Fargate task each, HTTPS
-> URLs of the form `https://<service>.ecs.us-east-1.on.aws`. `pnpm deploy:aws` builds and
+> URLs generated at creation (`https://ag-<id>.ecs.us-east-1.on.aws`, FL-009). `pnpm deploy:aws` builds and
 > deploys everything.
 
 Target (#20): the Bridge, the Simulator and the fixture Store as three ECS Express Mode

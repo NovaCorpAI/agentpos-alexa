@@ -196,3 +196,23 @@ commit or file.
   availability page link, and show a banner in the App Runner console for accounts that cannot
   create services.
 - Link: scripts/deploy-aws.mjs, docs/DEPLOY.md
+
+## FL-009
+
+- Date: 2026-09-17
+- Tool: Amazon ECS Express Mode (CreateExpressGatewayService, getting started guide).
+- What we tried: create three services whose environment carries each other's public URLs,
+  using the URL format the guide documents: `https://<service-name>.ecs.<region>.on.aws/`.
+- What happened: the service reached ACTIVE with its task running and registered, but that
+  host name did not resolve. The real endpoint is generated
+  (`ag-<32 hex>.ecs.us-east-1.on.aws`) and appears only in
+  `activeConfigurations[].ingressPaths[].endpoint` after creation. Our deploy waited 30 minutes
+  on a name that never existed.
+- Severity: Medium
+- Time lost: about 45 min
+- Workaround: create each service with a placeholder, read the generated endpoint from
+  DescribeExpressGatewayService, then update the environment and wait for the rollout.
+- Suggestion: correct the URL format in the getting started guide, and either return the
+  endpoint in the CreateExpressGatewayService response or allow choosing the host prefix, so
+  services that reference each other can be created in one pass.
+- Link: scripts/deploy-aws.mjs
