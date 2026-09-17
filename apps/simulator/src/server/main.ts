@@ -14,6 +14,7 @@ import { CheckoutFlow } from "./checkout.js";
 import { InspectionLog } from "./inspection.js";
 import { AgentCoreHouseholdMemory, ensureMemory, sdkEvents } from "./agentcore-memory.js";
 import { SqliteHouseholdMemory, type HouseholdMemory } from "./memory.js";
+import { limitsFromEnv } from "./rate-limit.js";
 import { PollySpeech } from "./speech.js";
 
 // Values from .env fill in what the environment does not set; nothing is ever printed.
@@ -71,7 +72,9 @@ async function pickBrain(): Promise<{ brain: Brain; reason: string }> {
 const { brain, reason } = await pickBrain();
 // Polly is tried lazily per phrase; without credentials or permission the browser speaks.
 const speech = brain.kind === "agent" || process.env.SIMULATOR_SPEECH === "polly" ? new PollySpeech(region, resolve(dataDir, "polly-cache")) : undefined;
-const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, memoryKind, brainInfo: { modelId, region }, webDir, merchant, ...(speech ? { speech } : {}) });
+// Spend guard: on unless SIMULATOR_TURN_LIMITS=off (the public playground keeps it on).
+const limits = limitsFromEnv(process.env);
+const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, memoryKind, brainInfo: { modelId, region }, webDir, merchant, ...(limits ? { limits } : {}), ...(speech ? { speech } : {}) });
 
 if (existsSync(webDir)) {
   app.use("/*", serveStatic({ root: relativeToCwd(webDir) }));

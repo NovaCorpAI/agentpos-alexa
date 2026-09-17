@@ -9,6 +9,7 @@ import type { BridgeClient, BridgeOnboardingClient, ToolCallRecord } from "./bri
 import type { CheckoutFlow, CheckoutState } from "./checkout.js";
 import { inspectTurn, type InspectionLog, type RenderTiming } from "./inspection.js";
 import type { HouseholdMemory } from "./memory.js";
+import { TurnLimiter, type TurnLimits } from "./rate-limit.js";
 import { SCENES } from "./scenes.js";
 import type { PollySpeech, SpeechLanguage } from "./speech.js";
 
@@ -31,6 +32,8 @@ export interface SimulatorDeps {
   speech?: PollySpeech;
   /** The Merchant console's way to the Bridge's onboarding routes (#13). */
   merchant?: BridgeOnboardingClient;
+  /** Spend guard for a public deployment; omitted means unlimited (local use, tests). */
+  limits?: TurnLimits;
 }
 
 interface KnownItem {
@@ -76,6 +79,24 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
   };
 
   app.get("/api/health", (c) => c.json({ status: "ok", simulatorVersion: SIMULATOR_VERSION }));
+
+  // Every route that can call a paid model counts as a turn for the spend guard.
+  if (deps.limits) {
+    const limiter = new TurnLimiter(deps.limits);
+    const guarded = ["/api/turn", "/api/checkout/*", "/api/merchant/scan", "/api/speech"];
+    for (const path of guarded) {
+      app.use(path, async (c, next) => {
+        const visitor = (c.req.header("x-forwarded-for") ?? "").split(",")[0]!.trim() || "local";
+        const r = limiter.take(visitor);
+        if (!r.ok) {
+          c.header("Retry-After", String(r.retryAfterS));
+          const speak = r.scope === "global" ? "The public demo is very busy right now. Please try again later." : "You have reached the demo's limit for a few minutes. Please try again shortly.";
+          return c.json({ code: "RATE_LIMITED", message: speak, hint: `Retry after ${r.retryAfterS} s.`, speak: [speak], toolCalls: [], view: null, checkout: null }, 429);
+        }
+        await next();
+      });
+    }
+  }
 
   app.get("/api/brain", (c) =>
     c.json({
