@@ -15,6 +15,7 @@ import { InspectionLog } from "./inspection.js";
 import { AgentCoreHouseholdMemory, ensureMemory, sdkEvents } from "./agentcore-memory.js";
 import { SqliteHouseholdMemory, type HouseholdMemory } from "./memory.js";
 import { limitsFromEnv } from "./rate-limit.js";
+import { SqliteWaitlist } from "./waitlist.js";
 import { PollySpeech } from "./speech.js";
 
 // Values from .env fill in what the environment does not set; nothing is ever printed.
@@ -74,7 +75,16 @@ const { brain, reason } = await pickBrain();
 const speech = brain.kind === "agent" || process.env.SIMULATOR_SPEECH === "polly" ? new PollySpeech(region, resolve(dataDir, "polly-cache")) : undefined;
 // Spend guard: on unless SIMULATOR_TURN_LIMITS=off (the public playground keeps it on).
 const limits = limitsFromEnv(process.env);
-const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, memoryKind, brainInfo: { modelId, region }, webDir, merchant, ...(limits ? { limits } : {}), ...(speech ? { speech } : {}) });
+// The public playground (#21): on in production or when asked.
+const playgroundOn = process.env.SIMULATOR_PLAYGROUND === "on" || (process.env.SIMULATOR_PLAYGROUND !== "off" && process.env.NODE_ENV === "production");
+const playground = playgroundOn
+  ? {
+      mandate: { maxTotalCents: Number(process.env.DEMO_MANDATE_MAX_CENTS ?? 5000) },
+      waitlist: new SqliteWaitlist(resolve(dataDir, "waitlist.sqlite")),
+      ...(process.env.SIMULATOR_ADMIN_TOKEN ? { adminToken: process.env.SIMULATOR_ADMIN_TOKEN } : {}),
+    }
+  : undefined;
+const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, memoryKind, brainInfo: { modelId, region }, webDir, merchant, ...(limits ? { limits } : {}), ...(playground ? { playground } : {}), ...(speech ? { speech } : {}) });
 
 if (existsSync(webDir)) {
   app.use("/*", serveStatic({ root: relativeToCwd(webDir) }));

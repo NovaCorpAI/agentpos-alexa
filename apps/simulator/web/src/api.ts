@@ -130,6 +130,18 @@ export const api = {
     fetch(`/api/inspection/${turnId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(timing) }).then((r) => json<unknown>(r)),
 };
 
+export interface PlaygroundStats {
+  playground: boolean;
+  purchases: { own: number; thirdParty: number } | null;
+  waitlist: { merchants: number; shoppers: number } | null;
+}
+
+export const playgroundApi = {
+  stats: () => fetch("/api/stats").then((r) => json<PlaygroundStats>(r)),
+  join: (body: { email: string; role: "merchant" | "shopper"; storeUrl?: string; consent: boolean }) =>
+    fetch("/api/waitlist", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then((r) => json<{ ok: true; message: string }>(r)),
+};
+
 export const merchantApi = {
   scan: (storeUrl: string, language: string) =>
     fetch("/api/merchant/scan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ storeUrl, language }) }).then((r) => json<OnboardingState>(r)),

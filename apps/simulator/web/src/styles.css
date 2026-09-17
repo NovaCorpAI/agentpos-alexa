@@ -109,3 +109,10 @@ html, body { margin: 0; height: 100%; font-family: "Amazon Ember", "Segoe UI", s
 .merchant tr.stale td { background: rgba(255,120,80,.12); }
 .merchant .error { color: #ffb4a8; }
 @media (max-width: 800px) { .merchant .stages { grid-template-columns: repeat(2, 1fr); } .merchant .row { flex-wrap: wrap; } }
+
+/* Public playground block in the panel. */
+.playground { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.playground label.consent { display: flex; gap: 6px; align-items: flex-start; text-transform: none; letter-spacing: 0; font-size: 12px; color: inherit; margin-top: 2px; }
+.playground label.consent input { width: auto; }
+.playground button { padding: 8px; border-radius: 8px; border: 0; background: var(--accent); color: #04121f; font-weight: 700; cursor: pointer; }
+.playground button:disabled { opacity: .5; cursor: default; }

@@ -10,6 +10,8 @@ import type { CheckoutFlow, CheckoutState } from "./checkout.js";
 import { inspectTurn, type InspectionLog, type RenderTiming } from "./inspection.js";
 import type { HouseholdMemory } from "./memory.js";
 import { TurnLimiter, type TurnLimits } from "./rate-limit.js";
+import type { DemoMandate } from "./checkout.js";
+import { parseWaitlist, type SqliteWaitlist } from "./waitlist.js";
 import { SCENES } from "./scenes.js";
 import type { PollySpeech, SpeechLanguage } from "./speech.js";
 
@@ -34,6 +36,12 @@ export interface SimulatorDeps {
   merchant?: BridgeOnboardingClient;
   /** Spend guard for a public deployment; omitted means unlimited (local use, tests). */
   limits?: TurnLimits;
+  /**
+   * The public playground (#21): purchases outside Scenes count as third parties', the Demo
+   * household's mandate applies, and the waitlist is open. Omitted: local development, every
+   * purchase is ours.
+   */
+  playground?: { mandate: DemoMandate; waitlist: SqliteWaitlist; adminToken?: string };
 }
 
 interface KnownItem {
@@ -83,7 +91,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
   // Every route that can call a paid model counts as a turn for the spend guard.
   if (deps.limits) {
     const limiter = new TurnLimiter(deps.limits);
-    const guarded = ["/api/turn", "/api/checkout/*", "/api/merchant/scan", "/api/speech"];
+    const guarded = ["/api/turn", "/api/checkout/*", "/api/merchant/scan", "/api/speech", "/api/waitlist"];
     for (const path of guarded) {
       app.use(path, async (c, next) => {
         const visitor = (c.req.header("x-forwarded-for") ?? "").split(",")[0]!.trim() || "local";
@@ -181,7 +189,9 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     const turnId = `turn_${randomUUID()}`;
     const traceId = `sim-${turnId.slice(5, 13)}`;
     try {
-      const state = await deps.checkout.confirm(c.req.param("id"), body.handlerId, body.instrumentId, traceId);
+      // A Scene is our demo; anything else on the public playground is a visitor buying.
+      const purchaseOrigin = deps.playground && !body.scene ? "third_party" : "own";
+      const state = await deps.checkout.confirm(c.req.param("id"), body.handlerId, body.instrumentId, traceId, { purchaseOrigin, ...(deps.playground ? { mandate: deps.playground.mandate } : {}) });
       const calls: ToolCallRecord[] = [];
       const speak = [state.speak];
       let view: TurnView | null = null;
@@ -240,6 +250,28 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
   app.get("/api/inspection", (c) => c.json(deps.inspection.summary()));
 
   app.get("/api/scenes", (c) => c.json({ scenes: SCENES }));
+
+  // Playground counters: purchases by visitors (from the Bridge) and the waitlist size. Totals only.
+  app.get("/api/stats", async (c) => {
+    const bridge = await deps.bridge.stats().catch(() => null);
+    return c.json({ playground: Boolean(deps.playground), purchases: bridge?.purchases ?? null, waitlist: deps.playground?.waitlist.count() ?? null });
+  });
+
+  app.post("/api/waitlist", async (c) => {
+    if (!deps.playground) return c.json({ code: "NO_WAITLIST", message: "The waitlist is open on the public playground only.", hint: "" }, 404);
+    const parsed = parseWaitlist((await c.req.json().catch(() => ({}))) as Record<string, unknown>, new Date());
+    if (!parsed.ok) return c.json({ code: "BAD_WAITLIST", message: parsed.message, hint: "" }, 400);
+    deps.playground.waitlist.add(parsed.entry);
+    return c.json({ ok: true, message: parsed.entry.role === "merchant" ? "Thanks. We will write to you about putting your store on Alexa+." : "Thanks. We will let you know when it ships." }, 201);
+  });
+
+  app.get("/api/waitlist/export", (c) => {
+    const token = deps.playground?.adminToken;
+    if (!deps.playground || !token || c.req.header("Authorization") !== `Bearer ${token}`) return c.json({ code: "FORBIDDEN", message: "Admin token required.", hint: "" }, 403);
+    c.header("Content-Type", "text/csv; charset=utf-8");
+    c.header("Cache-Control", "no-store");
+    return c.body(deps.playground.waitlist.toCsv());
+  });
 
   // Merchant console: pass-through to the Bridge, the bearer never reaches the browser.
   const merchantOnly = (c: { json: (b: unknown, s: 503) => Response }) => c.json({ code: "NO_MERCHANT", message: "The Merchant console is not wired to a Bridge.", hint: "Start the Bridge and the Simulator together." }, 503);

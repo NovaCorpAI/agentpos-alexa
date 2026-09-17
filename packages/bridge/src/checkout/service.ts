@@ -46,6 +46,11 @@ export interface CallContext {
   store: RegisteredStore;
   traceId: string;
   log: Logger;
+  /**
+   * From the platform's AgentPOS-Purchase-Origin header. A purchase through the Bridge is a
+   * third party's unless the platform says it is ours (a Scene, a test, a measurement).
+   */
+  purchaseOrigin?: "own" | "third_party";
 }
 
 const UCP_VERSION = PROTOCOL_VERSIONS.ucpCheckout.version;
@@ -200,6 +205,7 @@ export class CheckoutService {
       }
     }
     session.status = "complete_in_progress";
+    internal.purchaseOrigin = ctx.purchaseOrigin ?? "third_party";
     this.deps.storage.checkout.save(session, internal);
     const started = performance.now();
     const outcome = await rail.settle({ store: ctx.store, storeClient, session, internal, instrument, traceId: ctx.traceId, log: ctx.log });
@@ -216,7 +222,7 @@ export class CheckoutService {
       estimatedCostUsdMicros: 0,
       paymentHandler: `${rail.namespace}/${rail.id}`,
       simulated: rail.pspMode === "simulated",
-      purchaseOrigin: "own",
+      purchaseOrigin: internal.purchaseOrigin,
       pspMode: rail.pspMode,
     });
     if (outcome.kind === "settled") {

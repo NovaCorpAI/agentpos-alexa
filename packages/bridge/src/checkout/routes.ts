@@ -9,7 +9,7 @@ import type { AuthInfo } from "@modelcontextprotocol/server";
 import { BridgeError, storeNotFound } from "../errors.js";
 import type { Logger } from "../logging.js";
 import type { Storage } from "../storage/sqlite.js";
-import type { CheckoutService } from "./service.js";
+import type { CallContext, CheckoutService } from "./service.js";
 import type { CompleteRequest, SessionRequest } from "./types.js";
 
 type Env = { Variables: { traceId: string; log: Logger } };
@@ -46,7 +46,9 @@ export function registerCheckoutRoutes(app: Hono<Env>, deps: CheckoutRouteDeps):
     const slug = c.req.param("slug")!;
     const store = deps.storage.stores.get(slug);
     if (!store) throw storeNotFound(slug);
-    return { store, traceId: c.get("traceId"), log: c.get("log").child({ slug, checkout: true }) };
+    const origin = c.req.header("AgentPOS-Purchase-Origin");
+    const purchaseOrigin: CallContext["purchaseOrigin"] = origin === "own" ? "own" : origin === "third_party" ? "third_party" : undefined;
+    return { store, traceId: c.get("traceId"), log: c.get("log").child({ slug, checkout: true }), ...(purchaseOrigin ? { purchaseOrigin } : {}) };
   };
 
   /** Runs a state-changing handler under the caller's Idempotency-Key. */

@@ -62,6 +62,8 @@ export interface CheckoutRepo {
   listBySlug(slug: string, limit?: number): StoredSession[];
   /** The completed session that produced a Store order, if this Bridge did. */
   findByStoreOrderId(slug: string, storeOrderId: string): StoredSession | undefined;
+  /** Completed sessions by purchase origin (all Stores); sessions from before the field count as own. */
+  countCompletedByOrigin(): { own: number; thirdParty: number };
   /** How many sessions ended in a status since a moment (all Stores). */
   countByStatus(status: string, sinceIso?: string): number;
   /** Completed sessions of one buyer (by opaque key) at a Store since a moment, newest first. */
@@ -115,6 +117,14 @@ export class SqliteCheckoutRepo implements CheckoutRepo {
       .get(slug, storeOrderId) as unknown as { body: string; internal: string; created_at: string; updated_at: string } | undefined;
     if (!row) return undefined;
     return { session: JSON.parse(row.body) as CheckoutSession, internal: JSON.parse(row.internal) as SessionInternal, createdAt: row.created_at, updatedAt: row.updated_at };
+  }
+
+  countCompletedByOrigin(): { own: number; thirdParty: number } {
+    const rows = this.db
+      .prepare(`SELECT COALESCE(json_extract(internal, '$.purchaseOrigin'), 'own') AS origin, COUNT(*) AS n FROM checkout_sessions WHERE status = 'completed' GROUP BY origin`)
+      .all() as unknown as Array<{ origin: string; n: number }>;
+    const n = (o: string) => Number(rows.find((r) => r.origin === o)?.n ?? 0);
+    return { own: n("own"), thirdParty: n("third_party") };
   }
 
   countByStatus(status: string, sinceIso = ""): number {

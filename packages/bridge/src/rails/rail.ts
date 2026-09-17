@@ -25,6 +25,8 @@ export interface SessionInternal {
   buyerKey?: string;
   /** The guardian asked the buyer to review once; the next complete is the buyer's answer. */
   guardianAcknowledged?: boolean;
+  /** Who bought: our own team (Scenes, tests) or a third party. Set at completion. */
+  purchaseOrigin?: "own" | "third_party";
 }
 
 export interface RailContext {

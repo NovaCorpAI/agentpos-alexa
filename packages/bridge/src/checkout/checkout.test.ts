@@ -197,6 +197,25 @@ describe("UCP checkout sessions", () => {
     expect(storage.usageEvents.list({ source: "agent.guardian" })).toMatchObject([{ model: null, inputTokens: 0 }]);
   });
 
+  it("counts a purchase as a third party's unless the platform says it is ours, and publishes only totals", async () => {
+    const completeBody = { payment: { instruments: [{ id: "instr_1", handler_id: "test-rail", type: "card", credential: { type: "test" } }] } };
+    const buy = async (key: string, origin?: string, itemId = "sourdough-loaf") => {
+      const body = { ...createBody, line_items: [{ item: { id: itemId }, quantity: 1 }] };
+      const created = (await (await post("/stores/bakery/checkout-sessions", body, `${key}-c`)).json()) as CheckoutSession;
+      await put(`/stores/bakery/checkout-sessions/${created.id}`, { ...updateBody, line_items: body.line_items, fulfillment: { methods: [{ ...updateBody.fulfillment.methods[0]!, line_item_ids: ["li_1"] }] } }, `${key}-u`);
+      const extra = origin ? { "AgentPOS-Purchase-Origin": origin } : {};
+      const res = await app.request(`/stores/bakery/checkout-sessions/${created.id}/complete`, { method: "POST", headers: headers({ "Idempotency-Key": `${key}-x`, ...extra }), body: JSON.stringify(completeBody) });
+      return (await res.json()) as CheckoutSession;
+    };
+    expect((await buy("o1", "own")).status).toBe("completed");
+    expect((await buy("o2", undefined, "baguette")).status).toBe("completed");
+    expect((await buy("o3", "third_party", "rye-loaf")).status).toBe("completed");
+    expect(storage.usageEvents.list({ source: "bridge.checkout" }).map((e) => e.purchaseOrigin)).toEqual(["own", "third_party", "third_party"]);
+    const stats = await app.request("/stats");
+    expect(stats.status).toBe(200);
+    expect(await stats.json()).toEqual({ purchases: { own: 1, thirdParty: 2 }, stores: 1 });
+  });
+
   it("replays the same Idempotency-Key and refuses it with a different body", async () => {
     const first = await post("/stores/bakery/checkout-sessions", createBody, "same-key");
     const replay = await post("/stores/bakery/checkout-sessions", createBody, "same-key");

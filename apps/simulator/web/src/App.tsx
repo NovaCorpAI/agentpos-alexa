@@ -5,6 +5,7 @@
  * result or a UCP session.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Playground } from "./Playground";
 import { api, checkoutApi, merchantApi, type Addon, type BrainInfo, type CheckoutState, type Inspection, type Scene, type Turn } from "./api";
 import { AppHost, type DisplayMode } from "./AppHost";
 import { Checkout } from "./Checkout";
@@ -321,6 +322,8 @@ export function App() {
         <p className="muted small">
           <a href="#/merchant">Open the Merchant console</a> (onboarding, Scene 5).
         </p>
+
+        <Playground />
 
         <label>Scenes</label>
         <div className="scenes">

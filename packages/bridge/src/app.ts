@@ -91,6 +91,12 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails =
 
   app.post("/oauth/token", (c) => tokenEndpoint(c, storage.oauth));
 
+  // Public counters for the playground (#21): totals only, nothing about any order or buyer.
+  app.get("/stats", (c) => {
+    c.header("Cache-Control", "public, max-age=15");
+    return c.json({ purchases: storage.checkout.countCompletedByOrigin(), stores: storage.stores.list().length });
+  });
+
   app.get("/stores", (c) =>
     c.json({
       stores: storage.stores.list().map((s) => ({

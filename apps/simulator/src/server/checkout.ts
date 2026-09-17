@@ -97,6 +97,19 @@ function speakSession(session: Session, opts: PaymentOption[]): string {
   return err ? `${lines}. ${err.content}` : `${lines}.`;
 }
 
+/**
+ * The Demo household's Buyer mandate on the public playground (ADR-0002): simulated or
+ * Test mode rails only, and a ceiling per order. Refused before anything reaches the Bridge.
+ */
+export interface DemoMandate {
+  maxTotalCents: number;
+}
+
+export interface ConfirmOptions {
+  purchaseOrigin?: "own" | "third_party";
+  mandate?: DemoMandate;
+}
+
 export class CheckoutFlow {
   private readonly states = new Map<string, CheckoutState>();
 
@@ -129,11 +142,23 @@ export class CheckoutFlow {
   }
 
   /** Complete with the chosen option's credential. Simulated credentials are labeled as such. */
-  async confirm(sessionId: string, handlerId: string, instrumentId: string | undefined, traceId: string): Promise<CheckoutState> {
+  async confirm(sessionId: string, handlerId: string, instrumentId: string | undefined, traceId: string, how: ConfirmOptions = {}): Promise<CheckoutState> {
     const state = this.states.get(sessionId);
     if (!state) throw new Error("unknown checkout session");
     const opt = state.options.find((o) => o.handlerId === handlerId && (instrumentId ? o.instrumentId === instrumentId : true) && o.available);
     if (!opt) throw new Error("that payment option is not available");
+    if (how.mandate) {
+      const refusal = !opt.simulated
+        ? "The demo household can only pay with simulated or test mode methods. Bring your own wallet to buy for real."
+        : total(state.session) > how.mandate.maxTotalCents
+          ? `That is above the demo household's limit of ${dollars(how.mandate.maxTotalCents)} per order. Try fewer items.`
+          : undefined;
+      if (refusal) {
+        const refused: CheckoutState = { ...state, speak: refusal };
+        this.states.set(sessionId, refused);
+        return refused;
+      }
+    }
     const instrument =
       KNOWN[opt.namespace]?.kind === "stored"
         ? { id: `instr_${randomUUID().slice(0, 8)}`, handler_id: handlerId, type: "card", credential: { type: "payment_method_reference", payment_method_id: opt.instrumentId } }
@@ -146,7 +171,7 @@ export class CheckoutFlow {
             credential: { type: "encrypted_network_token", encrypted_token: "SIMULATED.eyJhbGci", encrypted_cryptogram: "SIMULATED.eyJhbGci", eci: "05", expiry_month: "09", expiry_year: "2028" },
             display: { brand: "visa", last_digits: "4242" },
           };
-    const done = await this.client.complete(state.addon, sessionId, { payment: { instruments: [instrument] } }, traceId, randomUUID());
+    const done = await this.client.complete(state.addon, sessionId, { payment: { instruments: [instrument] } }, traceId, randomUUID(), how.purchaseOrigin);
     if (done.status !== 200) throw new Error(`checkout complete answered ${done.status}: ${JSON.stringify(done.body).slice(0, 200)}`);
     const session = done.body as unknown as Session;
     const opts = options(session);

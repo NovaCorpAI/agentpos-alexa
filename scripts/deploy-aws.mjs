@@ -10,7 +10,7 @@
  * secret is printed; the Bridge bearer token lives only in the services' configuration.
  */
 import { randomBytes } from "node:crypto";
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { CreateExpressGatewayServiceCommand, DescribeExpressGatewayServiceCommand, DescribeServicesCommand, ECSClient, UpdateExpressGatewayServiceCommand } from "@aws-sdk/client-ecs";
 import { BatchGetBuildsCommand, BatchGetProjectsCommand, CodeBuildClient, CreateProjectCommand, StartBuildCommand, UpdateProjectCommand } from "@aws-sdk/client-codebuild";
@@ -271,6 +271,25 @@ if (!memoryId) {
 
 const storeUrl = await upsertService(storeName, (own) => ({ SERVICE: "fixture-store", FIXTURE_STORE_URL: own }), "/.well-known/ucp");
 const bridgeUrl = await upsertService(bridgeName, (own) => ({ SERVICE: "bridge", AGENTPOS_STORE_URL: storeUrl, BRIDGE_BASE_URL: own, BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models }), "/health");
-const simulatorUrl = await upsertService(simulatorName, () => ({ SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }), "/api/health");
+// The waitlist lives on the Simulator task's disk: export it before a redeploy replaces the task.
+const priorSim = await describe(simulatorName);
+const adminToken = envOf(priorSim).SIMULATOR_ADMIN_TOKEN || randomBytes(32).toString("base64url");
+if (priorSim && envOf(priorSim).SIMULATOR_ADMIN_TOKEN && endpointOf(priorSim)) {
+  try {
+    const res = await fetch(`${endpointOf(priorSim)}/api/waitlist/export`, { headers: { Authorization: `Bearer ${adminToken}` }, signal: AbortSignal.timeout(15_000) });
+    if (res.ok) {
+      const csv = await res.text();
+      const dir = resolve(root, ".data", "waitlist-exports");
+      mkdirSync(dir, { recursive: true });
+      const file = resolve(dir, `waitlist-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`);
+      writeFileSync(file, csv);
+      log("waitlist exported before redeploy", { rows: Math.max(0, csv.trim().split(/\r?\n/).length - 1), file });
+    } else log("waitlist export skipped", { status: res.status });
+  } catch (e) {
+    log("waitlist export failed", { error: String(e).slice(0, 200) });
+  }
+}
+
+const simulatorUrl = await upsertService(simulatorName, () => ({ SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", SIMULATOR_ADMIN_TOKEN: adminToken, ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }), "/api/health");
 
 log("deployed", { simulator: `${simulatorUrl}/`, merchantConsole: `${simulatorUrl}/#/merchant`, bridge: bridgeUrl, fixtureStore: storeUrl, image: `${imageUri}:${tag}` });

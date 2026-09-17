@@ -10,6 +10,7 @@ import { CheckoutFlow } from "./checkout.js";
 import { InspectionLog } from "./inspection.js";
 import { SqliteHouseholdMemory } from "./memory.js";
 import { matchItem, route } from "./router.js";
+import { SqliteWaitlist } from "./waitlist.js";
 
 const STORE = "http://bakery.test";
 const BRIDGE = "http://bridge.test";
@@ -168,5 +169,79 @@ describe("Simulator server against an in-memory Bridge and fixture bakery", () =
     const started = await turn("Buy one baguette");
     const res = (await (await post(`/api/checkout/${started.checkout!.sessionId}/cancel`, {})).json()) as { speak: string[] };
     expect(res.speak[0]).toContain("Checkout canceled");
+  });
+});
+
+describe("Public playground (#21)", () => {
+  let storage: Storage;
+  let sim: Hono;
+  let bridgeClient: BridgeClient;
+  let memory: SqliteHouseholdMemory;
+  let waitlist: SqliteWaitlist;
+
+  const post = (path: string, body: unknown, headers: Record<string, string> = {}) => sim.request(path, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+  const turn = async (text: string) => (await (await post("/api/turn", { addon: "bakery", text })).json()) as TurnResponse;
+  const stats = async () => (await (await sim.request("/api/stats")).json()) as { playground: boolean; purchases: { own: number; thirdParty: number }; waitlist: { merchants: number; shoppers: number } };
+
+  beforeEach(async () => {
+    const fixture = createFixtureStore({ baseUrl: STORE });
+    storage = openStorage({ path: ":memory:" });
+    storage.stores.register("bakery", parseStoreProfile(STORE, await (await fixture.app.request("/.well-known/ucp")).json()));
+    const rails = new RailRegistry();
+    for (const r of amazonRailsFromMode("simulated")) rails.register(r);
+    const bridge = createApp({ storage, logger: createLogger(memorySink().sink), bridgeBaseUrl: BRIDGE, bearerToken: TOKEN, rails, storeFetch: fetchInto(fixture.app) }) as unknown as Hono;
+    bridgeClient = new BridgeClient({ url: BRIDGE, bearerToken: TOKEN }, fetchInto(bridge));
+    memory = new SqliteHouseholdMemory(":memory:");
+    waitlist = new SqliteWaitlist(":memory:");
+    sim = createSimulatorApp({
+      bridge: bridgeClient,
+      brain: new ScriptedRouterBrain(bridgeClient),
+      checkout: new CheckoutFlow(new BridgeCheckoutClient({ url: BRIDGE, bearerToken: TOKEN }, fetchInto(bridge))),
+      inspection: new InspectionLog(":memory:/never-written.json", "test"),
+      memory,
+      playground: { mandate: { maxTotalCents: 5000 }, waitlist, adminToken: "admin-test" },
+    });
+  });
+  afterEach(async () => {
+    await bridgeClient.close();
+    memory.close();
+    waitlist.close();
+    storage.close();
+  });
+
+  it("counts a visitor's simulated purchase as third party and a Scene's as ours", async () => {
+    expect(await stats()).toMatchObject({ playground: true, purchases: { own: 0, thirdParty: 0 } });
+    await turn("What bread do you have?");
+    const visitor = await turn("Buy one baguette");
+    const done = (await (await post(`/api/checkout/${visitor.checkout!.sessionId}/confirm`, { handlerId: "amazon_pay_network_token" })).json()) as TurnResponse;
+    expect(done.speak[0]).toMatch(/^Order placed\. This was a simulated payment/);
+    expect((await stats()).purchases).toEqual({ own: 0, thirdParty: 1 });
+    const scene = await turn("Buy one sourdough loaf");
+    await post(`/api/checkout/${scene.checkout!.sessionId}/confirm`, { handlerId: "amazon_pay_network_token", scene: "first-voice-purchase" });
+    expect((await stats()).purchases).toEqual({ own: 1, thirdParty: 1 });
+  });
+
+  it("refuses an order above the Demo household's mandate without reaching the Bridge", async () => {
+    await turn("What bread do you have?");
+    const big = await turn("Buy 6 cinnamon rolls, box of 4");
+    expect(big.checkout?.session.totals.at(-1)?.amount).toBe(5880);
+    const res = (await (await post(`/api/checkout/${big.checkout!.sessionId}/confirm`, { handlerId: "amazon_pay_network_token" })).json()) as TurnResponse;
+    expect(res.speak[0]).toBe("That is above the demo household's limit of $50.00 per order. Try fewer items.");
+    expect(res.checkout?.session.status).toBe("ready_for_complete");
+    expect((await stats()).purchases).toEqual({ own: 0, thirdParty: 0 });
+  });
+
+  it("takes waitlist sign-ups with consent only, once per email, and exports them with the admin token", async () => {
+    expect((await post("/api/waitlist", { email: "shop@example.com", role: "merchant" })).status).toBe(400);
+    expect((await post("/api/waitlist", { email: "not-an-email", role: "merchant", consent: true })).status).toBe(400);
+    expect((await post("/api/waitlist", { email: "Shop@Example.com", role: "merchant", storeUrl: "https://shop.example/products?x=1", consent: true })).status).toBe(201);
+    expect((await post("/api/waitlist", { email: "shop@example.com", role: "merchant", consent: true })).status).toBe(201);
+    expect((await post("/api/waitlist", { email: "buyer@example.com", role: "shopper", consent: true })).status).toBe(201);
+    expect((await stats()).waitlist).toEqual({ merchants: 1, shoppers: 1 });
+    expect((await sim.request("/api/waitlist/export")).status).toBe(403);
+    const csv = await (await sim.request("/api/waitlist/export", { headers: { Authorization: "Bearer admin-test" } })).text();
+    expect(csv.split("\r\n")[0]).toBe("email,role,store_url,at");
+    expect(csv).toContain("shop@example.com,merchant,https://shop.example,");
+    expect((await sim.request("/api/stats")).headers.get("content-type")).toMatch(/json/);
   });
 });

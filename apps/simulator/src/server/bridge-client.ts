@@ -41,6 +41,13 @@ export class BridgeClient {
     private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
+  /** Public totals from the Bridge: purchases by origin, Stores served. */
+  async stats(): Promise<{ purchases: { own: number; thirdParty: number }; stores: number }> {
+    const res = await this.fetchImpl(`${this.config.url}/stats`, { headers: { accept: "application/json" } });
+    if (!res.ok) throw new Error(`Bridge answered ${res.status} to /stats`);
+    return (await res.json()) as { purchases: { own: number; thirdParty: number }; stores: number };
+  }
+
   /** The Bridge lists its Stores; each one is an add-on the Household can enable. */
   async listAddons(): Promise<EnabledAddon[]> {
     const res = await this.fetchImpl(`${this.config.url}/stores`, { headers: { accept: "application/json" } });
@@ -154,8 +161,8 @@ export class BridgeCheckoutClient {
     return h;
   }
 
-  private async call(method: string, path: string, traceId: string, body?: unknown, idempotencyKey?: string): Promise<SessionCall> {
-    const init: RequestInit = { method, headers: this.headers(traceId, idempotencyKey) };
+  private async call(method: string, path: string, traceId: string, body?: unknown, idempotencyKey?: string, extra: Record<string, string> = {}): Promise<SessionCall> {
+    const init: RequestInit = { method, headers: { ...this.headers(traceId, idempotencyKey), ...extra } };
     if (body !== undefined) init.body = JSON.stringify(body);
     const res = await this.fetchImpl(`${this.config.url}${path}`, init);
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
@@ -171,8 +178,9 @@ export class BridgeCheckoutClient {
   update(slug: string, id: string, body: unknown, traceId: string, key: string) {
     return this.call("PUT", `/stores/${slug}/checkout-sessions/${id}`, traceId, body, key);
   }
-  complete(slug: string, id: string, body: unknown, traceId: string, key: string) {
-    return this.call("POST", `/stores/${slug}/checkout-sessions/${id}/complete`, traceId, body, key);
+  /** purchaseOrigin tells the Bridge whose purchase this is: ours (Scenes, tests) or a visitor's. */
+  complete(slug: string, id: string, body: unknown, traceId: string, key: string, purchaseOrigin?: "own" | "third_party") {
+    return this.call("POST", `/stores/${slug}/checkout-sessions/${id}/complete`, traceId, body, key, purchaseOrigin ? { "AgentPOS-Purchase-Origin": purchaseOrigin } : {});
   }
   cancel(slug: string, id: string, traceId: string, key: string) {
     return this.call("POST", `/stores/${slug}/checkout-sessions/${id}/cancel`, traceId, {}, key);

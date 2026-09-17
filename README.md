@@ -64,8 +64,12 @@ The hosted playground runs on Amazon ECS Express Mode in us-east-1:
 | Bridge (MCP for Alexa+, UCP checkout, `/health`) | https://ag-849fad36923d46a9b1a7ecf0f5d3fcd7.ecs.us-east-1.on.aws |
 | Fixture bakery Store (`/.well-known/ucp`) | https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws |
 
-Payments there are the simulated Amazon handlers, labeled SIMULATED: no money moves. Turns are
-capped per visitor and per hour to protect the demo's model budget.
+Payments there are the simulated Amazon handlers, labeled SIMULATED: no money moves. Visitors
+shop as the Demo household, whose mandate allows simulated or Test mode rails only and up to
+US$50 per order (ADR-0002). Their purchases count as third-party purchases, shown in the panel
+and at the Bridge's `/stats`; our own Scene runs do not. Merchants and shoppers can join the
+waitlist from the panel. Turns are capped per visitor and per hour to protect the demo's model
+budget.
 
 ## Run
 

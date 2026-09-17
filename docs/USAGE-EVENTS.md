@@ -18,7 +18,7 @@ it so the numbers are comparable across components.
 | `latency_ms` | integer | wall time of the call or stage |
 | `estimated_cost_usd_micros` | integer | 1 USD = 1,000,000. Never a float |
 | `onboarding_stage` | text, nullable | `scan`, `catalog_draft`, `policies_draft`, `human_confirm`, `published`, `first_voice_purchase` |
-| `purchase_origin` | text, nullable | `own` (our team, tests) or `third_party` (public simulator) |
+| `purchase_origin` | text, nullable | `own` or `third_party` on checkout events. The platform sends `AgentPOS-Purchase-Origin`; the Simulator marks Scene runs `own` and visitors' purchases on the public playground `third_party`; a purchase without the header (a real Alexa+ customer) is `third_party`. Public totals at the Bridge's `/stats`. |
 | `payment_handler` | text, nullable | handler id on rail events, e.g. `dev.ucp.processor_tokenizer` |
 | `simulated` | integer 0/1 | 1 when the rail or PSP behind the event is simulated. Always written, never inferred |
 | `psp_mode` | text, nullable | `live`, `test_mode` or `simulated` on rail events (see CONTEXT.md) |
