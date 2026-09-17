@@ -6,12 +6,16 @@
  */
 import Stripe from "stripe";
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
 export interface ChargeInput {
   amountCents: number;
   currency: "usd";
   /** A processor token or payment method id from the platform, e.g. pm_card_visa in test mode. */
   token: string;
-  /** One charge per cart, whatever the retries. */
+  /** One charge per cart and card, whatever the retries. */
   idempotencyKey: string;
   description: string;
   metadata: Record<string, string>;
@@ -62,6 +66,10 @@ export function stripeTestProcessor(secretKey: string, publishableKey: string): 
       } catch (e) {
         if (e instanceof Stripe.errors.StripeCardError) {
           return { status: "declined", code: e.decline_code ?? e.code ?? "card_declined", message: e.message };
+        }
+        // A reused idempotency key with different parameters: the buyer must start a new checkout.
+        if (isRecord(e) && e.type === "StripeIdempotencyError") {
+          return { status: "declined", code: "idempotency_conflict", message: "That payment was already attempted with different details. Start the checkout again." };
         }
         throw e;
       }

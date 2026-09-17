@@ -50,7 +50,9 @@ describe("merchant PSP checkout on the fixture Store", () => {
     const paid = await post(app, `/agentpos/checkout/processor?cart=${cart.cartId}`, { token: "pm_card_visa" });
     expect(paid.status).toBe(200);
     const { orderId } = (await paid.json()) as { orderId: string };
-    expect(stripe.charges.at(-1)).toMatchObject({ amountCents: 1300, currency: "usd", idempotencyKey: `agentpos-cart-${cart.cartId}` });
+    expect(stripe.charges.at(-1)).toMatchObject({ amountCents: 1300, currency: "usd", idempotencyKey: expect.stringMatching(/^agentpos-[0-9a-f]{24}$/) });
+    // Same cart, different card: a different key, so Stripe treats it as a new attempt.
+    expect(stripe.charges[0]!.idempotencyKey).not.toBe(stripe.charges[1]!.idempotencyKey);
     const order = await (await app.request(`/agentpos/orders/${orderId}`)).json();
     expect(order.payment).toMatchObject({ protocol: "processor", processor: "stripe", mode: "test", reference: "pi_test_1", amountCents: 1300 });
 

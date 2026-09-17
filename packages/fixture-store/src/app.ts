@@ -373,7 +373,10 @@ export function createFixtureStore(opts: FixtureStoreOptions): { app: Hono; stat
     const totalMinor = BigInt(cart.quote.quote.totalMinor);
     if (totalMinor % 100_000n !== 0n) return c.json({ error: { code: "AMOUNT_NOT_EXACT", message: "The total does not convert to whole cents", hint: "" } }, 409);
     const amountCents = Number(totalMinor / 100_000n);
-    const result = await processor.charge({ amountCents, currency: "usd", token: body.token, idempotencyKey: `agentpos-cart-${cartId}`, description: `${name} cart ${cartId}`, metadata: { cartId, store: base } });
+    // One charge per cart and card: a retry with the same card never charges twice, and a
+    // different card after a decline is a new attempt (Stripe refuses a reused key with new parameters).
+    const attempt = createHash("sha256").update(`${cartId}:${body.token}`).digest("hex").slice(0, 24);
+    const result = await processor.charge({ amountCents, currency: "usd", token: body.token, idempotencyKey: `agentpos-${attempt}`, description: `${name} cart ${cartId}`, metadata: { cartId, store: base } });
     if (result.status === "declined") return c.json({ error: { code: "PAYMENT_DECLINED", message: result.message, hint: result.code } }, 402);
     if (result.status === "requires_action") return c.json({ error: { code: "PAYMENT_REQUIRES_ACTION", message: "The card needs the buyer's authentication, which a voice checkout cannot do", hint: result.reference } }, 402);
     const orderId = id("ord");
