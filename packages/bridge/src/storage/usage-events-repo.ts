@@ -20,6 +20,8 @@ interface Row {
   model: string | null;
   input_tokens: number;
   output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
   latency_ms: number;
   estimated_cost_usd_micros: number;
   onboarding_stage: string | null;
@@ -38,6 +40,8 @@ function rowToEvent(r: Row): UsageEvent {
     storeOrigin: r.store_origin,
     model: r.model,
     inputTokens: r.input_tokens,
+    cacheReadTokens: r.cache_read_tokens ?? 0,
+    cacheWriteTokens: r.cache_write_tokens ?? 0,
     outputTokens: r.output_tokens,
     latencyMs: r.latency_ms,
     estimatedCostUsdMicros: r.estimated_cost_usd_micros,
@@ -62,8 +66,8 @@ export class SqliteUsageEventsRepo implements UsageEventsRepo {
     this.db
       .prepare(
         `INSERT INTO usage_events (id, trace_id, at, source, store_origin, checkout_session_id, model, input_tokens, output_tokens,
-           latency_ms, estimated_cost_usd_micros, onboarding_stage, purchase_origin, payment_handler, simulated, psp_mode)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           cache_read_tokens, cache_write_tokens, latency_ms, estimated_cost_usd_micros, onboarding_stage, purchase_origin, payment_handler, simulated, psp_mode)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         full.id,
@@ -75,6 +79,8 @@ export class SqliteUsageEventsRepo implements UsageEventsRepo {
         full.model,
         full.inputTokens,
         full.outputTokens,
+        full.cacheReadTokens ?? 0,
+        full.cacheWriteTokens ?? 0,
         full.latencyMs,
         full.estimatedCostUsdMicros,
         full.onboardingStage ?? null,

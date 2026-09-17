@@ -17,6 +17,8 @@ it so the numbers are comparable across components.
 | `input_tokens`, `output_tokens` | integer | zero for non-model events |
 | `latency_ms` | integer | wall time of the call or stage |
 | `estimated_cost_usd_micros` | integer | 1 USD = 1,000,000. Never a float |
+| `cache_read_tokens` | integer | input tokens served from the prompt cache, billed at a tenth of the input rate |
+| `cache_write_tokens` | integer | input tokens written to the prompt cache, billed a quarter above the input rate |
 | `onboarding_stage` | text, nullable | `scan`, `catalog_draft`, `policies_draft`, `human_confirm`, `published`, `first_voice_purchase` |
 | `purchase_origin` | text, nullable | `own` or `third_party` on checkout events. The platform sends `AgentPOS-Purchase-Origin`; the Simulator marks Scene runs `own` and visitors' purchases on the public playground `third_party`; a purchase without the header (a real Alexa+ customer) is `third_party`. Public totals at the Bridge's `/stats`. |
 | `payment_handler` | text, nullable | handler id on rail events, e.g. `dev.ucp.processor_tokenizer` |

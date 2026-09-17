@@ -50,6 +50,8 @@ export function openStorage(opts: OpenStorageOptions): Storage {
   db.exec(ONBOARDING_DDL);
   // Additive migrations for databases created by earlier runs: columns the DDL gained later.
   addColumnIfMissing(db, "usage_events", "psp_mode", "TEXT");
+  addColumnIfMissing(db, "usage_events", "cache_read_tokens", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(db, "usage_events", "cache_write_tokens", "INTEGER NOT NULL DEFAULT 0");
   return {
     stores: new SqliteStoreRegistry(db),
     usageEvents: new SqliteUsageEventsRepo(db),

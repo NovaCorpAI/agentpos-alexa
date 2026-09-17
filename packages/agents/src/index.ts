@@ -33,6 +33,7 @@ export { answerFromFacts, CatalogAgent, matchItems } from "./catalog.js";
 export type { CatalogAgentOptions, CatalogAnswer, CatalogFact, CatalogQuestion, CatalogUsage, OverlayEntry } from "./catalog.js";
 export { draftFromCatalog, OnboardingAgent, spokenName, spokenSummary, synonymsFor } from "./onboarding.js";
 export type { OnboardingAgentOptions, OnboardingDraft, OnboardingInput, OnboardingUsage, PolicyDraft } from "./onboarding.js";
-export { estimateCostUsdMicros, priceFor } from "./pricing.js";
+export { cacheConfigFor, cacheStrategyFor, type BedrockCacheConfig, type CacheStrategy } from "./cache.js";
+export { CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, estimateCostUsdMicros, priceFor } from "./pricing.js";
 export { spokenText } from "./spoken.js";
 export type { ModelPrice } from "./pricing.js";

@@ -83,11 +83,14 @@ export class HouseholdAgent {
       printer: false,
     });
     agent.addHook(ModelStreamUpdateEvent, (e) => {
-      const ev = e.event as { type: string; usage?: { inputTokens: number; outputTokens: number }; metrics?: { latencyMs: number } };
+      const ev = e.event as { type: string; usage?: { inputTokens: number; outputTokens: number; cacheReadInputTokens?: number; cacheWriteInputTokens?: number }; metrics?: { latencyMs: number } };
       if (ev.type !== "modelMetadataEvent") return;
       const input = ev.usage?.inputTokens ?? 0;
       const output = ev.usage?.outputTokens ?? 0;
-      const cost = estimateCostUsdMicros(this.deps.modelId, input, output);
+      // Prompt caching: the seven tool schemas and the system prompt travel with every call.
+      const cacheRead = ev.usage?.cacheReadInputTokens ?? 0;
+      const cacheWrite = ev.usage?.cacheWriteInputTokens ?? 0;
+      const cost = estimateCostUsdMicros(this.deps.modelId, input, output, { readTokens: cacheRead, writeTokens: cacheWrite });
       this.deps.record({
         traceId: this.currentTraceId,
         source: "simulator",
@@ -95,6 +98,8 @@ export class HouseholdAgent {
         model: this.deps.modelId,
         inputTokens: input,
         outputTokens: output,
+        cacheReadTokens: cacheRead,
+        cacheWriteTokens: cacheWrite,
         latencyMs: Math.max(0, Math.round(ev.metrics?.latencyMs ?? 0)),
         estimatedCostUsdMicros: cost.micros,
         simulated: false,

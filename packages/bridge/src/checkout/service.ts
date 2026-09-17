@@ -282,8 +282,10 @@ export class CheckoutService {
         model: u?.modelId ?? null,
         inputTokens: u?.inputTokens ?? 0,
         outputTokens: u?.outputTokens ?? 0,
+        cacheReadTokens: u?.cacheReadTokens ?? 0,
+        cacheWriteTokens: u?.cacheWriteTokens ?? 0,
         latencyMs: Math.round(performance.now() - started),
-        estimatedCostUsdMicros: u ? estimateCostUsdMicros(u.modelId, u.inputTokens, u.outputTokens).micros : 0,
+        estimatedCostUsdMicros: u ? estimateCostUsdMicros(u.modelId, u.inputTokens, u.outputTokens, { readTokens: u.cacheReadTokens, writeTokens: u.cacheWriteTokens }).micros : 0,
         simulated: false,
       });
     }

@@ -237,3 +237,30 @@ commit or file.
   directly at `json`), show a complete CreateEvent example with a JSON payload in the memory
   guide, and number payload elements from 0 in the validation message.
 - Link: apps/simulator/src/server/agentcore-memory.ts
+
+## FL-011
+
+- Date: 2026-09-17
+- Tool: Strands Agents SDK for TypeScript (BedrockModel prompt caching) with Amazon Nova 2 Lite.
+- What we tried: cut the Household agent's input cost, which is 99 percent of its token volume
+  because seven tool schemas and the system prompt travel with every call, by turning on
+  `cacheConfig: { strategy: "auto" }`.
+- What happened: nothing was cached and `cacheReadInputTokens` stayed at zero, with no warning.
+  The SDK's auto-detection enables caching only for model ids containing "anthropic" or
+  "claude", although Bedrock caches Nova as well. Forcing `strategy: "anthropic"` on the same
+  Nova model works: the first call wrote 1,499 tokens to the cache and the second read 1,502.
+  Forcing it then fails on the next call with `Malformed input request: #/toolConfig/tools/6:
+  extraneous key [cachePoint] is not permitted`, and again on `#/messages/8/content/0`: Nova
+  accepts the system checkpoint alone, so both the tool and the message checkpoints have to be
+  turned off per family. With that, a Nova call writes about 2,300 tokens to the cache and the
+  next call reads them.
+  The strategy name also reads as a provider rather than a wire format.
+- Severity: Medium
+- Time lost: about 30 min
+- Workaround: `packages/agents/src/cache.ts` names the strategy for the families we measured
+  (Anthropic and Nova), asks Nova for the system checkpoint only, and leaves "auto" for the rest.
+- Suggestion: include the Nova family in the auto-detection, rename the strategy after the
+  cache point format rather than a provider, and log once when a requested cache config ends
+  up disabled.
+- Link: packages/agents/src/cache.ts, apps/simulator/src/server/agent/brain.ts
+

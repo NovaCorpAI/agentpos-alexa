@@ -19,10 +19,28 @@ said yes. Every model call of the window is in `docs/impact/usage-events.csv` (6
 | **Total, 5 closed sessions** | | 37 | | | **US$0.0105** |
 | **Per closed session** | | | | | **US$0.0021** |
 
+### With prompt caching (2026-09-17, same five sessions)
+
+Bedrock prompt caching on the static prefix of every agent prompt, measured on the same run
+(`docs/impact/usage-events-cached.csv`):
+
+| Source | Model | Calls | Cost before | Cost with cache | Cached reads |
+| --- | --- | --- | --- | --- | --- |
+| Household agent | us.amazon.nova-2-lite-v1:0 | 31 | US$0.0059 | US$0.0043 | 30,584 tokens |
+| Catalog agent | us.amazon.nova-2-lite-v1:0 | 3 | US$0.0003 | US$0.0003 | 592 tokens |
+| Policy guardian | us.anthropic.claude-sonnet-4-6 | per review | US$0.0015 | US$0.0015 | none |
+
+The Household agent is 28 percent cheaper: its system prompt and tool schemas, about 2,300
+tokens, now cost a tenth on every call after the first. The guardian gains nothing because its
+prompt is around 300 tokens, under Bedrock's 1,024-token minimum for a cache checkpoint. With
+the guardian firing in three sessions out of five, as in the first run, a closed session costs
+**US$0.0018**. Nova needed the strategy named by hand and accepts the system checkpoint only
+(FL-011).
+
 That is about 24 times under the US$0.05 target. The guardian is 44 percent of the cost while
 it fires in three sessions out of five; in normal use it fires rarely and a session costs
 about US$0.0012. Input tokens are 99 percent of the Household agent's volume (seven tool
-schemas travel with every call), so Bedrock prompt caching remains the next lever.
+schemas travel with every call), which is what prompt caching now covers.
 
 Onboarding is per Store, not per session: one draft of 8 items costs US$0.0167 on Claude
 Sonnet 4.6, once.

@@ -40,6 +40,9 @@ export interface CatalogUsage {
   modelId: string;
   inputTokens: number;
   outputTokens: number;
+  /** Input tokens served from and written to the prompt cache. */
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
   latencyMs: number;
 }
 
@@ -238,9 +241,9 @@ export class CatalogAgent {
     });
     let usage: CatalogUsage | undefined;
     agent.addHook(ModelStreamUpdateEvent, (e) => {
-      const ev = e.event as { type: string; usage?: { inputTokens: number; outputTokens: number }; metrics?: { latencyMs: number } };
+      const ev = e.event as { type: string; usage?: { inputTokens: number; outputTokens: number; cacheReadInputTokens?: number; cacheWriteInputTokens?: number }; metrics?: { latencyMs: number } };
       if (ev.type !== "modelMetadataEvent") return;
-      usage = { modelId, inputTokens: ev.usage?.inputTokens ?? 0, outputTokens: ev.usage?.outputTokens ?? 0, latencyMs: Math.round(ev.metrics?.latencyMs ?? 0) };
+      usage = { modelId, inputTokens: ev.usage?.inputTokens ?? 0, outputTokens: ev.usage?.outputTokens ?? 0, cacheReadTokens: ev.usage?.cacheReadInputTokens ?? 0, cacheWriteTokens: ev.usage?.cacheWriteInputTokens ?? 0, latencyMs: Math.round(ev.metrics?.latencyMs ?? 0) };
       this.opts.onUsage?.(usage);
     });
     const payload = {

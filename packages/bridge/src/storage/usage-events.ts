@@ -43,6 +43,10 @@ export interface UsageEvent {
   model: string | null;
   inputTokens: number;
   outputTokens: number;
+  /** Input tokens served from the prompt cache (billed at a fraction of the input rate). */
+  cacheReadTokens?: number;
+  /** Input tokens written to the prompt cache (billed above the input rate). */
+  cacheWriteTokens?: number;
   latencyMs: number;
   /** Estimated cost in USD micros (1 USD = 1_000_000). Integer, never a float. */
   estimatedCostUsdMicros: number;
@@ -70,6 +74,8 @@ CREATE TABLE IF NOT EXISTS usage_events (
   model                     TEXT,
   input_tokens              INTEGER NOT NULL DEFAULT 0,
   output_tokens             INTEGER NOT NULL DEFAULT 0,
+  cache_read_tokens         INTEGER NOT NULL DEFAULT 0,
+  cache_write_tokens        INTEGER NOT NULL DEFAULT 0,
   latency_ms                INTEGER NOT NULL DEFAULT 0,
   estimated_cost_usd_micros INTEGER NOT NULL DEFAULT 0,
   onboarding_stage          TEXT,
@@ -94,6 +100,8 @@ export const USAGE_EVENTS_CSV_COLUMNS = [
   "model",
   "input_tokens",
   "output_tokens",
+  "cache_read_tokens",
+  "cache_write_tokens",
   "latency_ms",
   "estimated_cost_usd_micros",
   "onboarding_stage",

@@ -191,8 +191,10 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
             model: a.usage.modelId,
             inputTokens: a.usage.inputTokens,
             outputTokens: a.usage.outputTokens,
+            cacheReadTokens: a.usage.cacheReadTokens,
+            cacheWriteTokens: a.usage.cacheWriteTokens,
             latencyMs: Math.round(performance.now() - started),
-            estimatedCostUsdMicros: estimateCostUsdMicros(a.usage.modelId, a.usage.inputTokens, a.usage.outputTokens).micros,
+            estimatedCostUsdMicros: estimateCostUsdMicros(a.usage.modelId, a.usage.inputTokens, a.usage.outputTokens, { readTokens: a.usage.cacheReadTokens, writeTokens: a.usage.cacheWriteTokens }).micros,
             simulated: false,
           });
         }

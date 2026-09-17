@@ -9,6 +9,7 @@
 import { BedrockModel, ModelError, type Model } from "@strands-agents/sdk";
 import type { NewUsageEvent } from "@agentpos-alexa/bridge";
 import type { BridgeClient, ToolCallRecord } from "../bridge-client.js";
+import { cacheConfigFor } from "@agentpos-alexa/agents";
 import { route, type RememberedOrder } from "../router.js";
 import { HouseholdAgent } from "./household-agent.js";
 
@@ -83,7 +84,8 @@ export class AgentBrain implements Brain {
     const key = `${ctx.addon}:${ctx.language}`;
     let a = this.agents.get(key);
     if (!a) {
-      const model = this.opts.model ?? new BedrockModel({ region: this.opts.region, modelId: this.opts.modelId, maxTokens: 600, temperature: 0.2 });
+      // Prompt caching on the static prefix (tools and system prompt); "auto" skips models without it.
+      const model = this.opts.model ?? new BedrockModel({ region: this.opts.region, modelId: this.opts.modelId, maxTokens: 600, temperature: 0.2, cacheConfig: cacheConfigFor(this.opts.modelId) });
       a = new HouseholdAgent({ bridge: this.opts.bridge, addon: ctx.addon, storeOrigin: ctx.storeOrigin, model, modelId: this.opts.modelId, language: ctx.language, record: this.opts.record });
       this.agents.set(key, a);
     }

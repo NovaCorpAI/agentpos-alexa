@@ -54,7 +54,7 @@ export class OnboardingService {
     this.now = deps.now ?? (() => new Date());
   }
 
-  private mark(storeOrigin: string, traceId: string, stage: OnboardingStage, extra: { model?: string | null; inputTokens?: number; outputTokens?: number; latencyMs?: number; costMicros?: number } = {}): void {
+  private mark(storeOrigin: string, traceId: string, stage: OnboardingStage, extra: { model?: string | null; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number; latencyMs?: number; costMicros?: number } = {}): void {
     this.deps.storage.usageEvents.record({
       traceId,
       at: this.now().toISOString(),
@@ -63,6 +63,8 @@ export class OnboardingService {
       model: extra.model ?? null,
       inputTokens: extra.inputTokens ?? 0,
       outputTokens: extra.outputTokens ?? 0,
+      cacheReadTokens: extra.cacheReadTokens ?? 0,
+      cacheWriteTokens: extra.cacheWriteTokens ?? 0,
       latencyMs: extra.latencyMs ?? 0,
       estimatedCostUsdMicros: extra.costMicros ?? 0,
       onboardingStage: stage,
@@ -94,8 +96,10 @@ export class OnboardingService {
       model: u?.modelId ?? null,
       inputTokens: u?.inputTokens ?? 0,
       outputTokens: u?.outputTokens ?? 0,
+      cacheReadTokens: u?.cacheReadTokens ?? 0,
+      cacheWriteTokens: u?.cacheWriteTokens ?? 0,
       latencyMs: Math.round(performance.now() - draftStarted),
-      costMicros: u ? estimateCostUsdMicros(u.modelId, u.inputTokens, u.outputTokens).micros : 0,
+      costMicros: u ? estimateCostUsdMicros(u.modelId, u.inputTokens, u.outputTokens, { readTokens: u.cacheReadTokens, writeTokens: u.cacheWriteTokens }).micros : 0,
     });
     // Policies come out of the same model call; their stage row carries no second cost.
     this.mark(store.origin, traceId, "policies_draft");

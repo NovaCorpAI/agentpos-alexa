@@ -5,7 +5,7 @@
 import { randomBytes } from "node:crypto";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { serve } from "@hono/node-server";
-import { CatalogAgent, Guardian, OnboardingAgent } from "@agentpos-alexa/agents";
+import { cacheConfigFor, CatalogAgent, Guardian, OnboardingAgent } from "@agentpos-alexa/agents";
 import { BedrockModel } from "@strands-agents/sdk";
 import { discoverStore, StoreDiscoveryError } from "@agentpos-alexa/store-client";
 import { createApp } from "./app.js";
@@ -70,7 +70,8 @@ let catalogAgent: CatalogAgent;
 let onboardingAgent: OnboardingAgent;
 try {
   await fromNodeProviderChain()();
-  const bedrock = (modelId: string, maxTokens = 300) => new BedrockModel({ region, modelId, maxTokens, temperature: 0.1 });
+  // Prompt caching on the static prefix of every agent prompt; "auto" skips models without it.
+  const bedrock = (modelId: string, maxTokens = 300) => new BedrockModel({ region, modelId, maxTokens, temperature: 0.1, cacheConfig: cacheConfigFor(modelId) });
   catalogAgent = new CatalogAgent({ model: bedrock(fastModelId), modelId: fastModelId });
   const strongFallback = fallbackModelId && fallbackModelId !== "off" ? { fallbackModel: bedrock(fallbackModelId, 4000), fallbackModelId } : {};
   onboardingAgent = new OnboardingAgent({ model: bedrock(strongModelId, 4000), modelId: strongModelId, ...strongFallback });

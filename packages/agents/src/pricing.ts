@@ -9,6 +9,13 @@ export interface ModelPrice {
   outputPerMillionUsd: number;
 }
 
+/**
+ * Prompt cache multipliers on the input rate, to verify against the Bedrock pricing page:
+ * a cached read is a tenth of an input token, a cache write costs a quarter more than one.
+ */
+export const CACHE_READ_MULTIPLIER = 0.1;
+export const CACHE_WRITE_MULTIPLIER = 1.25;
+
 const DEFAULTS: Record<string, ModelPrice> = {
   // Nova Lite generation pricing, used for Nova 2 Lite until verified.
   "amazon.nova-lite-v1:0": { inputPerMillionUsd: 0.06, outputPerMillionUsd: 0.24 },
@@ -38,10 +45,14 @@ export function priceFor(modelId: string): ModelPrice | undefined {
   return t[bare];
 }
 
-/** Integer USD micros; unknown models cost 0 and are flagged by the caller. */
-export function estimateCostUsdMicros(modelId: string, inputTokens: number, outputTokens: number): { micros: number; known: boolean } {
+/**
+ * Integer USD micros; unknown models cost 0 and are flagged by the caller. Cached tokens are
+ * counted apart: Bedrock reports them outside inputTokens.
+ */
+export function estimateCostUsdMicros(modelId: string, inputTokens: number, outputTokens: number, cache: { readTokens?: number; writeTokens?: number } = {}): { micros: number; known: boolean } {
   const p = priceFor(modelId);
   if (!p) return { micros: 0, known: false };
-  const micros = Math.round((inputTokens * p.inputPerMillionUsd + outputTokens * p.outputPerMillionUsd) * 1_000_000 / 1_000_000);
+  const cached = (cache.readTokens ?? 0) * CACHE_READ_MULTIPLIER + (cache.writeTokens ?? 0) * CACHE_WRITE_MULTIPLIER;
+  const micros = Math.round(inputTokens * p.inputPerMillionUsd + cached * p.inputPerMillionUsd + outputTokens * p.outputPerMillionUsd);
   return { micros, known: true };
 }
