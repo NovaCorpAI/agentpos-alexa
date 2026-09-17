@@ -216,3 +216,24 @@ commit or file.
   endpoint in the CreateExpressGatewayService response or allow choosing the host prefix, so
   services that reference each other can be created in one pass.
 - Link: scripts/deploy-aws.mjs
+
+## FL-010
+
+- Date: 2026-09-17
+- Tool: Amazon Bedrock AgentCore Memory (CreateEvent, TypeScript SDK).
+- What we tried: write one JSON event per order reference, following the SDK's payload union
+  (`PayloadType.JsonMember`).
+- What happened: the union's member is `json: MemoryJsonData`, and the JSON value goes one
+  level deeper, in `MemoryJsonData.content`. Passing the object straight to `json` compiles,
+  because both are documents, and fails at runtime with `ValidationException: Value at
+  'payload.1.member.json.content' failed to satisfy constraint: Member must not be null`. The
+  error also numbers the payload from 1 while the array is indexed from 0, which sends you
+  looking at the wrong element.
+- Severity: Medium
+- Time lost: about 30 min
+- Workaround: write `payload: [{ json: { content: value } }]`, and read events back from
+  `payload[].json.content`, accepting both an object and a JSON string.
+- Suggestion: make the member a typed wrapper the compiler can check (or accept the value
+  directly at `json`), show a complete CreateEvent example with a JSON payload in the memory
+  guide, and number payload elements from 0 in the validation message.
+- Link: apps/simulator/src/server/agentcore-memory.ts

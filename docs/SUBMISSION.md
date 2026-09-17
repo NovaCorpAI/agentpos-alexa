@@ -99,24 +99,37 @@ Pre-existing and unchanged: the AgentPOS store software the bridge talks to.
 | 0:00 | Hook | "Alexa+ for Builders is for Priceline. This is for the corner store." A real WooCommerce store URL is pasted. |
 | 0:10 | Onboarding | The agent scans, drafts the voice-ready catalog and policies. The merchant reviews and confirms. Timer running. |
 | 0:50 | First voice purchase | Echo Show frame. "Alexa, order two loaves of sourdough from Panaderia X." Carousel, item card, checkout, receipt card with the verified badge. Timer stops: "URL to first purchase in N minutes." |
-| 1:20 | The merchant chooses the rail | The Stripe test dashboard shows the charge on the store's account. Then the Amazon Wallet handler, labeled SIMULATED on screen. Then a USDC settlement hash. |
+| 1:20 | The merchant chooses the rail | The checkout offers the store's own Stripe first, labeled TEST MODE: the Stripe test dashboard shows the charge on the store's account (pi_...). Then the Amazon Wallet handler, labeled SIMULATED on screen. Then a USDC settlement hash. |
 | 1:50 | Agents visible | "Is it gluten free?" answered from the published catalog. A duplicate order blocked by the guardian with a one-sentence reason. "The same as last week" from memory. |
-| 2:20 | Impact | Three real stores, third-party purchases counter, cost per session from usage_events. |
+| 2:20 | Impact | Three real stores, the public playground's third-party purchase counter, US$0.0021 per closed session from usage_events. |
 | 2:40 | Close | Repo, Apache-2.0, the UCP proposal, the friction log. |
+
+## Evidence on file (2026-09-17)
+
+| Claim | Where it is verifiable |
+| --- | --- |
+| Hosted playground, five Scenes green | https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws/ |
+| The merchant's own Stripe charges the card, in test mode | `pi_3UGkN5375U7THQYH0sTSjSMZ` (public), `pi_3UGjrV375U7THQYH1WeScCOB` (by voice), Stripe test dashboard |
+| Cost per closed checkout session: US$0.0021 | `docs/COSTS.md`, `docs/impact/usage-events.csv` (63 rows) |
+| Onboarding: URL to first voice purchase | 28 s on the fixture Store, from `usage_events` stage rows |
+| Household memory on AgentCore Memory | memory `agentpos_alexa_household` in us-east-1, Scene 4 |
+| Ten friction entries | `docs/FRICTION-LOG.md` |
 
 ## Product feedback (required field)
 
-Taken from `docs/FRICTION-LOG.md` (nine entries on 2026-09-17). Lead with FL-002 (publish the
-Local Inspector on public npm), FL-003 (a sandbox for the network token handler), FL-008 (App
-Runner closed to new customers behind a `SubscriptionRequiredException`) and FL-006 (the
-Anthropic use case form on Bedrock is invisible until the first invoke fails).
+Taken from `docs/FRICTION-LOG.md` (ten entries, 2026-09-15 to 2026-09-17). Lead with FL-002
+(publish the Local Inspector on public npm), FL-003 (a sandbox for the network token handler),
+FL-008 (App Runner closed to new customers behind a `SubscriptionRequiredException`) and FL-006
+(the Anthropic use case form on Bedrock is invisible until the first invoke fails). The rest
+are AgentCore Memory payload typing (FL-010), Express Mode endpoints (FL-009), Bedrock quotas
+(FL-007) and model ids and prices (FL-005).
 
 ## Checklist before submitting
 
 - [ ] Repository public, `LICENSE` present, README runs in one command from a clean clone.
 - [ ] Video under 3 minutes, English, public on YouTube, shows the simulated experience clearly.
 - [ ] Impact numbers filled from `usage_events` export, with the CSV committed under `docs/impact/`. Cost per closed session done (US$0.0021, `docs/impact/usage-events.csv`); onboarding time on real stores and third-party purchases pending.
-- [ ] Friction log with at least ten entries, each with date, severity, time lost, workaround, suggestion. Nine so far.
+- [x] Friction log with at least ten entries, each with date, severity, time lost, workaround, suggestion.
 - [ ] `.env.example` current; git history scanned for secrets.
 - [ ] Track: Alexa+. Mini challenges: AWS Builder, Open Source.
 - [ ] "Existed before" explanation matches the repository history.
