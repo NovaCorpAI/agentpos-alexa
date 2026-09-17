@@ -180,6 +180,21 @@ export class AgentPosStoreClient {
     return this.fail(res, "checkout");
   }
 
+  /**
+   * Checkout through the merchant's own PSP: the processor token in, the Store's charge out.
+   * Proposed extension of the AgentPOS API (the PaymentRail upstream), served by the fixture.
+   */
+  async checkoutWithProcessorToken(cartId: string, token: string): Promise<{ kind: "paid"; result: CheckoutPaid } | { kind: "parked"; result: CheckoutParked } | { kind: "declined"; code: string; message: string }> {
+    const res = await this.call(`/checkout/processor?cart=${encodeURIComponent(cartId)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
+    if (res.status === 200) return { kind: "paid", result: (await this.json(res, "processor checkout")) as CheckoutPaid };
+    if (res.status === 202) return { kind: "parked", result: (await this.json(res, "processor checkout")) as CheckoutParked };
+    if (res.status === 402) {
+      const body = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+      return { kind: "declined", code: body.error?.code ?? "PAYMENT_DECLINED", message: body.error?.message ?? "The card was declined." };
+    }
+    return this.fail(res, "processor checkout");
+  }
+
   async order(orderId: string): Promise<Order> {
     const res = await this.call(`/orders/${encodeURIComponent(orderId)}`);
     if (!res.ok) return this.fail(res, "order");

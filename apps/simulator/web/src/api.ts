@@ -16,6 +16,7 @@ export interface ToolResult {
 }
 
 export interface PaymentOption {
+  testMode?: boolean;
   handlerId: string;
   namespace: string;
   label: string;

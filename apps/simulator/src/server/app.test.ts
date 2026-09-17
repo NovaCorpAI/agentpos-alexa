@@ -1,4 +1,4 @@
-import { amazonRailsFromMode, createApp, createLogger, memorySink, openStorage, RailRegistry, type Storage } from "@agentpos-alexa/bridge";
+import { amazonRailsFromMode, createApp, createLogger, memorySink, merchantPspRail, openStorage, RailRegistry, type Storage } from "@agentpos-alexa/bridge";
 import { createFixtureStore } from "@agentpos-alexa/fixture-store";
 import { parseStoreProfile } from "@agentpos-alexa/store-client";
 import type { Hono } from "hono";
@@ -243,5 +243,35 @@ describe("Public playground (#21)", () => {
     expect(csv.split("\r\n")[0]).toBe("email,role,store_url,at");
     expect(csv).toContain("shop@example.com,merchant,https://shop.example,");
     expect((await sim.request("/api/stats")).headers.get("content-type")).toMatch(/json/);
+  });
+});
+
+describe("Merchant PSP on the playground (#9)", () => {
+  it("offers the store's Stripe in test mode, lets the Demo household pay with the test card, and counts it", async () => {
+    const charges: string[] = [];
+    const fixture = createFixtureStore({ baseUrl: STORE, processor: { psp: "stripe", environment: "sandbox", publishableKey: "pk_test_fixture", charge: async (i) => (charges.push(`${i.token}:${i.amountCents}`), { status: "succeeded", reference: "pi_test_sim", livemode: false }) } });
+    const storage = openStorage({ path: ":memory:" });
+    storage.stores.register("bakery", parseStoreProfile(STORE, await (await fixture.app.request("/.well-known/ucp")).json()));
+    const rails = new RailRegistry().register(merchantPspRail);
+    for (const r of amazonRailsFromMode("simulated")) rails.register(r);
+    const bridge = createApp({ storage, logger: createLogger(memorySink().sink), bridgeBaseUrl: BRIDGE, bearerToken: TOKEN, rails, storeFetch: fetchInto(fixture.app) }) as unknown as Hono;
+    const bridgeClient = new BridgeClient({ url: BRIDGE, bearerToken: TOKEN }, fetchInto(bridge));
+    const memory = new SqliteHouseholdMemory(":memory:");
+    const waitlist = new SqliteWaitlist(":memory:");
+    const sim = createSimulatorApp({ bridge: bridgeClient, brain: new ScriptedRouterBrain(bridgeClient), checkout: new CheckoutFlow(new BridgeCheckoutClient({ url: BRIDGE, bearerToken: TOKEN }, fetchInto(bridge))), inspection: new InspectionLog(":memory:/never-written.json", "test"), memory, playground: { mandate: { maxTotalCents: 5000 }, waitlist } });
+    const post = (path: string, body: unknown) => sim.request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    await post("/api/turn", { addon: "bakery", text: "What bread do you have?" });
+    const t = (await (await post("/api/turn", { addon: "bakery", text: "Buy two sourdough loaf" })).json()) as TurnResponse;
+    const stripeOption = t.checkout!.options[0]!;
+    expect(stripeOption).toMatchObject({ namespace: "com.agentposhq.processor_tokenizer", testMode: true, simulated: false, available: true });
+    expect(t.speak.at(-1)).toMatch(/Shall I pay with your Card through the store's Stripe \(test card 4242\), in test mode\?$/);
+    const done = (await (await post(`/api/checkout/${t.checkout!.sessionId}/confirm`, { handlerId: stripeOption.handlerId })).json()) as TurnResponse;
+    expect(done.speak[0]).toMatch(/^Order placed\. The store charged its Stripe account in test mode, no real money moved\./);
+    expect(charges).toEqual(["pm_card_visa:1300"]);
+    expect(((await (await sim.request("/api/stats")).json()) as { purchases: { thirdParty: number } }).purchases.thirdParty).toBe(1);
+    await bridgeClient.close();
+    memory.close();
+    waitlist.close();
+    storage.close();
   });
 });

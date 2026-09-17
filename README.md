@@ -166,6 +166,14 @@ answerer runs first; the fast model (Nova 2 Lite) words the answer and can never
 unpublished fact to a published one. When the store has not published the fact, it says so.
 Scene 2 plays the three questions. Tool: `ask_catalog`.
 
+The merchant chooses how to get paid. The first handler a session offers is the merchant's own
+processor (`com.agentposhq.processor_tokenizer`, the UCP processor tokenizer pattern): the
+platform tokenizes the card with the processor named in the Store's profile, the Bridge
+forwards only that token, and the Store charges it with its own key and creates the order
+only when the charge succeeds. The fixture bakery does this with Stripe in test mode (live
+keys are refused), and the simulator pays with Stripe's test card, labeled TEST MODE. The
+Bridge never holds a processor secret.
+
 The policy guardian sits inside `complete`: when this household orders the same lines it
 ordered within the last seven days, the Bridge does not settle. It answers with one spoken
 sentence (Claude Sonnet 4.6 on Bedrock writes it when credentials resolve; a fixed sentence

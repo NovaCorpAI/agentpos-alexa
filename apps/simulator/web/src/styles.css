@@ -116,3 +116,5 @@ html, body { margin: 0; height: 100%; font-family: "Amazon Ember", "Segoe UI", s
 .playground label.consent input { width: auto; }
 .playground button { padding: 8px; border-radius: 8px; border: 0; background: var(--accent); color: #04121f; font-weight: 700; cursor: pointer; }
 .playground button:disabled { opacity: .5; cursor: default; }
+
+.checkout .sim.test { background: #2f5fb3; }

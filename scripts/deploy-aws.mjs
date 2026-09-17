@@ -269,7 +269,9 @@ if (!memoryId) {
   memoryId = page.memories?.find((m) => m.id?.startsWith("agentpos_alexa_household-") && m.status === "ACTIVE")?.id ?? "";
 }
 
-const storeUrl = await upsertService(storeName, (own) => ({ SERVICE: "fixture-store", FIXTURE_STORE_URL: own }), "/.well-known/ucp");
+// The fixture Store's own Stripe account in test mode, when configured locally: only the Store receives it.
+const stripeEnv = fileEnv.FIXTURE_STRIPE_SECRET_KEY?.startsWith("sk_test_") ? { FIXTURE_STRIPE_SECRET_KEY: fileEnv.FIXTURE_STRIPE_SECRET_KEY, FIXTURE_STRIPE_PUBLISHABLE_KEY: fileEnv.FIXTURE_STRIPE_PUBLISHABLE_KEY || fileEnv.STRIPE_PUBLISHABLE_KEY || "" } : {};
+const storeUrl = await upsertService(storeName, (own) => ({ SERVICE: "fixture-store", FIXTURE_STORE_URL: own, ...stripeEnv }), "/.well-known/ucp");
 const bridgeUrl = await upsertService(bridgeName, (own) => ({ SERVICE: "bridge", AGENTPOS_STORE_URL: storeUrl, BRIDGE_BASE_URL: own, BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models }), "/health");
 // The waitlist lives on the Simulator task's disk: export it before a redeploy replaces the task.
 const priorSim = await describe(simulatorName);

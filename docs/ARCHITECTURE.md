@@ -110,6 +110,13 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
   the same code deploys to AgentCore Runtime for the hosted playground, chosen by environment.
   With no AWS credentials at all, Scenes that need an agent run in Recorded mode and say so on
   screen.
+- **The merchant's own PSP is a token forwarded to the Store.** The processor tokenizer
+  handler is UCP's example pattern, not a `dev.ucp` handler, so its namespace is ours
+  (`com.agentposhq.processor_tokenizer`). Its configuration (processor, environment, public
+  key) comes from the Store's profile; the rail forwards the token to the Store's processor
+  checkout, and the settlement reference is the processor's charge id. The Store endpoint is a
+  proposed extension of the AgentPOS API, served by the fixture until the core has its
+  PaymentRail. Test mode only until a real Store asks for live charges.
 - **The guardian asks once, before any money moves.** At `complete`, a deterministic rule in
   the Bridge compares the session with this buyer's completed sessions at the same Store
   (duplicate lines within seven days). Only when a rule fires does the strong model write the

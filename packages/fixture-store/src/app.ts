@@ -15,6 +15,10 @@ import {
   BAKERY_NETWORK,
   BAKERY_PAY_TO,
 } from "./bakery.js";
+import type { MerchantProcessor } from "./processor.js";
+
+/** Handler namespace for the merchant's own PSP through a processor tokenizer (UCP example pattern). */
+export const PROCESSOR_HANDLER = "com.agentposhq.processor_tokenizer";
 
 export const FIXTURE_ADAPTER_VERSION = "0.2.0";
 export const UCP_VERSION = "2026-08-25";
@@ -41,6 +45,8 @@ export interface FixtureStoreOptions {
   name?: string;
   policy?: FixturePolicy;
   now?: () => Date;
+  /** The merchant's own PSP, run Store-side. Omitted: the handler is not advertised. */
+  processor?: MerchantProcessor;
 }
 
 interface StoredCart {
@@ -107,6 +113,19 @@ export function createFixtureStore(opts: FixtureStoreOptions): { app: Hono; stat
         },
         capabilities: {},
         payment_handlers: {
+          ...(opts.processor
+            ? {
+                [PROCESSOR_HANDLER]: [
+                  {
+                    id: "processor-tokenizer",
+                    version: UCP_VERSION,
+                    spec: "https://ucp.dev/specification/examples/processor-tokenizer-payment-handler/",
+                    available_instruments: [{ type: "card", constraints: { brands: ["visa", "mastercard", "amex"] } }],
+                    config: { environment: opts.processor.environment, psp: opts.processor.psp, publishable_key: opts.processor.publishableKey, currency: "usd", checkout: `${rest}/checkout/processor` },
+                  },
+                ],
+              }
+            : {}),
           "org.x402.stellar": [
             {
               id: "x402-stellar",
@@ -319,6 +338,53 @@ export function createFixtureStore(opts: FixtureStoreOptions): { app: Hono; stat
       total: cart.quote.quote.total,
       totalMinor: cart.quote.quote.totalMinor,
       payment: { protocol: "x402", network: BAKERY_NETWORK, asset: BAKERY_ASSET, amountMinor: cart.quote.quote.totalMinor, txHash, settledAt: createdAt, fixture: true },
+      externalOrderId: String(1000 + state.orders.size),
+      createdAt,
+      lines: cart.quote.quote.lines,
+    });
+    return c.json({ orderId, status: "paid", order: `${rest}/orders/${orderId}` });
+  });
+
+  /**
+   * Checkout through the merchant's own PSP (#9): the platform's processor token in, the
+   * Store's charge out. Same cart, review and idempotency rules as the x402 checkout; the
+   * settlement reference is the PSP's charge id. Proposed for the AgentPOS core.
+   */
+  app.post("/agentpos/checkout/processor", async (c) => {
+    const processor = opts.processor;
+    if (!processor) return c.json({ error: { code: "PROCESSOR_NOT_CONFIGURED", message: "This Store takes no card payments", hint: "Use the x402 checkout." } }, 404);
+    const cartId = c.req.query("cart") ?? "";
+    const cart = state.carts.get(cartId);
+    if (!cart) return c.json({ error: { code: "CART_NOT_FOUND", message: `No cart ${cartId}`, hint: "Create one at POST /agentpos/cart." } }, 409);
+    const body = (await c.req.json().catch(() => ({}))) as { token?: unknown };
+    if (typeof body.token !== "string" || !body.token) return c.json({ error: { code: "TOKEN_REQUIRED", message: "A processor token is required", hint: "Send { token } from the processor's tokenizer." } }, 400);
+    const existing = [...state.orders.values()].find((o) => o.cartId === cartId && o.payment.protocol === "processor");
+    if (existing) return c.json({ orderId: existing.orderId, status: existing.status, order: `${rest}/orders/${existing.orderId}` });
+    if (new Date(cart.quote.expiresAt).getTime() < now().getTime()) {
+      return c.json({ error: { code: "CART_EXPIRED", message: "The cart must be re-quoted", hint: "POST /agentpos/cart again." } }, 409);
+    }
+    if (cart.decision === "review") {
+      const approvalId = id("apr");
+      const expiresAt = new Date(now().getTime() + 24 * 3_600_000).toISOString();
+      state.approvals.set(approvalId, { cartId, expiresAt });
+      return c.json({ status: "pending_approval", approvalId, poll: `${rest}/approvals/${approvalId}`, expiresAt }, 202);
+    }
+    // USDC has 7 decimals and the sessions are in USD cents: the conversion must be exact.
+    const totalMinor = BigInt(cart.quote.quote.totalMinor);
+    if (totalMinor % 100_000n !== 0n) return c.json({ error: { code: "AMOUNT_NOT_EXACT", message: "The total does not convert to whole cents", hint: "" } }, 409);
+    const amountCents = Number(totalMinor / 100_000n);
+    const result = await processor.charge({ amountCents, currency: "usd", token: body.token, idempotencyKey: `agentpos-cart-${cartId}`, description: `${name} cart ${cartId}`, metadata: { cartId, store: base } });
+    if (result.status === "declined") return c.json({ error: { code: "PAYMENT_DECLINED", message: result.message, hint: result.code } }, 402);
+    if (result.status === "requires_action") return c.json({ error: { code: "PAYMENT_REQUIRES_ACTION", message: "The card needs the buyer's authentication, which a voice checkout cannot do", hint: result.reference } }, 402);
+    const orderId = id("ord");
+    const createdAt = now().toISOString();
+    state.orders.set(orderId, {
+      orderId,
+      cartId,
+      status: "paid",
+      total: cart.quote.quote.total,
+      totalMinor: cart.quote.quote.totalMinor,
+      payment: { protocol: "processor", processor: processor.psp, mode: result.livemode ? "live" : "test", reference: result.reference, txHash: result.reference, amountCents, currency: "usd", settledAt: createdAt, fixture: true },
       externalOrderId: String(1000 + state.orders.size),
       createdAt,
       lines: cart.quote.quote.lines,

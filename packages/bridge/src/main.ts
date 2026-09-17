@@ -10,6 +10,7 @@ import { BedrockModel } from "@strands-agents/sdk";
 import { discoverStore, StoreDiscoveryError } from "@agentpos-alexa/store-client";
 import { createApp } from "./app.js";
 import { amazonRailsFromMode } from "./rails/amazon-simulated.js";
+import { merchantPspRail } from "./rails/merchant-psp.js";
 import { RailRegistry } from "./rails/rail.js";
 import { createLogger, stdoutSink } from "./logging.js";
 import { openStorage } from "./storage/sqlite.js";
@@ -53,7 +54,8 @@ if (process.env.BRIDGE_OAUTH_CLIENT_ID && process.env.BRIDGE_OAUTH_CLIENT_SECRET
 }
 
 // Payment rails. Amazon handlers are simulated only (hard rule 9); AMAZON_PSP_MODE=off disables them.
-const rails = new RailRegistry();
+// The merchant's own PSP first (the merchant chooses the rail); it serves only Stores that publish it in test mode.
+const rails = new RailRegistry().register(merchantPspRail);
 for (const rail of amazonRailsFromMode(process.env.AMAZON_PSP_MODE ?? "simulated")) rails.register(rail);
 
 // Policy guardian: the strong model on Bedrock when credentials resolve, the rule alone otherwise.

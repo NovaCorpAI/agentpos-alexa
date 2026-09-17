@@ -25,6 +25,8 @@ export interface PaymentOption {
   namespace: string;
   label: string;
   simulated: boolean;
+  /** A real processor in its test mode (Stripe test keys): real API, no real money. */
+  testMode: boolean;
   /** For stored payment methods: the instrument to reference. */
   instrumentId?: string;
   available: boolean;
@@ -38,7 +40,7 @@ export interface Session {
   line_items: Array<{ id: string; item: { id: string; title: string; price: number }; quantity: number }>;
   totals: Array<{ type: string; amount: number; display_text?: string }>;
   messages: Array<{ type: string; code?: string; content: string; severity?: string; path?: string }>;
-  ucp: { payment_handlers: Record<string, Array<{ id: string; simulated?: boolean }>> };
+  ucp: { payment_handlers: Record<string, Array<{ id: string; simulated?: boolean; test_mode?: boolean; config?: { environment?: string; psp?: string } }>> };
   payment?: { instruments: Array<{ id: string; handler_id: string; type: string; display?: Record<string, unknown> }> };
   order?: { id: string; permalink_url: string };
   expires_at: string;
@@ -52,10 +54,10 @@ export interface CheckoutState {
   speak: string;
 }
 
-const KNOWN: Record<string, { label: string; kind: "network_token" | "stored" | "unsupported" }> = {
+const KNOWN: Record<string, { label: string; kind: "network_token" | "stored" | "tokenizer" | "unsupported" }> = {
+  "com.agentposhq.processor_tokenizer": { label: "Card through the store's Stripe", kind: "tokenizer" },
   "com.amazon.payments.network_token": { label: "Amazon wallet card", kind: "network_token" },
   "com.amazon.payments.stored_payment_method": { label: "Saved card", kind: "stored" },
-  "dev.ucp.processor_tokenizer": { label: "Card via the store's processor", kind: "unsupported" },
   "org.x402.stellar": { label: "USDC wallet (x402)", kind: "unsupported" },
 };
 
@@ -68,15 +70,19 @@ function options(session: Session): PaymentOption[] {
   for (const [ns, list] of Object.entries(session.ucp.payment_handlers)) {
     const known = KNOWN[ns];
     for (const h of list) {
+      const testMode = h.test_mode === true || h.config?.environment === "sandbox";
       if (!known || known.kind === "unsupported") {
-        out.push({ handlerId: h.id, namespace: ns, label: known?.label ?? ns, simulated: h.simulated === true, available: false, reason: "not wired in the simulator yet" });
+        out.push({ handlerId: h.id, namespace: ns, label: known?.label ?? ns, simulated: h.simulated === true, testMode, available: false, reason: "not wired in the simulator yet" });
+      } else if (known.kind === "tokenizer") {
+        // The Demo household only has a processor test card; a live processor is not offered.
+        out.push({ handlerId: h.id, namespace: ns, label: `${known.label} (test card 4242)`, simulated: false, testMode, available: testMode, ...(testMode ? {} : { reason: "live processors are not available to the demo household" }) });
       } else if (known.kind === "stored") {
         for (const inst of session.payment?.instruments.filter((i) => i.handler_id === h.id) ?? []) {
           const d = inst.display ?? {};
-          out.push({ handlerId: h.id, namespace: ns, label: `${known.label}: ${String(d.brand ?? "card")} ending ${String(d.last_digits ?? "")}`, simulated: h.simulated === true, instrumentId: inst.id, available: true });
+          out.push({ handlerId: h.id, namespace: ns, label: `${known.label}: ${String(d.brand ?? "card")} ending ${String(d.last_digits ?? "")}`, simulated: h.simulated === true, testMode, instrumentId: inst.id, available: true });
         }
       } else {
-        out.push({ handlerId: h.id, namespace: ns, label: known.label, simulated: h.simulated === true, available: true });
+        out.push({ handlerId: h.id, namespace: ns, label: known.label, simulated: h.simulated === true, testMode, available: true });
       }
     }
   }
@@ -91,7 +97,7 @@ function speakSession(session: Session, opts: PaymentOption[]): string {
   const lines = session.line_items.map((l) => `${l.quantity} ${l.item.title}`).join(", ");
   if (session.status === "ready_for_complete") {
     const first = opts.find((o) => o.available);
-    return `${lines}. Your total is ${dollars(total(session))} delivered to ${SYNTHETIC_PERSONA.destination.street_address}. ${first ? `Shall I pay with your ${first.label}${first.simulated ? ", simulated" : ""}?` : "No payment method is available."}`;
+    return `${lines}. Your total is ${dollars(total(session))} delivered to ${SYNTHETIC_PERSONA.destination.street_address}. ${first ? `Shall I pay with your ${first.label}${first.simulated ? ", simulated" : first.testMode ? ", in test mode" : ""}?` : "No payment method is available."}`;
   }
   const err = session.messages.find((m) => m.type === "error");
   return err ? `${lines}. ${err.content}` : `${lines}.`;
@@ -148,7 +154,7 @@ export class CheckoutFlow {
     const opt = state.options.find((o) => o.handlerId === handlerId && (instrumentId ? o.instrumentId === instrumentId : true) && o.available);
     if (!opt) throw new Error("that payment option is not available");
     if (how.mandate) {
-      const refusal = !opt.simulated
+      const refusal = !opt.simulated && !opt.testMode
         ? "The demo household can only pay with simulated or test mode methods. Bring your own wallet to buy for real."
         : total(state.session) > how.mandate.maxTotalCents
           ? `That is above the demo household's limit of ${dollars(how.mandate.maxTotalCents)} per order. Try fewer items.`
@@ -159,8 +165,12 @@ export class CheckoutFlow {
         return refused;
       }
     }
+    const kind = KNOWN[opt.namespace]?.kind;
     const instrument =
-      KNOWN[opt.namespace]?.kind === "stored"
+      kind === "tokenizer"
+        ? // Stripe's test payment method for card 4242: accepted only by a test-mode key, never a real card.
+          { id: `instr_${randomUUID().slice(0, 8)}`, handler_id: handlerId, type: "card", selected: true, display: { brand: "visa", last_digits: "4242", expiry_month: 12, expiry_year: 2030 }, credential: { type: "token", token: "pm_card_visa" } }
+        : kind === "stored"
         ? { id: `instr_${randomUUID().slice(0, 8)}`, handler_id: handlerId, type: "card", credential: { type: "payment_method_reference", payment_method_id: opt.instrumentId } }
         : {
             id: `instr_${randomUUID().slice(0, 8)}`,
@@ -177,7 +187,7 @@ export class CheckoutFlow {
     const opts = options(session);
     let speak: string;
     if (session.status === "completed" && session.order) {
-      speak = `Order placed. ${opt.simulated ? "This was a simulated payment, no money moved. " : ""}Your order number is ${session.order.id}.`;
+      speak = `Order placed. ${opt.simulated ? "This was a simulated payment, no money moved. " : opt.testMode ? "The store charged its Stripe account in test mode, no real money moved. " : ""}Your order number is ${session.order.id}.`;
     } else {
       const err = session.messages.find((m) => m.type === "error");
       speak = err ? err.content : "The payment did not go through.";

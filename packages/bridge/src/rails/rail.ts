@@ -63,6 +63,8 @@ export interface PaymentRail {
   pspMode: PspMode;
   /** Extra fields for the profile declaration (config, spec, schema). */
   declarationExtras?: Record<string, unknown>;
+  /** Per-Store extra fields, for handlers whose configuration comes from the Store's profile. */
+  declarationFor?(store: RegisteredStore): Record<string, unknown>;
   supports(store: RegisteredStore): boolean;
   /**
    * Instruments to list in create and update responses (stored payment methods the
@@ -105,6 +107,7 @@ export class RailRegistry {
         version: r.version,
         available_instruments: r.availableInstruments,
         ...(r.declarationExtras ?? {}),
+        ...(r.declarationFor?.(store) ?? {}),
       };
       if (r.pspMode === "simulated") entry.simulated = true;
       (out[r.namespace] ??= []).push(entry);

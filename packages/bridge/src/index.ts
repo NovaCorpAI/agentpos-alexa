@@ -28,6 +28,7 @@ export { BRIDGE_VERSION, PROTOCOL_VERSIONS } from "./versions.js";
 export { discoverStore, parseStoreProfile, StoreDiscoveryError, storeOrigin } from "@agentpos-alexa/store-client";
 export type { StoreEndpoints } from "@agentpos-alexa/store-client";
 export { CheckoutService } from "./checkout/service.js";
+export { MERCHANT_PSP_NAMESPACE, merchantPspRail } from "./rails/merchant-psp.js";
 export { OnboardingService, type OnboardingState } from "./onboarding/service.js";
 export { itemHash, type OnboardingRecord, type OverlayLine } from "./storage/onboarding-store.js";
 export type { CheckoutSession, CompleteRequest, Message, PaymentInstrument, SessionRequest, SessionStatus } from "./checkout/types.js";

@@ -63,7 +63,7 @@ export function Checkout({ state, busy, onConfirm, onCancel }: { state: Checkout
           <label key={`${o.handlerId}:${o.instrumentId ?? ""}`} className={i === choice ? "on" : ""}>
             <input type="radio" name="pay" checked={i === choice} onChange={() => setChoice(i)} />
             <span>{o.label}</span>
-            {o.simulated ? <span className="sim">SIMULATED</span> : null}
+            {o.simulated ? <span className="sim">SIMULATED</span> : o.testMode ? <span className="sim test">TEST MODE</span> : null}
           </label>
         ))}
         {state.options
