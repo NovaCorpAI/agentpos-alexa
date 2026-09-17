@@ -65,6 +65,8 @@ Amazon Bedrock AgentCore Memory and holds order references only. Every model cal
 tokens, latency, model and cost in `usage_events`: a closed checkout session costs
 US$0.0021 in inference, measured over five sessions (`docs/COSTS.md`).
 
+**Try it:** https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws/ (merchant console at `/#/merchant`).
+
 **The simulated Alexa+ experience.** Amazon's tooling is available to partners only, so the
 simulator is an Echo Show style web app, voice in and out, whose agentic client runs on
 Bedrock and drives the bridge end to end, rendering the same components and display modes the

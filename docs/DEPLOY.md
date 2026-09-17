@@ -10,6 +10,23 @@ services built from one image (`infra/Dockerfile`, service chosen by `SERVICE`),
 AgentCore Memory, us-east-1. No Docker is needed locally: the image builds in CodeBuild from
 this public repository and is pushed to ECR.
 
+## Live (deployed 2026-09-17)
+
+| Service | URL |
+| --- | --- |
+| Simulator | https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws/ |
+| Bridge | https://ag-849fad36923d46a9b1a7ecf0f5d3fcd7.ecs.us-east-1.on.aws |
+| Fixture Store | https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws |
+
+Verified the same day against these URLs: Scene 5 (scan, draft on Claude Sonnet 4.6, publish,
+7.7 s), Scene 1 (search, checkout with the simulated Amazon handler, order, receipt), Scene 2
+(gluten free answered, organic "not published"), Scenes 3 and 4 ("the same as last week" from
+AgentCore Memory, the guardian asks, the household confirms). URL to first voice purchase on
+the fixture Store: 28 s.
+
+To stop paying for the playground, set each service's task count to zero or delete the three
+services in the ECS console; `pnpm deploy:aws` recreates them.
+
 ## Permissions (one time, by the account owner)
 
 The development IAM user starts with Bedrock and Polly only. Deployment and AgentCore need

@@ -11,8 +11,8 @@ Services used, why each, and where in the code. Updated as modules land.
 | Bedrock AgentCore Memory | Household memory in the hosted runtime: one JSON event per order reference (add-on, order id, item ids, quantities), short-term only with no extraction strategies, 30-day event expiry; the memory is found by name or created at boot | `apps/simulator/src/server/agentcore-memory.ts`, selected in `apps/simulator/src/server/main.ts` with `SIMULATOR_MEMORY=agentcore` |
 | Strands Agents SDK (TypeScript) | agent orchestration and tool use; our adapter wraps the Bridge's MCP tools (FL-004) | `apps/simulator/src/server/agent/household-agent.ts`; merchant agents in `packages/agents/src/*` (planned) |
 | Amazon Bedrock (Nova 2 Lite, via Strands TypeScript) | the Household agent inside the Simulator: conversation, tool calls to the Bridge, one usage_events row per model call | `apps/simulator/src/server/agent/household-agent.ts`, `brain.ts`; prices in `packages/agents/src/pricing.ts` |
-| Amazon Polly | voice output of the Simulator, per-phrase cache; browser speech as fallback | `apps/simulator/src/voice/*` (planned) |
-| AWS App Runner | hosts the Bridge and the Simulator as two services with public URLs | `infra/apprunner.yaml` (planned) |
+| Amazon Polly | voice output of the Simulator (generative voices), per-phrase cache; browser speech as fallback | `apps/simulator/src/server/speech.ts` |
+| Amazon ECS Express Mode (Fargate), Amazon ECR, AWS CodeBuild | the hosted playground: one image built in CodeBuild from the public repository, three Express Mode services (Bridge, Simulator, fixture Store) with a task role limited to Bedrock, Polly and AgentCore Memory; App Runner is closed to new customers (FL-008) | `infra/Dockerfile`, `infra/entrypoint.sh`, `scripts/deploy-aws.mjs`, `docs/DEPLOY.md` |
 
 Two models per role keep the measured cost per closed checkout session under the target in
 `docs/COSTS.md`. Region: us-east-1. Every agent and the Household memory sit behind one interface
