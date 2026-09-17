@@ -36,6 +36,7 @@ export function systemPrompt(language: "en-US" | "es-CL", storeName: string): st
     "When a search matched nothing (matched is false), say so in one sentence and name what the store sells instead.",
     "To describe an item, call get_item with its id from a previous search. For a question about an item's ingredients, allergens, gluten, weight, pieces or any other property, call ask_catalog with the customer's question as they said it, and repeat its answer; it answers only from what the store publishes. For delivery or payment questions, call get_policies.",
     "For an order the customer placed, call get_order; for a receipt, get_receipt.",
+    "When the customer asks for the same as last week, the same as last time or their usual, use the previous order from household memory given in the context note and call start_checkout with its items; never ask for an order id. If memory holds no previous order, say so in one sentence.",
     "Do not describe the tools or the screen. Do not use markdown.",
   ].join(" ");
 }

@@ -17,7 +17,7 @@ const KIND = "agentpos.order_reference.v1";
 
 /** The two calls this adapter makes, so tests can run it without AWS. */
 export interface AgentCoreEvents {
-  createEvent(input: { memoryId: string; actorId: string; sessionId: string; eventTimestamp: Date; payload: Array<{ json: unknown }> }): Promise<unknown>;
+  createEvent(input: { memoryId: string; actorId: string; sessionId: string; eventTimestamp: Date; payload: Array<{ json: { content: unknown } }> }): Promise<unknown>;
   listEvents(input: { memoryId: string; actorId: string; sessionId: string; includePayloads: boolean; maxResults: number; nextToken?: string }): Promise<{ events?: Array<{ eventTimestamp?: Date; payload?: Array<Record<string, unknown>> }>; nextToken?: string }>;
 }
 
@@ -40,7 +40,8 @@ function sessionFor(addon: string): string {
 }
 
 function parsePayload(p: Record<string, unknown>): OrderReference | undefined {
-  const raw = "json" in p ? p.json : "blob" in p ? p.blob : undefined;
+  // JSON events come back as { json: { content } }; blobs as a document or a string.
+  const raw = p.json && typeof p.json === "object" && "content" in (p.json as object) ? (p.json as { content: unknown }).content : "blob" in p ? p.blob : undefined;
   const value = typeof raw === "string" ? safeJson(raw) : raw;
   if (!value || typeof value !== "object") return undefined;
   const v = value as { kind?: string; ref?: OrderReference };
@@ -66,7 +67,7 @@ export class AgentCoreHouseholdMemory implements HouseholdMemory {
     // Idempotent by order id: a reference already on record is not written twice.
     const existing = await this.recall(clean.addon, 50);
     if (existing.some((r) => r.orderId === clean.orderId)) return;
-    await this.events.createEvent({ memoryId: this.memoryId, actorId: ACTOR, sessionId: sessionFor(clean.addon), eventTimestamp: new Date(clean.at), payload: [{ json: { kind: KIND, ref: clean } }] });
+    await this.events.createEvent({ memoryId: this.memoryId, actorId: ACTOR, sessionId: sessionFor(clean.addon), eventTimestamp: new Date(clean.at), payload: [{ json: { content: { kind: KIND, ref: clean } } }] });
   }
 
   async recall(addon: string, limit = 5): Promise<OrderReference[]> {

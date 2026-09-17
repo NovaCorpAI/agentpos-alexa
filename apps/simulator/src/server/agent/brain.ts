@@ -97,7 +97,16 @@ export class AgentBrain implements Brain {
     }
     try {
       // The checkout completes outside the conversation, so the agent is told what it missed.
-      const note = ctx.lastOrderId ? `\n\n(Context, not spoken: the customer's most recent order at this store has id ${ctx.lastOrderId}; use it for get_order and get_receipt.)` : "";
+      const notes: string[] = [];
+      if (ctx.lastOrderId) notes.push(`the customer's most recent order at this store has id ${ctx.lastOrderId}; use it for get_order and get_receipt`);
+      // Household memory: references only (item ids, titles, quantities, when), never personal data.
+      if (ctx.remembered) {
+        const lines = ctx.remembered.lines.map((l) => `${l.quantity} x ${l.title} (itemId ${l.itemId})`).join(", ");
+        notes.push(`household memory holds the previous order ${ctx.remembered.orderId} placed ${ctx.remembered.at.slice(0, 10)}: ${lines}; for "the same as last time" or "my usual", call start_checkout with exactly those itemIds and quantities`);
+      } else {
+        notes.push("household memory holds no previous order at this store");
+      }
+      const note = `\n\n(Context, not spoken: ${notes.join("; ")}.)`;
       const r = await this.agentFor(ctx).turn(`${text}${note}`, ctx.traceId);
       return { brain: "agent", speak: r.text ? [r.text] : [], toolCalls: r.toolCalls };
     } catch (e) {

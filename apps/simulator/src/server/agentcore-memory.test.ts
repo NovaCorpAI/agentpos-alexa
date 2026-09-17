@@ -10,9 +10,11 @@ function fakeEvents(): AgentCoreEvents & { written: unknown[] } {
     written,
     async createEvent(input) {
       written.push(input);
+      // Mirror the service's validation: a JSON payload must carry content.
+      for (const p of input.payload) if (p.json?.content === undefined || p.json.content === null) throw new Error("ValidationException: payload.json.content must not be null");
       const key = `${input.memoryId}/${input.actorId}/${input.sessionId}`;
       // AgentCore returns JSON payloads as documents; one of them comes back as a string to cover both.
-      const payload = input.payload.map((p, i) => (i === 0 && (store.get(key)?.length ?? 0) === 1 ? { json: JSON.stringify(p.json) } : { json: p.json }));
+      const payload = input.payload.map((p, i) => (i === 0 && (store.get(key)?.length ?? 0) === 1 ? { json: { content: JSON.stringify(p.json.content) } } : { json: { content: p.json.content } }));
       store.set(key, [...(store.get(key) ?? []), { eventTimestamp: input.eventTimestamp, payload }]);
       return {};
     },
