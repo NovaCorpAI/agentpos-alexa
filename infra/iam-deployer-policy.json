@@ -1,0 +1,54 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AgentCoreMemoryAndRuntime",
+      "Effect": "Allow",
+      "Action": "bedrock-agentcore:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AppRunnerServices",
+      "Effect": "Allow",
+      "Action": "apprunner:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ContainerRegistryLogin",
+      "Effect": "Allow",
+      "Action": ["ecr:GetAuthorizationToken", "ecr:DescribeRepositories"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ContainerRegistryProjectRepo",
+      "Effect": "Allow",
+      "Action": "ecr:*",
+      "Resource": "arn:aws:ecr:us-east-1:*:repository/agentpos-alexa*"
+    },
+    {
+      "Sid": "ImageBuild",
+      "Effect": "Allow",
+      "Action": "codebuild:*",
+      "Resource": "arn:aws:codebuild:us-east-1:*:project/agentpos-alexa*"
+    },
+    {
+      "Sid": "ReadBuildAndServiceLogs",
+      "Effect": "Allow",
+      "Action": ["logs:DescribeLogGroups", "logs:DescribeLogStreams", "logs:GetLogEvents", "logs:FilterLogEvents"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ProjectServiceRoles",
+      "Effect": "Allow",
+      "Action": ["iam:CreateRole", "iam:GetRole", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:PassRole", "iam:TagRole"],
+      "Resource": "arn:aws:iam::*:role/agentpos-alexa-*"
+    },
+    {
+      "Sid": "AppRunnerServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "iam:AWSServiceName": ["apprunner.amazonaws.com", "build.apprunner.amazonaws.com"] } }
+    }
+  ]
+}
