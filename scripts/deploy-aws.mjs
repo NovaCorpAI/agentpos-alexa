@@ -171,7 +171,8 @@ function endpointOf(service) {
   const configs = [...(service?.activeConfigurations ?? [])].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
   for (const c of configs) {
     const p = c.ingressPaths?.find((i) => i.accessType === "PUBLIC") ?? c.ingressPaths?.[0];
-    if (p?.endpoint) return `https://${p.endpoint}`;
+    // The endpoint arrives with or without its scheme depending on the service; normalize it.
+    if (p?.endpoint) return `https://${p.endpoint.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
   }
   return undefined;
 }
