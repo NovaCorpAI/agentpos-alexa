@@ -175,3 +175,24 @@ commit or file.
   model's catalog card, and return a `Retry-After` hint with the throttling error so clients
   can back off precisely.
 - Link: apps/simulator/src/server/app.ts, docs/COSTS.md
+
+## FL-008
+
+- Date: 2026-09-17
+- Tool: AWS App Runner (CreateService, ListServices) from a deployment script, new account.
+- What we tried: deploy the Bridge, the Simulator and the fixture Store as App Runner services,
+  the path our architecture document and the hackathon's AWS guidance both pointed to.
+- What happened: the image built in CodeBuild and landed in ECR, then the first App Runner
+  call answered `SubscriptionRequiredException: The AWS Access Key Id needs a subscription for
+  the service`. App Runner stopped accepting new customers on 2026-04-30
+  (https://docs.aws.amazon.com/apprunner/latest/dg/apprunner-availability-change.html). The
+  error names a subscription, not the availability change, and the console, the IAM policy
+  simulator and the SDK all still present the service as usable.
+- Severity: High
+- Time lost: about 40 min (script, roles, build, then the wall)
+- Workaround: keep the image, the registry and the build; move the services to the successor
+  AWS recommends (Amazon ECS Express Mode) or to Lambda with a web adapter.
+- Suggestion: return a dedicated error such as `ServiceClosedToNewCustomers` with the
+  availability page link, and show a banner in the App Runner console for accounts that cannot
+  create services.
+- Link: scripts/deploy-aws.mjs, docs/DEPLOY.md

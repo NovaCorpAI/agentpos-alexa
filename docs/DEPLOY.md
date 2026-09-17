@@ -1,5 +1,11 @@
 # Deploying the hosted playground
 
+> **Status 2026-09-17:** App Runner is closed to new customers since 2026-04-30, and this
+> account is new, so `scripts/deploy-aws.mjs` fails at the first App Runner call (FL-008). The
+> registry, the roles and the CodeBuild image build work and stay. The services move to
+> Amazon ECS Express Mode (the successor AWS recommends) or to Lambda; see the decision in
+> the issue for #20.
+
 Target (#20): the Bridge, the Simulator and the fixture Store as three App Runner services
 built from one image (`infra/Dockerfile`, service chosen by `SERVICE`), household memory on
 AgentCore Memory, us-east-1. No Docker is needed locally: the image builds in CodeBuild from
