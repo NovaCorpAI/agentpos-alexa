@@ -85,6 +85,14 @@ describe("Simulator server against an in-memory Bridge and fixture bakery", () =
     expect(again.speak[0]).toContain("Your total is $13.00");
   });
 
+  it("says a model rate limit plainly instead of blaming the store", async () => {
+    const throttledBrain = { kind: "agent" as const, reset: () => undefined, turn: async () => { throw new Error("ModelError: Too many requests, please wait before trying again."); } };
+    const sim2 = createSimulatorApp({ bridge: bridgeClient, brain: throttledBrain, checkout: new CheckoutFlow(new BridgeCheckoutClient({ url: BRIDGE, bearerToken: TOKEN })), inspection, memory });
+    const res = await sim2.request("/api/turn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ addon: "bakery", text: "Buy one baguette" }) });
+    expect(res.status).toBe(429);
+    expect(((await res.json()) as TurnResponse).speak).toEqual(["I am getting too many requests right now. Please ask again in a few seconds."]);
+  });
+
   it("lists the Bridge's Stores as Enabled add-ons", async () => {
     const body = (await (await sim.request("/api/addons")).json()) as { addons: Array<{ slug: string; mcp: string }> };
     expect(body.addons).toEqual([expect.objectContaining({ slug: "bakery", mcp: `${BRIDGE}/stores/bakery/mcp` })]);

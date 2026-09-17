@@ -121,8 +121,11 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
       if (last) ctx.lastOrderId = last;
       brainTurn = await deps.brain.turn(body.text, ctx);
     } catch (e) {
-      c.status(502);
-      return c.json({ turnId, traceId, brain: deps.brain.kind, speak: ["I could not reach the store right now."], toolCalls: [], view: null, checkout: null, error: String(e) });
+      // Say what actually failed: a model rate limit is not the store being down.
+      const throttled = /too many requests|throttl|rate exceeded/i.test(String(e));
+      c.status(throttled ? 429 : 502);
+      const speak = throttled ? "I am getting too many requests right now. Please ask again in a few seconds." : "I could not reach the store right now.";
+      return c.json({ turnId, traceId, brain: deps.brain.kind, speak: [speak], toolCalls: [], view: null, checkout: null, error: String(e) });
     }
     learn(addon, brainTurn.toolCalls);
     let checkout: CheckoutState | null = null;

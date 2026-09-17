@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { openStorage } from "./sqlite.js";
-import { summarizeUsage, usageEventsToCsv } from "./usage-export.js";
+import { costPerClosedSession, csvToUsageEvents, summarizeUsage, usageEventsToCsv } from "./usage-export.js";
 import { USAGE_EVENTS_CSV_COLUMNS } from "./usage-events.js";
 
 describe("usage_events export", () => {
@@ -22,6 +22,32 @@ describe("usage_events export", () => {
     const summary = summarizeUsage(events);
     expect(summary.bySource["agent.catalog"]).toEqual({ calls: 1, inputTokens: 812, outputTokens: 96, costUsdMicros: 74 });
     expect(summary.perSession).toEqual([{ checkoutSessionId: "cs_1", calls: 2, costUsdMicros: 74, simulated: true }]);
+
+    // Round trip: CSV back to events, byte for byte the same CSV again, quotes and optionals kept.
+    const tricky = [...events, { ...events[0]!, id: "x", traceId: 'a,"b"\r\nc' }];
+    const back = csvToUsageEvents(usageEventsToCsv(tricky));
+    expect(back).toEqual(tricky);
+    expect(usageEventsToCsv(back)).toBe(usageEventsToCsv(tricky));
     storage.close();
+  });
+
+  it("prices a closed session from every model call except onboarding, which is per Store", () => {
+    const base = { traceId: "t", at: "2026-09-16T00:00:00Z", storeOrigin: "http://bakery.test", inputTokens: 1, outputTokens: 1, latencyMs: 1, simulated: false };
+    const events = [
+      { ...base, id: "1", source: "simulator" as const, model: "nova-lite", estimatedCostUsdMicros: 300 },
+      { ...base, id: "2", source: "simulator" as const, model: "nova-lite", estimatedCostUsdMicros: 300 },
+      { ...base, id: "3", source: "agent.guardian" as const, model: "sonnet", estimatedCostUsdMicros: 1500 },
+      { ...base, id: "4", source: "agent.onboarding" as const, model: "sonnet", estimatedCostUsdMicros: 16000 },
+      { ...base, id: "5", source: "bridge.checkout" as const, model: null, estimatedCostUsdMicros: 0 },
+    ];
+    expect(costPerClosedSession(events, 2)).toEqual({
+      closedSessions: 2,
+      sessionModelCalls: 3,
+      sessionCostUsdMicros: 2100,
+      costPerClosedSessionUsdMicros: 1050,
+      bySource: { simulator: { calls: 2, costUsdMicros: 600 }, "agent.guardian": { calls: 1, costUsdMicros: 1500 } },
+      onboarding: { calls: 1, costUsdMicros: 16000 },
+    });
+    expect(costPerClosedSession(events, 0).costPerClosedSessionUsdMicros).toBeNull();
   });
 });

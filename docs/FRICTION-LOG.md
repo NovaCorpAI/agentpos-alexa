@@ -154,3 +154,24 @@ commit or file.
   `GetUseCaseForModelAccess` returned the form at once but invocation kept failing for about
   20 minutes before Claude Sonnet 4.6 answered.
 - Link: packages/agents/src/guardian.ts, packages/bridge/src/main.ts, scripts/bedrock-check.mjs
+
+## FL-007
+
+- Date: 2026-09-17
+- Tool: Amazon Bedrock runtime quotas on a new account (Nova 2 Lite cross-region profile, Converse through Strands).
+- What we tried: measure cost per closed session by running five household sessions back to
+  back, about four model calls per turn.
+- What happened: after roughly a dozen calls within a minute, Converse answered `ModelError:
+  Too many requests, please wait before trying again.` The SDK's own retries did not absorb it,
+  and our simulator reported it as "I could not reach the store", which sent us looking at the
+  Bridge first. Nothing in the console's model page shows the account's effective per-minute
+  quota for a cross-region inference profile.
+- Severity: Medium
+- Time lost: about 25 min
+- Workaround: pace the measurement (8 s between turns, 30 s back-off on throttling); the
+  simulator now answers 429 and says the assistant is getting too many requests; the
+  measurement then ran with zero throttled turns.
+- Suggestion: show the applied requests-per-minute and tokens-per-minute quotas on each
+  model's catalog card, and return a `Retry-After` hint with the throttling error so clients
+  can back off precisely.
+- Link: apps/simulator/src/server/app.ts, docs/COSTS.md
