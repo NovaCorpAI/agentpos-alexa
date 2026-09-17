@@ -10,6 +10,7 @@
  */
 import { Agent, ModelStreamUpdateEvent, type Model } from "@strands-agents/sdk";
 import { z } from "zod";
+import { spokenText } from "./spoken.js";
 
 export interface GuardianLine {
   itemId: string;
@@ -150,7 +151,7 @@ export class Guardian {
       printer: false,
       systemPrompt: [
         `You are the policy guardian of ${input.storeName}, an online store. A customer is about to pay and a rule fired. Decide: allow, review (ask the customer to confirm in one sentence) or refuse (only for clear abuse).`,
-        `Write the reason as one short spoken sentence in ${lang}, addressed to the customer, naming the items and when they ordered them before. No markdown, no ids, no prices unless given.`,
+        `Write the reason as one short spoken sentence in ${lang}, addressed to the customer, naming the items and when they ordered them before. Never use dashes as punctuation. No markdown, no ids, no prices unless given.`,
         "A repeated order is usually legitimate: prefer review over refuse. Never invent facts beyond the input.",
         'Answer with one JSON object only, no prose around it: {"decision":"allow"|"review"|"refuse","reason":"..."}.',
       ].join(" "),
@@ -172,7 +173,8 @@ export class Guardian {
     const result = await agent.invoke(`Input: ${JSON.stringify(payload)}`);
     const parsed = Verdict.safeParse(tryJson(result.toString()));
     if (!parsed.success) throw new Error("guardian: unparseable verdict");
-    return usage ? { ...parsed.data, usage } : parsed.data;
+    const data = { ...parsed.data, reason: spokenText(parsed.data.reason) };
+    return usage ? { ...data, usage } : data;
   }
 }
 

@@ -7,6 +7,7 @@
  */
 import { Agent, ModelStreamUpdateEvent, type Model } from "@strands-agents/sdk";
 import { z } from "zod";
+import { spokenText } from "./spoken.js";
 
 export type Language = "en-US" | "es-CL";
 
@@ -229,7 +230,7 @@ export class CatalogAgent {
       printer: false,
       systemPrompt: [
         `You answer a customer's question about the items of ${q.storeName}, spoken through a speaker. Use only the facts in the input: titles, descriptions, prices as written, attributes and the voice overlay.`,
-        `Answer in one or two short spoken sentences in ${lang}, naming the item. No markdown, no ids, no URLs.`,
+        `Answer in one or two short spoken sentences in ${lang}, naming the item. Never use dashes as punctuation. No markdown, no ids, no URLs.`,
         "If the facts do not carry the answer, say that the store has not published it and set grounded to false. Never invent price, stock, ingredients, allergens or origin.",
         "If the question names no item, ask which item and name a few the store sells. itemIds are the ids of the items the answer is about, from the input only.",
         'Answer with one JSON object only: {"answer":"...","grounded":true|false,"itemIds":["..."]}.',
@@ -257,7 +258,7 @@ export class CatalogAgent {
     // The model may word the answer; it may not claim more than the facts. If the rule found
     // no fact for the asked aspect, the answer stays ungrounded whatever the model said.
     const grounded = parsed.data.grounded && rule.grounded;
-    return { answer: parsed.data.answer, grounded, itemIds, modelUsed: true, ...(usage ? { usage } : {}) };
+    return { answer: spokenText(parsed.data.answer), grounded, itemIds, modelUsed: true, ...(usage ? { usage } : {}) };
   }
 }
 

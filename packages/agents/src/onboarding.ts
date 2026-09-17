@@ -7,6 +7,7 @@
  */
 import { Agent, ModelStreamUpdateEvent, type Model } from "@strands-agents/sdk";
 import { z } from "zod";
+import { spokenText } from "./spoken.js";
 import type { CatalogFact, Language, OverlayEntry } from "./catalog.js";
 
 export interface PolicyDraft {
@@ -134,7 +135,7 @@ export class OnboardingAgent {
         `You prepare the voice overlay of ${input.storeName}, an online store, for a voice assistant with a screen. A human merchant will review and confirm every line before it is published.`,
         `For each item, write in ${lang}: spokenName (short, pronounceable, no packaging sizes, no punctuation), summary (one spoken sentence from the description, no weights), synonyms (up to 4 words or phrases a customer might say for it, lowercase).`,
         "Write three policy sentences: voiceIntro (one sentence introducing the store), deliveryNote (from physicalGoods only), reviewNote (the store may review an order before confirming it; nothing is charged until then).",
-        "Use only the catalog given. Never add ingredients, origins, prices or claims that are not in it. Keep every itemId exactly as given and cover every item.",
+        "Never use dashes as punctuation. Use only the catalog given. Never add ingredients, origins, prices or claims that are not in it. Keep every itemId exactly as given and cover every item.",
         'Answer with one JSON object only: {"overlay":[{"itemId":"...","spokenName":"...","summary":"...","synonyms":["..."]}],"policies":{"voiceIntro":"...","deliveryNote":"...","reviewNote":"..."}}.',
       ].join(" "),
     });
@@ -158,9 +159,11 @@ export class OnboardingAgent {
     const byId = new Map(parsed.data.overlay.map((o) => [o.itemId, o]));
     const overlay: OverlayEntry[] = rule.overlay.map((r) => {
       const m = byId.get(r.itemId);
-      return m ? { itemId: r.itemId, spokenName: m.spokenName.trim(), summary: m.summary.trim(), synonyms: m.synonyms.map((s) => s.trim().toLowerCase()).filter(Boolean) } : r;
+      return m ? { itemId: r.itemId, spokenName: spokenText(m.spokenName), summary: spokenText(m.summary), synonyms: m.synonyms.map((s) => s.trim().toLowerCase()).filter(Boolean) } : r;
     });
-    return { overlay, policies: parsed.data.policies, modelUsed: true, ...(usage ? { usage } : {}) };
+    const p = parsed.data.policies;
+    const policies = { voiceIntro: spokenText(p.voiceIntro), deliveryNote: spokenText(p.deliveryNote), reviewNote: spokenText(p.reviewNote) };
+    return { overlay, policies, modelUsed: true, ...(usage ? { usage } : {}) };
   }
 }
 

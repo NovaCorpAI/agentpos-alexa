@@ -149,4 +149,8 @@ commit or file.
 - Suggestion: surface the use case requirement in `ListFoundationModels` (a field next to
   `inferenceTypesSupported`) and in the model access page, so tooling can tell "not enabled"
   from "enabled but gated" before the first invoke.
+- Resolution: the model access page is retired and does not link the form; it lives on each
+  Anthropic model's card in the Model catalog ("Submit use case details"). After submitting,
+  `GetUseCaseForModelAccess` returned the form at once but invocation kept failing for about
+  20 minutes before Claude Sonnet 4.6 answered.
 - Link: packages/agents/src/guardian.ts, packages/bridge/src/main.ts, scripts/bedrock-check.mjs
