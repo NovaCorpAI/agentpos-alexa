@@ -12,7 +12,7 @@
 import { randomBytes } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { CreateExpressGatewayServiceCommand, DescribeExpressGatewayServiceCommand, ECSClient, UpdateExpressGatewayServiceCommand } from "@aws-sdk/client-ecs";
+import { CreateExpressGatewayServiceCommand, DescribeExpressGatewayServiceCommand, DescribeServicesCommand, ECSClient, UpdateExpressGatewayServiceCommand } from "@aws-sdk/client-ecs";
 import { BatchGetBuildsCommand, BatchGetProjectsCommand, CodeBuildClient, CreateProjectCommand, StartBuildCommand, UpdateProjectCommand } from "@aws-sdk/client-codebuild";
 import { CreateRepositoryCommand, DescribeRepositoriesCommand, ECRClient } from "@aws-sdk/client-ecr";
 import { AttachRolePolicyCommand, CreateRoleCommand, GetRoleCommand, IAMClient, PutRolePolicyCommand } from "@aws-sdk/client-iam";
@@ -147,74 +147,120 @@ if (!skipBuild) {
 }
 
 // 4. Services on Amazon ECS Express Mode (App Runner is closed to new customers, FL-008).
-// Express Mode URLs are https://<service-name>.ecs.<region>.on.aws, known before creation,
-// so every service is created with its peers' addresses already set.
+// Each service's public endpoint is generated at creation (FL-009), so services are created
+// first and then updated with their own and their peers' real URLs.
 const ecs = new ECSClient({ region });
 const executionRole = await ensureRole(`${NAME}-ecs-execution`, "ecs-tasks.amazonaws.com", { managed: ["arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"] });
 const infrastructureRole = await ensureRole(`${NAME}-ecs-infrastructure`, "ecs.amazonaws.com", { managed: ["arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices"] });
 const taskRole = await ensureRole(`${NAME}-task`, "ecs-tasks.amazonaws.com", { inline: instancePolicy });
 
-const urlOf = (name) => `https://${name}.ecs.${region}.on.aws`;
 const serviceArnOf = (name) => `arn:aws:ecs:${region}:${account}:service/default/${name}`;
-const tag = builtTag ?? "latest";
+const PLACEHOLDER = "https://pending.invalid";
 
 async function describe(name) {
   try {
     return (await ecs.send(new DescribeExpressGatewayServiceCommand({ serviceArn: serviceArnOf(name) }))).service;
   } catch (e) {
-    if (["ServiceNotFoundException", "ResourceNotFoundException", "ClusterNotFoundException"].includes(e?.name) || /not found|does not exist/i.test(String(e?.message))) return undefined;
+    if (["ServiceNotFoundException", "ResourceNotFoundException", "ClusterNotFoundException", "InvalidParameterException"].includes(e?.name) || /not found|does not exist/i.test(String(e?.message))) return undefined;
     throw e;
   }
 }
 
-async function waitHealthy(name, path) {
-  const url = `${urlOf(name)}${path}`;
-  for (let i = 0; i < 120; i++) {
-    const s = await describe(name);
-    const code = s?.status?.statusCode;
-    if (code === "INACTIVE") throw new Error(`${name} is INACTIVE: ${s?.status?.statusReason ?? ""}`);
-    try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (r.ok && code === "ACTIVE") return s;
-    } catch {}
-    if (i % 4 === 0) log("waiting for service", { name, status: code ?? "unknown", url });
-    await sleep(15_000);
+/** The newest configuration's public endpoint, as an https URL. */
+function endpointOf(service) {
+  const configs = [...(service?.activeConfigurations ?? [])].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+  for (const c of configs) {
+    const p = c.ingressPaths?.find((i) => i.accessType === "PUBLIC") ?? c.ingressPaths?.[0];
+    if (p?.endpoint) return `https://${p.endpoint}`;
   }
-  throw new Error(`${name} did not answer ${url} in 30 minutes`);
+  return undefined;
 }
 
-async function upsertService(name, env, healthPath) {
-  const container = { image: `${imageUri}:${tag}`, containerPort: 8080, environment: Object.entries(env).map(([k, v]) => ({ name: k, value: v })) };
-  const common = { executionRoleArn: executionRole, taskRoleArn: taskRole, healthCheckPath: healthPath, primaryContainer: container, cpu: "256", memory: "1024", cpuArchitecture: "X86_64", scalingTarget: { minTaskCount: 1, maxTaskCount: 1 } };
-  const existing = await describe(name);
-  if (existing && existing.status?.statusCode !== "INACTIVE") {
-    await ecs.send(new UpdateExpressGatewayServiceCommand({ serviceArn: existing.serviceArn, ...common }));
-    log("service updating", { name, image: container.image });
-  } else {
+function envOf(service) {
+  const configs = [...(service?.activeConfigurations ?? [])].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+  return Object.fromEntries((configs[0]?.primaryContainer?.environment ?? []).map((e) => [e.name, e.value]));
+}
+
+/** Waits until one deployment is left, it completed, one task runs, and the endpoint answers. */
+async function waitStable(name, path) {
+  for (let i = 0; i < 120; i++) {
+    const s = await describe(name);
+    if (s?.status?.statusCode === "INACTIVE") throw new Error(`${name} is INACTIVE: ${s?.status?.statusReason ?? ""}`);
+    const svc = (await ecs.send(new DescribeServicesCommand({ cluster: "default", services: [name] }))).services?.[0];
+    const deployments = svc?.deployments ?? [];
+    const settled = deployments.length === 1 && (deployments[0].rolloutState ?? "COMPLETED") === "COMPLETED" && svc.runningCount === 1;
+    const url = endpointOf(s);
+    let answered = false;
+    if (settled && url) {
+      try {
+        answered = (await fetch(`${url}${path}`, { signal: AbortSignal.timeout(8000) })).ok;
+      } catch {}
+    }
+    if (answered) return s;
+    if (i % 4 === 0) log("waiting for service", { name, deployments: deployments.map((d) => `${d.status}:${d.rolloutState}`), running: svc?.runningCount ?? 0, url: url ?? null, lastEvent: svc?.events?.[0]?.message?.slice(0, 160) });
+    await sleep(15_000);
+  }
+  throw new Error(`${name} did not become stable and healthy in 30 minutes`);
+}
+
+/** Creates or updates a service; env may be a function of the service's own URL. Returns its URL. */
+async function upsertService(name, envFor, healthPath) {
+  const build = (ownUrl) => {
+    const env = envFor(ownUrl);
+    return {
+      executionRoleArn: executionRole,
+      taskRoleArn: taskRole,
+      healthCheckPath: healthPath,
+      primaryContainer: { image: `${imageUri}:${tag}`, containerPort: 8080, environment: Object.entries(env).map(([k, v]) => ({ name: k, value: v })) },
+      cpu: "256",
+      memory: "1024",
+      cpuArchitecture: "X86_64",
+      scalingTarget: { minTaskCount: 1, maxTaskCount: 1 },
+    };
+  };
+  let existing = await describe(name);
+  if (!existing || existing.status?.statusCode === "INACTIVE") {
     for (let attempt = 0; ; attempt++) {
       try {
-        await ecs.send(new CreateExpressGatewayServiceCommand({ serviceName: name, infrastructureRoleArn: infrastructureRole, ...common, tags: [{ key: "project", value: NAME }] }));
+        await ecs.send(new CreateExpressGatewayServiceCommand({ serviceName: name, infrastructureRoleArn: infrastructureRole, ...build(PLACEHOLDER), tags: [{ key: "project", value: NAME }] }));
         break;
       } catch (e) {
         if (attempt < 6 && /assume|role/i.test(String(e?.message))) { await sleep(20_000); continue; }
         throw e;
       }
     }
-    log("service creating", { name, url: urlOf(name) });
+    log("service creating", { name });
+    for (let i = 0; i < 40 && !endpointOf(existing); i++) {
+      await sleep(15_000);
+      existing = await describe(name);
+    }
   }
-  // One task on purpose: each service keeps its SQLite state on the task's disk.
-  return waitHealthy(name, healthPath);
+  const url = endpointOf(existing);
+  if (!url) throw new Error(`${name} has no public endpoint`);
+  const wanted = build(url);
+  const current = envOf(existing);
+  const wantedEnv = Object.fromEntries(wanted.primaryContainer.environment.map((e) => [e.name, e.value]));
+  const currentImage = [...(existing.activeConfigurations ?? [])].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))[0]?.primaryContainer?.image;
+  const same = currentImage === wanted.primaryContainer.image && Object.keys(wantedEnv).length === Object.keys(current).length && Object.entries(wantedEnv).every(([k, v]) => current[k] === v);
+  if (!same) {
+    await waitStable(name, healthPath).catch(() => undefined); // an update is refused while a deployment is in flight
+    await ecs.send(new UpdateExpressGatewayServiceCommand({ serviceArn: existing.serviceArn, ...wanted }));
+    log("service updating", { name, url, image: wanted.primaryContainer.image });
+    await sleep(30_000);
+  }
+  await waitStable(name, healthPath);
+  log("service ready", { name, url });
+  return url;
 }
 
+const tag = builtTag ?? "latest";
 const models = { AWS_REGION: region, BEDROCK_MODEL_FAST: cfg("BEDROCK_MODEL_FAST", "us.amazon.nova-2-lite-v1:0"), BEDROCK_MODEL_STRONG: cfg("BEDROCK_MODEL_STRONG", "us.anthropic.claude-sonnet-4-6"), BEDROCK_MODEL_STRONG_FALLBACK: cfg("BEDROCK_MODEL_STRONG_FALLBACK", "us.amazon.nova-pro-v1:0") };
-const fixtureName = `${NAME}-store`;
+const storeName = `${NAME}-store`;
 const bridgeName = `${NAME}-bridge`;
 const simulatorName = `${NAME}-sim`;
 
 // The bearer survives redeploys: it is read back from the running Bridge's configuration.
-const priorBridge = await describe(bridgeName);
-const priorEnv = priorBridge?.activeConfigurations?.[0]?.primaryContainer?.environment ?? [];
-const bearer = priorEnv.find((e) => e.name === "BRIDGE_BEARER_TOKEN")?.value || randomBytes(32).toString("base64url");
+const bearer = envOf(await describe(bridgeName)).BRIDGE_BEARER_TOKEN || randomBytes(32).toString("base64url");
 
 let memoryId = cfg("AGENTCORE_MEMORY_ID", "");
 if (!memoryId) {
@@ -222,11 +268,8 @@ if (!memoryId) {
   memoryId = page.memories?.find((m) => m.id?.startsWith("agentpos_alexa_household-") && m.status === "ACTIVE")?.id ?? "";
 }
 
-// The fixture Store first (the Bridge registers it at boot), then the Bridge and the Simulator together.
-await upsertService(fixtureName, { SERVICE: "fixture-store", FIXTURE_STORE_URL: urlOf(fixtureName) }, "/.well-known/ucp");
-await Promise.all([
-  upsertService(bridgeName, { SERVICE: "bridge", AGENTPOS_STORE_URL: urlOf(fixtureName), BRIDGE_BASE_URL: urlOf(bridgeName), BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models }, "/health"),
-  upsertService(simulatorName, { SERVICE: "simulator", BRIDGE_URL: urlOf(bridgeName), BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }, "/api/health"),
-]);
+const storeUrl = await upsertService(storeName, (own) => ({ SERVICE: "fixture-store", FIXTURE_STORE_URL: own }), "/.well-known/ucp");
+const bridgeUrl = await upsertService(bridgeName, (own) => ({ SERVICE: "bridge", AGENTPOS_STORE_URL: storeUrl, BRIDGE_BASE_URL: own, BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models }), "/health");
+const simulatorUrl = await upsertService(simulatorName, () => ({ SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }), "/api/health");
 
-log("deployed", { simulator: `${urlOf(simulatorName)}/`, merchantConsole: `${urlOf(simulatorName)}/#/merchant`, bridge: urlOf(bridgeName), fixtureStore: urlOf(fixtureName), image: `${imageUri}:${tag}` });
+log("deployed", { simulator: `${simulatorUrl}/`, merchantConsole: `${simulatorUrl}/#/merchant`, bridge: bridgeUrl, fixtureStore: storeUrl, image: `${imageUri}:${tag}` });
