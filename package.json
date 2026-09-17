@@ -17,11 +17,18 @@
     "dev:bridge": "pnpm --filter @agentpos-alexa/bridge dev",
     "dev:fixture-store": "pnpm --filter @agentpos-alexa/fixture-store dev",
     "dev:simulator": "pnpm --filter @agentpos-alexa/simulator dev",
-    "bedrock:check": "node scripts/bedrock-check.mjs"
+    "bedrock:check": "node scripts/bedrock-check.mjs",
+    "deploy:aws": "node scripts/deploy-aws.mjs"
   },
   "devDependencies": {
+    "@aws-sdk/client-apprunner": "^3.1133.0",
     "@aws-sdk/client-bedrock": "^3.1132.0",
+    "@aws-sdk/client-bedrock-agentcore-control": "^3.1133.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1132.0",
+    "@aws-sdk/client-codebuild": "^3.1133.0",
+    "@aws-sdk/client-ecr": "^3.1133.0",
+    "@aws-sdk/client-iam": "^3.1133.0",
+    "@aws-sdk/client-sts": "^3.1133.0",
     "@types/node": "^24.3.0",
     "tsx": "^4.23.13",
     "typescript": "^5.9.2",

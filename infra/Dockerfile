@@ -1,6 +1,6 @@
 # One image, three services (bridge, simulator, fixture-store), chosen by SERVICE at run time.
 # Built in AWS (CodeBuild) and run on App Runner; no Docker needed on a developer machine.
-FROM node:24-slim
+FROM public.ecr.aws/docker/library/node:24-slim
 
 WORKDIR /app
 ENV CI=true
