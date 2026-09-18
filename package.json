@@ -18,7 +18,8 @@
     "dev:fixture-store": "pnpm --filter @agentpos-alexa/fixture-store dev",
     "dev:simulator": "pnpm --filter @agentpos-alexa/simulator dev",
     "bedrock:check": "node scripts/bedrock-check.mjs",
-    "deploy:aws": "node scripts/deploy-aws.mjs"
+    "deploy:aws": "node scripts/deploy-aws.mjs",
+    "demo:run": "node scripts/demo-run.mjs"
   },
   "devDependencies": {
     "@aws-sdk/client-apprunner": "^3.1133.0",

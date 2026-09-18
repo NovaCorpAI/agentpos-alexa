@@ -94,6 +94,9 @@ Pre-existing and unchanged: the AgentPOS store software the bridge talks to.
 
 ## Video script (under 3 minutes, English)
 
+Shot by shot, with the system's verified answers and the voice over to read: `docs/VIDEO.md`.
+Replay the sequence with `pnpm demo:run <simulator url>`.
+
 | Time | Scene | What is on screen |
 | --- | --- | --- |
 | 0:00 | Hook | "Alexa+ for Builders is for Priceline. This is for the corner store." A real WooCommerce store URL is pasted. |
