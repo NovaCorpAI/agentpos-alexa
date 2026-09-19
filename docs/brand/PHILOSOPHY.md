@@ -52,6 +52,7 @@ countless hours removing everything that was merely good.
 ---
 
 Expressed in `docs/assets/youtube-banner.png` (2560 by 1440, every word inside YouTube's
-1546 by 423 safe area) and `docs/assets/youtube-avatar.png` (800 by 800, composed for a
-circular crop). Both are drawn by `scripts/brand-banner.mjs` from a fixed seed, so the plate
+1546 by 423 safe area), `docs/assets/youtube-avatar.png` (800 by 800, composed for a circular
+crop) and `docs/assets/devpost-thumbnail.png` (1500 by 1000, the submission card, where the
+one serif line carries the argument). Both are drawn by `scripts/brand-banner.mjs` from a fixed seed, so the plate
 is the same drawing every time it is made.

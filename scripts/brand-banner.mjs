@@ -185,6 +185,37 @@ function avatar() {
   </svg>`;
 }
 
+/**
+ * The submission thumbnail, 1500 by 1000: the same plate, tighter, with the one line that
+ * says who this is for. Nothing here is a screenshot; the picture is the argument.
+ */
+function thumbnail() {
+  const TW = 1500;
+  const TH = 1000;
+  const mid = TH / 2;
+  const strokes = [];
+  for (let x = 80; x <= TW - 80; x += 6) {
+    const t = (x - 80) / (TW - 160);
+    const quiet = smooth(Math.abs(x - TW / 2), 372, 560);
+    if (quiet <= 0.002) continue;
+    const h = Math.max(5, 300 * quiet * Math.abs(0.5 + 0.5 * Math.sin(t * 57) * Math.sin(t * 15 + 0.9)) * (0.85 + next() * 0.3));
+    strokes.push(`<rect x="${x.toFixed(1)}" y="${(mid + 150 - h / 2).toFixed(1)}" width="1.6" height="${h.toFixed(1)}" fill="${BONE}" opacity="${(0.3 * (0.4 + 0.6 * quiet)).toFixed(3)}"/>`);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${TW}" height="${TH}" viewBox="0 0 ${TW} ${TH}">
+    <rect width="${TW}" height="${TH}" fill="${INK}"/>
+    ${[160, 320, 480, 640, 800].map((y) => `<line x1="0" y1="${y}" x2="${TW}" y2="${y}" stroke="${BONE}" stroke-width="0.6" opacity="0.045"/>`).join("")}
+    ${strokes.join("")}
+    <line x1="${TW / 2 - 430}" y1="${mid + 150}" x2="${TW / 2 + 430}" y2="${mid + 150}" stroke="${BONE}" stroke-width="1" opacity="0.13"/>
+    <g text-anchor="middle">
+      <text x="${TW / 2}" y="${mid - 236}" font-family="GeistMono" font-size="20" letter-spacing="12" fill="${BONE}" opacity="0.5">ALEXA+ ADD-ON FOR AGENTPOS STORES</text>
+      <text x="${TW / 2}" y="${mid - 88}" font-family="Jura" font-weight="300" font-size="170" letter-spacing="12" fill="${BONE}">Agent<tspan fill="${EMBER}">POS</tspan></text>
+      <text x="${TW / 2}" y="${mid + 26}" font-family="Instrument Serif" font-size="58" fill="${BONE}" opacity="0.88">Alexa+ for Builders is for Priceline.</text>
+      <text x="${TW / 2}" y="${mid + 96}" font-family="Instrument Serif" font-size="58" fill="${EMBER}">This is for the corner store.</text>
+      <text x="${TW / 2}" y="${mid + 300}" font-family="GeistMono" font-size="18" letter-spacing="7" fill="${BONE}" opacity="0.4">MCP · UCP CHECKOUT · BEDROCK AGENTS · APACHE-2.0</text>
+    </g>
+  </svg>`;
+}
+
 const png = new Resvg(svg, {
   fitTo: { mode: "width", value: W },
   font: { fontDirs: [fontDir()], loadSystemFonts: false, defaultFontFamily: "Jura" },
@@ -192,6 +223,11 @@ const png = new Resvg(svg, {
 }).render();
 writeFileSync(out, png.asPng());
 console.log(`wrote ${out}`);
+
+const thumb = resolve(out, "..", "devpost-thumbnail.png");
+const thumbPng = new Resvg(thumbnail(), { fitTo: { mode: "width", value: 1500 }, font: { fontDirs: [fontDir()], loadSystemFonts: false, defaultFontFamily: "Jura" }, background: INK }).render();
+writeFileSync(thumb, thumbPng.asPng());
+console.log(`wrote ${thumb}`);
 
 const square = resolve(out, "..", "youtube-avatar.png");
 const avatarPng = new Resvg(avatar(), { fitTo: { mode: "width", value: 800 }, font: { fontDirs: [fontDir()], loadSystemFonts: false, defaultFontFamily: "Jura" }, background: INK }).render();
