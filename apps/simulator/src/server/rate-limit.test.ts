@@ -18,7 +18,7 @@ describe("TurnLimiter", () => {
 
   it("reads limits from the environment and can be switched off", () => {
     expect(limitsFromEnv({ NODE_ENV: "production", SIMULATOR_TURNS_PER_VISITOR: "5", SIMULATOR_TURN_WINDOW_S: "30", SIMULATOR_TURNS_PER_HOUR: "100" })).toEqual({ perVisitor: 5, windowMs: 30_000, globalPerHour: 100 });
-    expect(limitsFromEnv({ SIMULATOR_TURN_LIMITS: "on" })).toEqual({ perVisitor: 40, windowMs: 600_000, globalPerHour: 600 });
+    expect(limitsFromEnv({ SIMULATOR_TURN_LIMITS: "on" })).toEqual({ perVisitor: 150, windowMs: 600_000, globalPerHour: 600 });
     expect(limitsFromEnv({})).toBeUndefined();
     expect(limitsFromEnv({ NODE_ENV: "production", SIMULATOR_TURN_LIMITS: "off" })).toBeUndefined();
   });

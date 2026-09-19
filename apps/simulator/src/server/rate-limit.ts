@@ -10,7 +10,9 @@ export interface TurnLimits {
   globalPerHour: number;
 }
 
-export const DEFAULT_LIMITS: TurnLimits = { perVisitor: 40, windowMs: 10 * 60_000, globalPerHour: 600 };
+// Room for a visitor to play through every Scene, and for us to film the demo, while the
+// hourly cap still protects the model budget.
+export const DEFAULT_LIMITS: TurnLimits = { perVisitor: 150, windowMs: 10 * 60_000, globalPerHour: 600 };
 
 export class TurnLimiter {
   private readonly visitors = new Map<string, number[]>();
