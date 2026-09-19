@@ -65,7 +65,7 @@ Amazon Bedrock AgentCore Memory and holds order references only. Every model cal
 tokens, latency, model and cost in `usage_events`: a closed checkout session costs
 US$0.0021 in inference, measured over five sessions (`docs/COSTS.md`).
 
-**Try it:** https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws/ (merchant console at `/#/merchant`).
+**Try it:** https://alexa.agentposhq.com/ (merchant console at `/#/merchant`).
 
 **The simulated Alexa+ experience.** Amazon's tooling is available to partners only, so the
 simulator is an Echo Show style web app, voice in and out, whose agentic client runs on
@@ -112,7 +112,7 @@ Replay the sequence with `pnpm demo:run <simulator url>`.
 | Claim | Where it is verifiable |
 | --- | --- |
 | Demo video, recorded against the live deployment | https://youtu.be/MOxcz6SIt6c |
-| Hosted playground, five Scenes green | https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws/ |
+| Hosted playground, five Scenes green | https://alexa.agentposhq.com/ |
 | The merchant's own Stripe charges the card, in test mode | `pi_3UGkN5375U7THQYH0sTSjSMZ` (public), `pi_3UGjrV375U7THQYH1WeScCOB` (by voice), Stripe test dashboard |
 | Cost per closed checkout session: US$0.0021 | `docs/COSTS.md`, `docs/impact/usage-events.csv` (63 rows) |
 | Onboarding: URL to first voice purchase | 28 s on the fixture Store, from `usage_events` stage rows |

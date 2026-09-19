@@ -14,8 +14,9 @@ this public repository and is pushed to ECR.
 
 | Service | URL |
 | --- | --- |
-| Simulator | https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws/ |
-| Bridge | https://ag-849fad36923d46a9b1a7ecf0f5d3fcd7.ecs.us-east-1.on.aws |
+| Simulator | https://alexa.agentposhq.com/ |
+| Merchant console | https://alexa.agentposhq.com/#/merchant |
+| Bridge | https://bridge.agentposhq.com |
 | Fixture Store | https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws |
 
 Verified the same day against these URLs: Scene 5 (scan, draft on Claude Sonnet 4.6, publish,
@@ -32,6 +33,9 @@ services in the ECS console; `pnpm deploy:aws` recreates them.
 The services answer on generated names (`https://ag-<id>.ecs.us-east-1.on.aws`). To serve them
 under `agentposhq.com` with no proxy in front, so the rest of the domain keeps pointing at
 Vercel untouched:
+
+Done on 2026-09-19 for `alexa` and `bridge`; the certificate covers both names and the load
+balancer has a host rule for each. To add another name:
 
 1. Attach `infra/iam-deployer-domain-policy.json` to the development user (ACM, and the load
    balancer's listener and rules).

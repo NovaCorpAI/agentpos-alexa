@@ -61,9 +61,9 @@ The hosted playground runs on Amazon ECS Express Mode in us-east-1:
 
 | What | URL |
 | --- | --- |
-| Simulator (Echo Show frame, Scenes 1 to 5) | https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws/ |
-| Merchant console (onboarding) | https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws/#/merchant |
-| Bridge (MCP for Alexa+, UCP checkout, `/health`) | https://ag-849fad36923d46a9b1a7ecf0f5d3fcd7.ecs.us-east-1.on.aws |
+| Simulator (Echo Show frame, Scenes 1 to 5) | https://alexa.agentposhq.com/ |
+| Merchant console (onboarding) | https://alexa.agentposhq.com/#/merchant |
+| Bridge (MCP for Alexa+, UCP checkout, `/health`) | https://bridge.agentposhq.com |
 | Fixture bakery Store (`/.well-known/ucp`) | https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws |
 
 Payments there are the simulated Amazon handlers, labeled SIMULATED: no money moves. Visitors

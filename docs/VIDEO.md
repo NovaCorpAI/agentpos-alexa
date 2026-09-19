@@ -71,7 +71,7 @@ The same sequence runs headless against the public deployment, which is how the 
 were captured:
 
 ```bash
-node scripts/demo-run.mjs https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws
+node scripts/demo-run.mjs https://alexa.agentposhq.com
 ```
 
 It prints every turn, the tools each one called and what the assistant answered, so the voice
