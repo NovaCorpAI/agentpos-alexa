@@ -19,7 +19,10 @@
     "dev:simulator": "pnpm --filter @agentpos-alexa/simulator dev",
     "bedrock:check": "node scripts/bedrock-check.mjs",
     "deploy:aws": "node scripts/deploy-aws.mjs",
-    "demo:run": "node scripts/demo-run.mjs"
+    "demo:run": "node scripts/demo-run.mjs",
+    "video:narration": "node scripts/video-narration.mjs",
+    "video:record": "node scripts/video-record.mjs",
+    "video:build": "node scripts/video-build.mjs"
   },
   "devDependencies": {
     "@aws-sdk/client-apprunner": "^3.1133.0",
@@ -30,6 +33,7 @@
     "@aws-sdk/client-ecr": "^3.1133.0",
     "@aws-sdk/client-ecs": "^3.1133.0",
     "@aws-sdk/client-iam": "^3.1133.0",
+    "@aws-sdk/client-polly": "^3.1133.0",
     "@aws-sdk/client-sts": "^3.1133.0",
     "@types/node": "^24.3.0",
     "tsx": "^4.23.13",

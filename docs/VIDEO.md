@@ -42,6 +42,20 @@ Read them flat and fast; the screen carries the detail.
 12. Eleven obstacles with Amazon and AWS tooling, each with the time it cost and a concrete suggestion.
 13. Open source from the first commit. The playground is live.
 
+## Recording it without a camera
+
+Three commands, no screen recorder and no microphone:
+
+```bash
+pnpm video:narration   # Amazon Polly (generative Joanna) reads the lines above, 30 s of speech
+pnpm video:record      # a real browser plays the demo on the hosted playground, captured to WebM
+pnpm video:build       # ffmpeg lays the narration on the screen capture, H.264 and AAC for YouTube
+```
+
+The recorder holds each shot for as long as its line takes to say plus a pause, and the build
+places the audio at those same moments, so picture and voice line up without hand editing.
+Everything lands under `.data/video/`, which is git ignored; the upload to YouTube is manual.
+
 ## Reproducing the shots without speaking
 
 The same sequence runs headless against the public deployment, which is how the lines above
