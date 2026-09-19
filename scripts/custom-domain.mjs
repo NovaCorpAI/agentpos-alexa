@@ -70,7 +70,6 @@ if (!certificateArn) {
       DomainName: domains[0],
       ...(domains.length > 1 ? { SubjectAlternativeNames: domains.slice(1) } : {}),
       ValidationMethod: "DNS",
-      Tags: [{ Key: "project", Value: "agentpos-alexa" }],
     }),
   );
   certificateArn = res.CertificateArn;
@@ -133,7 +132,6 @@ for (const { domain, service } of wanted) {
       Priority: nextPriority(),
       Conditions: [{ Field: "host-header", HostHeaderConfig: { Values: [domain] } }],
       Actions: base.Actions,
-      Tags: [{ Key: "project", Value: "agentpos-alexa" }],
     }),
   );
   log("rule created", { domain, service, forwardsWith: host });
