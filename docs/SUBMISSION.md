@@ -130,10 +130,10 @@ are AgentCore Memory payload typing (FL-010), Express Mode endpoints (FL-009), B
 
 ## Checklist before submitting
 
-- [ ] Repository public, `LICENSE` present, README runs in one command from a clean clone.
+- [x] Repository public, Apache-2.0 detected by GitHub, and a clean clone installs, builds and runs the three services (checked 2026-09-17 and 2026-09-19).
 - [x] Video under 3 minutes, English, public on YouTube, shows the simulated experience clearly: https://youtu.be/MOxcz6SIt6c
 - [ ] Impact numbers filled from `usage_events` export, with the CSV committed under `docs/impact/`. Cost per closed session done (US$0.0021, `docs/impact/usage-events.csv`); onboarding time on real stores and third-party purchases pending.
 - [x] Friction log with at least ten entries, each with date, severity, time lost, workaround, suggestion.
-- [ ] `.env.example` current; git history scanned for secrets.
-- [ ] Track: Alexa+. Mini challenges: AWS Builder, Open Source.
-- [ ] "Existed before" explanation matches the repository history.
+- [x] `.env.example` covers every key the local `.env` sets; the whole history scanned for Stripe, AWS and private-key patterns, and for committed `.env` or credential files: nothing found (2026-09-19).
+- [ ] Track: Alexa+. Mini challenges: AWS Builder, Open Source. (Chosen on the form itself.)
+- [x] "Existed before" matches the history: first commit 2026-09-14 scaffolding this add-on, 69 commits, and no store-side code in the tree.
