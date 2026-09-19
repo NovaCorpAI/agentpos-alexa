@@ -55,6 +55,8 @@ docs/                   strategy, submission draft, architecture, Alexa+ MCP des
 
 ## Try it
 
+The two-minute demo, recorded against the deployment below: https://youtu.be/MOxcz6SIt6c
+
 The hosted playground runs on Amazon ECS Express Mode in us-east-1:
 
 | What | URL |

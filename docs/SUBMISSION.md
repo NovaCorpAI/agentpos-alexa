@@ -27,7 +27,7 @@ updated at every milestone, so that a missed freeze still leaves a complete entr
 | Track | Alexa+ |
 | Mini challenges | AWS Builder, Open Source |
 | Repository | https://github.com/NovaCorpAI/agentpos-alexa (Apache-2.0) |
-| Video | YouTube, public, English, under 3 minutes (script below) |
+| Video | https://youtu.be/MOxcz6SIt6c (public, English, 2 min 39 s; shot list in `docs/VIDEO.md`) |
 | Built with | TypeScript, Node 22, Hono, node:sqlite, MCP SDK, Amazon Bedrock (Nova 2 Lite, Nova Pro, Claude Sonnet 4.6), Bedrock AgentCore Memory, Strands Agents SDK, Amazon Polly, Amazon ECS Express Mode (Fargate), Amazon ECR, AWS CodeBuild, x402, Stellar |
 | Existed before? | AgentPOS (the store side: catalog, quotes, policies, receipts, settlement) existed before the hackathon and is a separate repository. Everything in this repository is new: the MCP server for Alexa+, the UCP checkout sessions, the payment rails, the merchant agents on AgentCore, the simulated Alexa+ client. See "What we built" below. |
 
@@ -111,6 +111,7 @@ Replay the sequence with `pnpm demo:run <simulator url>`.
 
 | Claim | Where it is verifiable |
 | --- | --- |
+| Demo video, recorded against the live deployment | https://youtu.be/MOxcz6SIt6c |
 | Hosted playground, five Scenes green | https://ag-7e67cc0a076f402c969b806381d31b43.ecs.us-east-1.on.aws/ |
 | The merchant's own Stripe charges the card, in test mode | `pi_3UGkN5375U7THQYH0sTSjSMZ` (public), `pi_3UGjrV375U7THQYH1WeScCOB` (by voice), Stripe test dashboard |
 | Cost per closed checkout session: US$0.0021 | `docs/COSTS.md`, `docs/impact/usage-events.csv` (63 rows) |
@@ -130,7 +131,7 @@ are AgentCore Memory payload typing (FL-010), Express Mode endpoints (FL-009), B
 ## Checklist before submitting
 
 - [ ] Repository public, `LICENSE` present, README runs in one command from a clean clone.
-- [ ] Video under 3 minutes, English, public on YouTube, shows the simulated experience clearly.
+- [x] Video under 3 minutes, English, public on YouTube, shows the simulated experience clearly: https://youtu.be/MOxcz6SIt6c
 - [ ] Impact numbers filled from `usage_events` export, with the CSV committed under `docs/impact/`. Cost per closed session done (US$0.0021, `docs/impact/usage-events.csv`); onboarding time on real stores and third-party purchases pending.
 - [x] Friction log with at least ten entries, each with date, severity, time lost, workaround, suggestion.
 - [ ] `.env.example` current; git history scanned for secrets.

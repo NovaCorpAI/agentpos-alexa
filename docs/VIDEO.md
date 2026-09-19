@@ -44,6 +44,8 @@ Read them flat and fast; the screen carries the detail.
 
 ## The film as it stands (2026-09-19)
 
+Published: https://youtu.be/MOxcz6SIt6c (channel @Agent-Pos, "agentpos alexa demo").
+
 `.data/video/agentpos-alexa-demo.mp4`: 2 minutes 39 seconds, 1280 by 720, 3 MB, H.264 and AAC,
 filmed against the hosted playground and narrated by Polly. Ready to upload; nothing about it
 is staged. Two fixes came out of watching it: a visitor can now play every Scene without
