@@ -27,6 +27,21 @@ the fixture Store: 28 s.
 To stop paying for the playground, set each service's task count to zero or delete the three
 services in the ECS console; `pnpm deploy:aws` recreates them.
 
+## Project domain names
+
+The services answer on generated names (`https://ag-<id>.ecs.us-east-1.on.aws`). To serve them
+under `agentposhq.com` with no proxy in front, so the rest of the domain keeps pointing at
+Vercel untouched:
+
+1. Attach `infra/iam-deployer-domain-policy.json` to the development user (ACM, and the load
+   balancer's listener and rules).
+2. `pnpm domain:setup alexa.agentposhq.com=agentpos-alexa-sim bridge.agentposhq.com=agentpos-alexa-bridge`
+3. Add the two validation CNAMEs it prints, in Cloudflare, DNS only. It waits for them.
+4. When it finishes, point each name at the load balancer with a CNAME, DNS only:
+   `ecs-express-gateway-alb-7147223b-979427678.us-east-1.elb.amazonaws.com`.
+5. Redeploy with `PUBLIC_BRIDGE_URL=https://bridge.agentposhq.com` in `.env` so the Bridge
+   publishes that name in its profile and checkout links.
+
 ## Permissions (one time, by the account owner)
 
 The development IAM user starts with Bedrock and Polly only. Deployment and AgentCore need

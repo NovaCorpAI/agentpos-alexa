@@ -1,0 +1,31 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CertificatesForTheProjectDomains",
+      "Effect": "Allow",
+      "Action": [
+        "acm:RequestCertificate",
+        "acm:DescribeCertificate",
+        "acm:ListCertificates",
+        "acm:ListTagsForCertificate",
+        "acm:AddTagsToCertificate",
+        "acm:DeleteCertificate"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "TeachTheLoadBalancerTheDomains",
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:AddListenerCertificates",
+        "elasticloadbalancing:RemoveListenerCertificates",
+        "elasticloadbalancing:CreateRule",
+        "elasticloadbalancing:ModifyRule",
+        "elasticloadbalancing:DeleteRule",
+        "elasticloadbalancing:SetRulePriorities"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

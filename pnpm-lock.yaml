@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@aws-sdk/client-acm':
+        specifier: ^3.1135.0
+        version: 3.1135.0
       '@aws-sdk/client-apprunner':
         specifier: ^3.1133.0
         version: 3.1133.0
@@ -29,6 +32,9 @@ importers:
       '@aws-sdk/client-ecs':
         specifier: ^3.1133.0
         version: 3.1133.0
+      '@aws-sdk/client-elastic-load-balancing-v2':
+        specifier: ^3.1135.0
+        version: 3.1135.0
       '@aws-sdk/client-iam':
         specifier: ^3.1133.0
         version: 3.1133.0
@@ -217,6 +223,10 @@ importers:
 
 packages:
 
+  '@aws-sdk/client-acm@3.1135.0':
+    resolution: {integrity: sha512-P2wzQd9uw6n2hXHvoXiyF+cS7lG2/eR8/igGElXrcCEl7BY1Li4pYDOADTGU0p3po9+O8X4zpHShD8dNZ9pjmw==}
+    engines: {node: '>=20.0.0'}
+
   '@aws-sdk/client-apprunner@3.1133.0':
     resolution: {integrity: sha512-oau6/Q6jm1V5IWN72aLJGTkMklGgObH6GUoyv36t38y2RrENRm/KfofAPxEeEQaYnsGPJ+lwXqOXTyyVZyGbeA==}
     engines: {node: '>=20.0.0'}
@@ -247,6 +257,10 @@ packages:
 
   '@aws-sdk/client-ecs@3.1133.0':
     resolution: {integrity: sha512-BndRuaW3hzWONVmSSvHa9LFxB10mbBelB1D40Vbgxm+hOvFe0wxd/V6Rb3kqaYSMw4Au8+04vnHdToKGGWBEHQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-elastic-load-balancing-v2@3.1135.0':
+    resolution: {integrity: sha512-t2vfTHWSOmbFXfY+ItpOxvQDo9YF8iXueMXDZbly5SLPDiDgk8jPdUJH8Ssze4XG9Z7zVSv3H1v9xH+xymiy/g==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-iam@3.1133.0':
@@ -1752,6 +1766,17 @@ packages:
 
 snapshots:
 
+  '@aws-sdk/client-acm@3.1135.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/credential-provider-node': 3.972.83
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.34.1
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.12.1
+      '@smithy/types': 4.18.0
+      tslib: 2.8.1
+
   '@aws-sdk/client-apprunner@3.1133.0':
     dependencies:
       '@aws-sdk/core': 3.978.0
@@ -1835,6 +1860,17 @@ snapshots:
       tslib: 2.8.1
 
   '@aws-sdk/client-ecs@3.1133.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/credential-provider-node': 3.972.83
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.34.1
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.12.1
+      '@smithy/types': 4.18.0
+      tslib: 2.8.1
+
+  '@aws-sdk/client-elastic-load-balancing-v2@3.1135.0':
     dependencies:
       '@aws-sdk/core': 3.978.0
       '@aws-sdk/credential-provider-node': 3.972.83
