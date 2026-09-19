@@ -44,7 +44,8 @@ export const SCENES: Scene[] = [
     id: "same-as-last-week",
     title: "Scene 4: the same as last week",
     proves: "Household memory holds order references only and reorders on request.",
-    steps: [{ say: "The same as last week" }, { confirmCheckout: true, answerReviewYes: true }],
+    // A fresh conversation on purpose: what it recalls comes from memory, not from the transcript.
+    steps: [{ reset: true }, { say: "The same as last week" }, { confirmCheckout: true, answerReviewYes: true }],
   },
   {
     id: "onboarding",
