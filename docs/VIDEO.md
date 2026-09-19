@@ -42,6 +42,13 @@ Read them flat and fast; the screen carries the detail.
 12. Eleven obstacles with Amazon and AWS tooling, each with the time it cost and a concrete suggestion.
 13. Open source from the first commit. The playground is live.
 
+## The film as it stands (2026-09-19)
+
+`.data/video/agentpos-alexa-demo.mp4`: 2 minutes 39 seconds, 1280 by 720, 3 MB, H.264 and AAC,
+filmed against the hosted playground and narrated by Polly. Ready to upload; nothing about it
+is staged. Two fixes came out of watching it: a visitor can now play every Scene without
+hitting the turn cap, and Scene 4 starts a fresh conversation so the recall is visibly memory.
+
 ## Recording it without a camera
 
 Three commands, no screen recorder and no microphone:
