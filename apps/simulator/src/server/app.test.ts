@@ -200,6 +200,9 @@ describe("Public playground (#21)", () => {
       inspection: new InspectionLog(":memory:/never-written.json", "test"),
       memory,
       playground: { mandate: { maxTotalCents: 5000 }, waitlist, adminToken: "admin-test" },
+      usage: { csv: (since: string) => `id,at
+row-1,${since || "2026-09-20T00:00:00.000Z"}
+` },
     });
   });
   afterEach(async () => {
@@ -243,6 +246,14 @@ describe("Public playground (#21)", () => {
     expect(csv.split("\r\n")[0]).toBe("email,role,store_url,at");
     expect(csv).toContain("shop@example.com,merchant,https://shop.example,");
     expect((await sim.request("/api/stats")).headers.get("content-type")).toMatch(/json/);
+  });
+
+  it("exports the agent's own usage rows to the operator only, so a redeploy does not lose them", async () => {
+    expect((await sim.request("/api/usage-events.csv")).status).toBe(403);
+    const res = await sim.request("/api/usage-events.csv?since=2026-09-19T00:00:00.000Z", { headers: { Authorization: "Bearer admin-test" } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/csv");
+    expect(await res.text()).toContain("row-1,2026-09-19T00:00:00.000Z");
   });
 });
 

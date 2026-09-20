@@ -10,7 +10,7 @@ services built from one image (`infra/Dockerfile`, service chosen by `SERVICE`),
 AgentCore Memory, us-east-1. No Docker is needed locally: the image builds in CodeBuild from
 this public repository and is pushed to ECR.
 
-## Live (deployed 2026-09-17)
+## Live (deployed 2026-09-20)
 
 | Service | URL |
 | --- | --- |
@@ -19,11 +19,13 @@ this public repository and is pushed to ECR.
 | Bridge | https://bridge.agentposhq.com |
 | Fixture Store | https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws |
 
-Verified the same day against these URLs: Scene 5 (scan, draft on Claude Sonnet 4.6, publish,
-7.7 s), Scene 1 (search, checkout with the simulated Amazon handler, order, receipt), Scene 2
-(gluten free answered, organic "not published"), Scenes 3 and 4 ("the same as last week" from
-AgentCore Memory, the guardian asks, the household confirms). URL to first voice purchase on
-the fixture Store: 28 s.
+Verified the same day against these URLs with `node scripts/demo-run.mjs
+https://alexa.agentposhq.com`: Scene 5 (scan, draft on Claude Sonnet 4.6, publish, 15.2 s),
+Scene 1 (search, checkout charged by the Store's own Stripe in test mode, order, receipt),
+Scene 2 (gluten free answered, organic "not published"), Scenes 3 and 4 ("the same as last
+week" from AgentCore Memory, the guardian asks, the household confirms). URL to first voice
+purchase on the fixture Store: 37.6 s. The 19 rows that run wrote are in
+`docs/impact/playground-usage-events.csv`, US$0.0199 for the five Scenes.
 
 To stop paying for the playground, set each service's task count to zero or delete the three
 services in the ECS console; `pnpm deploy:aws` recreates them.
@@ -94,14 +96,23 @@ is taken out first. Two exports run before the services are replaced, and both a
 | What | From | Where it lands |
 | --- | --- | --- |
 | Waitlist | Simulator, `/api/waitlist/export` | `.data/waitlist-exports/waitlist-<timestamp>.csv`, never committed |
-| usage_events | Bridge, `/admin/usage-events.csv` | `docs/impact/playground-usage-events.csv`, committed |
+| usage_events, Bridge and agents | Bridge, `/admin/usage-events.csv` | `docs/impact/playground-usage-events.csv`, committed |
+| usage_events, Household agent | Simulator, `/api/usage-events.csv` | the same file, merged by event id |
 
 Both endpoints need the service's own token, which stays in its configuration. The usage
 rows are merged by event id, so re-running an export changes nothing, and the committed file
 is the playground's measured history across releases: the model calls, their tokens, their
 latency and their cost. Nothing in a row names a buyer, an order or a card.
 
-To merge an export taken by hand:
+To pull the live rows at any time, without holding a token (it is read from the service's own
+configuration and never printed):
+
+```bash
+node scripts/impact-export.mjs --live                       # the Bridge
+node scripts/impact-export.mjs --live agentpos-alexa-sim    # the Simulator
+```
+
+Or merge a CSV taken by hand:
 
 ```bash
 curl -H "Authorization: Bearer $BRIDGE_BEARER_TOKEN"   https://bridge.agentposhq.com/admin/usage-events.csv > rows.csv

@@ -42,6 +42,8 @@ export interface SimulatorDeps {
    * purchase is ours.
    */
   playground?: { mandate: DemoMandate; waitlist: SqliteWaitlist; adminToken?: string };
+  /** The Simulator's own usage_events as CSV, for the export a redeploy would otherwise lose. */
+  usage?: { csv(since: string): string };
 }
 
 interface KnownItem {
@@ -263,6 +265,19 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     if (!parsed.ok) return c.json({ code: "BAD_WAITLIST", message: parsed.message, hint: "" }, 400);
     deps.playground.waitlist.add(parsed.entry);
     return c.json({ ok: true, message: parsed.entry.role === "merchant" ? "Thanks. We will write to you about putting your store on Alexa+." : "Thanks. We will let you know when it ships." }, 201);
+  });
+
+  /**
+   * The Household agent's rows: the Simulator writes them to the task's own disk, which a
+   * redeploy replaces (docs/DEPLOY.md). Operator only, same token as the waitlist export, and
+   * a row names no buyer.
+   */
+  app.get("/api/usage-events.csv", (c) => {
+    const token = deps.playground?.adminToken;
+    if (!deps.usage || !token || c.req.header("Authorization") !== `Bearer ${token}`) return c.json({ code: "FORBIDDEN", message: "Admin token required.", hint: "" }, 403);
+    c.header("Content-Type", "text/csv; charset=utf-8");
+    c.header("Cache-Control", "no-store");
+    return c.body(deps.usage.csv(c.req.query("since") ?? ""));
   });
 
   app.get("/api/waitlist/export", (c) => {

@@ -41,13 +41,60 @@ export function mergeUsageCsv(exportedCsv, root) {
   return { added: added.length, total: rows.length - 1, path };
 }
 
+/** Where each service keeps its rows, and which of its own tokens opens them. */
+const EXPORTS = {
+  "agentpos-alexa-bridge": { path: "/admin/usage-events.csv", tokenVar: "BRIDGE_BEARER_TOKEN" },
+  "agentpos-alexa-sim": { path: "/api/usage-events.csv", tokenVar: "SIMULATOR_ADMIN_TOKEN" },
+};
+
+/** A deployed service's public endpoint and its own token, read from its configuration. */
+async function liveService(service = "agentpos-alexa-bridge") {
+  const { DescribeExpressGatewayServiceCommand, ECSClient } = await import("@aws-sdk/client-ecs");
+  const { GetCallerIdentityCommand, STSClient } = await import("@aws-sdk/client-sts");
+  const region = process.env.AWS_REGION || "us-east-1";
+  const account = (await new STSClient({ region }).send(new GetCallerIdentityCommand({}))).Account;
+  const ecs = new ECSClient({ region });
+  const s = (await ecs.send(new DescribeExpressGatewayServiceCommand({ serviceArn: `arn:aws:ecs:${region}:${account}:service/default/${service}` }))).service;
+  const configs = [...(s?.activeConfigurations ?? [])].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+  const env = Object.fromEntries((configs[0]?.primaryContainer?.environment ?? []).map((e) => [e.name, e.value]));
+  const ingress = configs.map((c) => c.ingressPaths?.find((i) => i.accessType === "PUBLIC") ?? c.ingressPaths?.[0]).find((i) => i?.endpoint);
+  const known = EXPORTS[service];
+  if (!known) throw new Error(`${service} is not one of ${Object.keys(EXPORTS).join(", ")}`);
+  if (!ingress?.endpoint || !env[known.tokenVar]) throw new Error(`${service} has no public endpoint or no ${known.tokenVar} in its configuration`);
+  const host = ingress.endpoint.replace(/\/+$/, "");
+  return { url: host.startsWith("http") ? host : `https://${host}`, bearer: env[known.tokenVar], path: known.path };
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const file = process.argv[2];
-  if (!file) {
-    process.stderr.write("usage: node scripts/impact-export.mjs <exported.csv>\n");
+  const root = resolve(import.meta.dirname, "..");
+  const envFile = resolve(root, ".env");
+  if (existsSync(envFile)) {
+    for (const line of readFileSync(envFile, "utf8").split(/\r?\n/)) {
+      const m = /^(AWS_[A-Z0-9_]+)=(.*)$/.exec(line.trim());
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+    }
+  }
+  const arg = process.argv[2];
+  if (!arg) {
+    process.stderr.write("usage: node scripts/impact-export.mjs --live | <exported.csv>\n");
     process.exit(2);
   }
-  const root = resolve(import.meta.dirname, "..");
-  const { added, total, path } = mergeUsageCsv(readFileSync(file, "utf8"), root);
+  let csv;
+  if (arg === "--live") {
+    const service = process.argv[3] ?? undefined;
+    const { url, bearer, path } = await liveService(service);
+    const res = await fetch(`${url}${path}`, { headers: { Authorization: `Bearer ${bearer}` }, signal: AbortSignal.timeout(30_000) });
+    if (!res.ok) throw new Error(`${service ?? "the Bridge"} answered ${res.status} to ${path}`);
+    // A single page app answers 200 with its own HTML for a path it does not know.
+    if (!(res.headers.get("content-type") ?? "").includes("csv")) {
+      throw new Error(`${service ?? "the Bridge"} answered ${path} with ${res.headers.get("content-type") ?? "no content type"}, not CSV; is the running version the one that serves it?`);
+    }
+    const closed = res.headers.get("X-Closed-Sessions");
+    if (closed) process.stdout.write(`${closed} closed checkout session(s) on the live Bridge\n`);
+    csv = await res.text();
+  } else {
+    csv = readFileSync(arg, "utf8");
+  }
+  const { added, total, path } = mergeUsageCsv(csv, root);
   process.stdout.write(`${added} new row(s), ${total} in ${path}\n`);
 }

@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { dataDir as workspaceDataDir, loadDotenv, openStorage } from "@agentpos-alexa/bridge";
+import { dataDir as workspaceDataDir, loadDotenv, openStorage, usageEventsToCsv } from "@agentpos-alexa/bridge";
 import { AgentBrain, ScriptedRouterBrain, type Brain } from "./agent/brain.js";
 import { createSimulatorApp, SIMULATOR_VERSION } from "./app.js";
 import { BridgeCheckoutClient, BridgeClient, BridgeOnboardingClient } from "./bridge-client.js";
@@ -84,7 +84,8 @@ const playground = playgroundOn
       ...(process.env.SIMULATOR_ADMIN_TOKEN ? { adminToken: process.env.SIMULATOR_ADMIN_TOKEN } : {}),
     }
   : undefined;
-const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, memoryKind, brainInfo: { modelId, region }, webDir, merchant, ...(limits ? { limits } : {}), ...(playground ? { playground } : {}), ...(speech ? { speech } : {}) });
+const usageCsv = { csv: (since: string) => usageEventsToCsv(usage.usageEvents.list({ limit: 1_000_000 }).filter((e) => e.at >= since)) };
+const app = createSimulatorApp({ bridge, brain, checkout, inspection, memory, memoryKind, brainInfo: { modelId, region }, webDir, merchant, usage: usageCsv, ...(limits ? { limits } : {}), ...(playground ? { playground } : {}), ...(speech ? { speech } : {}) });
 
 if (existsSync(webDir)) {
   app.use("/*", serveStatic({ root: relativeToCwd(webDir) }));
