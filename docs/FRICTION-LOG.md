@@ -6,7 +6,8 @@ console or document. Severity: Blocking (could not proceed), High (hours lost), 
 
 Each entry: date, tool, what we tried, what happened (exact error, observed behavior, doc
 link), severity, time lost, workaround, concrete suggestion for the Amazon team, link to the
-commit or file.
+commit or file. The tools that gave us no trouble are at the end, so the feedback covers
+everything we used, not only what hurt.
 
 ---
 
@@ -264,3 +265,29 @@ commit or file.
   up disabled.
 - Link: packages/agents/src/cache.ts, apps/simulator/src/server/agent/brain.ts
 
+---
+
+## Tools that worked
+
+No friction worth an entry, and worth saying so, since praise is feedback too.
+
+- **MCP TypeScript SDK and MCP Apps** (`@modelcontextprotocol/server` 2.0,
+  `@modelcontextprotocol/ext-apps` 2.0). Streamable HTTP, stateless, `registerAppTool` and
+  `ui://` resources behaved exactly as documented. Our four views were rendering inside an
+  Echo Show frame the same afternoon we started them.
+- **Universal Commerce Protocol schemas.** The vendored release validates our checkout
+  sessions with ajv without a single local patch, which is rare for a spec this young. The
+  payment handler examples are precise enough to implement from.
+- **Amazon Polly generative voices.** One call, one audio stream, good prosody on numbers and
+  prices in English and Spanish. It also narrates our demo video.
+- **Amazon ECR and AWS CodeBuild.** From no registry to an image built from a public
+  repository and pushed, in one script and under two minutes per build.
+- **Amazon Bedrock Converse through Strands Agents.** Once the account was open (FL-006), tool
+  use, structured answers and usage metadata were steady across Nova 2 Lite, Nova Pro and
+  Claude Sonnet 4.6. Swapping models is a string.
+- **Bedrock AgentCore Memory** after its payload shape was clear (FL-010): create, wait for
+  ACTIVE, write events, read them back, with no infrastructure of our own.
+- **Stripe Node SDK.** Idempotency keys, test payment methods and typed card errors made the
+  merchant's own processor the least surprising part of the payment work.
+- **Node 22 and 24**, `node:sqlite` unflagged and `process.loadEnvFile`. A judge runs this
+  with one command and no services to create, which is the whole point of the local demo.
