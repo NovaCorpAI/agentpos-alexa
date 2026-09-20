@@ -359,6 +359,8 @@ a { color: var(--accent); text-decoration-color: rgba(111, 178, 210, 0.4); text-
 .inputbar button:disabled { opacity: 0.45; cursor: default; }
 .inputbar .mic { background: rgba(232, 225, 212, 0.1); color: #f2f0ea; }
 .inputbar .mic.on { background: var(--bad); color: #170a07; }
+.theme-light .inputbar .mic { background: rgba(8, 11, 18, 0.07); color: #10141c; }
+.theme-light .inputbar .mic.on { background: var(--bad); color: #170a07; }
 
 /* Checkout: the host's own pattern. Money reads like money. */
 .checkout {
