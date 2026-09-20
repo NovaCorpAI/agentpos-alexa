@@ -328,10 +328,11 @@ if (priorSim && envOf(priorSim).SIMULATOR_ADMIN_TOKEN && endpointOf(priorSim)) {
   // The Household agent's rows live on the same disk, and belong in the committed history.
   try {
     const res = await fetch(`${endpointOf(priorSim)}/api/usage-events.csv`, { headers: { Authorization: `Bearer ${adminToken}` }, signal: AbortSignal.timeout(20_000) });
-    if (res.ok) {
+    // The running Simulator may predate the route, and a single page app answers its own HTML.
+    if (res.ok && (res.headers.get("content-type") ?? "").includes("csv")) {
       const { added, total, path } = mergeUsageCsv(await res.text(), root);
       log("simulator usage events exported before redeploy", { added, total, file: path });
-    } else log("simulator usage events export skipped", { status: res.status });
+    } else log("simulator usage events export skipped", { status: res.status, contentType: res.headers.get("content-type") ?? null });
   } catch (e) {
     log("simulator usage events export failed", { error: String(e).slice(0, 200) });
   }
