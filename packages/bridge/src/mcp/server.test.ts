@@ -76,7 +76,7 @@ describe("Store MCP server over Streamable HTTP", () => {
   it("search_items with no match lists what the store sells and says matched false", async () => {
     const res = await client.callTool({ name: "search_items", arguments: { query: "bread", limit: 5 } });
     expect(res.isError).toBeFalsy();
-    expect((res.content as Array<{ text: string }>)[0]?.text).toMatch(/^I did not find anything for bread\. The store sells/);
+    expect((res.content as Array<{ text: string }>)[0]?.text).toMatch(/^Nothing is listed under bread, so here is everything the store sells:/);
     const sc = res.structuredContent as { matched: boolean; items: unknown[] };
     expect(sc.matched).toBe(false);
     expect(sc.items).toHaveLength(5);

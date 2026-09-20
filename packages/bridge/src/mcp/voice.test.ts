@@ -59,10 +59,10 @@ describe("order and receipt voice", () => {
 });
 
 describe("no-match voice", () => {
-  it("is honest about the miss and names what the store sells", async () => {
+  it("is honest about the miss and says the screen is showing everything instead", async () => {
     const { speakNoMatch } = await import("./voice.js");
     expect(speakNoMatch([item("a", "Sourdough loaf", "65000000"), item("b", "Baguette", "28000000")], "bread")).toBe(
-      "I did not find anything for bread. The store sells Sourdough loaf, 6.5 USDC; Baguette, 2.8 USDC.",
+      "Nothing is listed under bread, so here is everything the store sells: Sourdough loaf, 6.5 USDC; Baguette, 2.8 USDC.",
     );
     expect(speakNoMatch([], "cake")).toBe("I did not find anything for cake, and the catalog is empty.");
   });

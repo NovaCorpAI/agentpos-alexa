@@ -33,12 +33,16 @@ export function speakSearch(items: CatalogItem[], query: string | undefined, lim
   return `${query ? `For ${query}, ` : ""}I found ${count}: ${head.join("; ")}${rest}.`;
 }
 
-/** Spoken answer when the Store matched nothing: honest about the miss, then what it sells. */
+/**
+ * Spoken answer when the Store matched nothing: honest about the miss, then what it sells.
+ * The screen shows the whole catalogue next to it, so the sentence says that is what it is,
+ * rather than leaving "I did not find anything" over a screen full of items.
+ */
 export function speakNoMatch(items: CatalogItem[], query: string, limit = 3): string {
   if (items.length === 0) return `I did not find anything for ${query}, and the catalog is empty.`;
   const head = items.slice(0, limit).map((it) => `${it.title}, ${speakPrice(it.price.minor, it.price.asset)}`);
   const rest = items.length > limit ? `, and ${items.length - limit} more` : "";
-  return `I did not find anything for ${query}. The store sells ${head.join("; ")}${rest}.`;
+  return `Nothing is listed under ${query}, so here is everything the store sells: ${head.join("; ")}${rest}.`;
 }
 
 /** Spoken item detail, with the gluten-free fact when the catalog publishes it. */

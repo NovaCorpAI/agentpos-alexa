@@ -86,7 +86,6 @@ html, body {
   text-transform: uppercase;
   color: var(--muted);
 }
-.panel h1 { font-size: 16px; margin: 0; }
 
 .panel label,
 .merchant label,
@@ -304,6 +303,8 @@ a { color: var(--accent); text-decoration-color: rgba(111, 178, 210, 0.4); text-
 }
 
 .viewport { flex: 1 1 auto; padding: 10px 26px 92px; overflow: auto; }
+/* The host's own frame around a view: the card language does not stop at the iframe. */
+.app-view { border-radius: 18px; overflow: hidden; animation: rise 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .viewport.fullscreen { position: absolute; inset: 62px 0 0 0; background: #0b1120; padding: 18px 26px 92px; z-index: 2; }
 .theme-light .viewport.fullscreen { background: #ffffff; }
 .mode-voice-only .conversation { max-height: none; flex: 1; }
