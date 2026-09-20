@@ -315,12 +315,32 @@ if (priorSim && envOf(priorSim).SIMULATOR_ADMIN_TOKEN && endpointOf(priorSim)) {
 
 const simulatorUrl = await upsertService(simulatorName, () => ({ SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", SIMULATOR_ADMIN_TOKEN: adminToken, ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }), "/api/health");
 
-// Express Mode hands a service a new target group on every deployment, so the project's own
-// names have to be moved with it or they answer 503 as soon as the old tasks drain (FL-012).
-try {
-  for (const change of await syncDomainRules(configuredDomains())) log(change.msg, change);
-} catch (e) {
-  log("domain names not re-pointed", { error: String(e).slice(0, 200), hint: "node scripts/custom-domain.mjs --sync" });
+// Express Mode flips the forward weights between a service's two target groups on every
+// deployment and updates only the generated name's rule, so the project's own names have to
+// follow or they answer 503 as soon as the old tasks drain (FL-012). The flip can land while
+// the old tasks are still draining, so this repeats until every name answers.
+const domains = configuredDomains();
+for (let attempt = 1; attempt <= 4 && domains.length > 0; attempt++) {
+  try {
+    for (const change of await syncDomainRules(domains)) log(change.msg, change);
+  } catch (e) {
+    log("domain names not re-pointed", { error: String(e).slice(0, 200), hint: "node scripts/custom-domain.mjs --sync" });
+    break;
+  }
+  // A 4xx is the service answering; only a 5xx or no answer means the name is still dark.
+  const dark = [];
+  for (const { domain } of domains) {
+    const answered = await fetch(`https://${domain}/`, { redirect: "manual", signal: AbortSignal.timeout(15_000) })
+      .then((r) => r.status < 500)
+      .catch(() => false);
+    if (!answered) dark.push(domain);
+  }
+  if (dark.length === 0) {
+    log("names answering", { domains: domains.map((d) => d.domain) });
+    break;
+  }
+  log("names not answering yet", { domains: dark, attempt });
+  if (attempt < 4) await sleep(30_000);
 }
 
 log("deployed", { simulator: `${simulatorUrl}/`, merchantConsole: `${simulatorUrl}/#/merchant`, bridge: bridgeUrl, fixtureStore: storeUrl, image: `${imageUri}:${tag}` });
