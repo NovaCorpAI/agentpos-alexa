@@ -1,35 +1,47 @@
 /* Shared look for the Bridge's MCP Apps views. Follows the host theme (light or dark) and
-   Amazon's guidance: large touch targets, high contrast, no third-party assets. */
+   Amazon's guidance: large touch targets, high contrast, no third-party assets. Sized for a
+   screen read from across a kitchen, not for a desktop browser: the host renders these at
+   device scale, so the base is 19px and every tap target clears 48px. */
 :root {
   --bg: #ffffff;
-  --fg: #111318;
+  --fg: #0f1219;
   --muted: #5b6270;
-  --card: #f4f6fa;
-  --accent: #0b6fd6;
+  --card: #f6f3ec;
+  --accent: #b9601f;
   --accent-fg: #ffffff;
-  --border: #dfe3ea;
-  --radius: 14px;
+  --border: #e2ddd1;
+  --line: rgba(15, 18, 25, 0.08);
+  --ok: #0a7f3f;
+  --warn: #a05a00;
+  --bad: #b3261e;
+  --radius: 18px;
   color-scheme: light;
   font-family: "Amazon Ember", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 19px;
 }
 [data-theme="dark"] {
-  --bg: #0f1218;
-  --fg: #f2f4f8;
-  --muted: #a3abb8;
-  --card: #1a1f2a;
-  --accent: #4aa3ff;
-  --accent-fg: #0b0e14;
-  --border: #2a3140;
+  --bg: #0b1019;
+  --fg: #e8e1d4;
+  --muted: #98a2b2;
+  --card: #141c29;
+  --accent: #d9813c;
+  --accent-fg: #150c04;
+  --border: rgba(232, 225, 212, 0.14);
+  --line: rgba(232, 225, 212, 0.1);
+  --ok: #57c08a;
+  --warn: #e0a35c;
+  --bad: #e8806f;
   color-scheme: dark;
 }
 html, body { margin: 0; background: var(--bg); color: var(--fg); }
-body { padding: 8px; }
+body { padding: 8px; font-size: 1rem; line-height: 1.35; }
 * { box-sizing: border-box; }
-button { font: inherit; cursor: pointer; }
+button { font: inherit; cursor: pointer; transition: filter .15s ease, background .15s ease, border-color .15s ease; }
+button:active { transform: translateY(1px); }
 .price { font-variant-numeric: tabular-nums; font-weight: 600; }
 .badge {
-  display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
-  background: var(--card); border: 1px solid var(--border); color: var(--muted);
+  display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.74rem; font-weight: 700;
+  letter-spacing: .04em; background: var(--card); border: 1px solid var(--border); color: var(--muted);
 }
-.badge.ok { color: #0a7f3f; border-color: #0a7f3f33; }
-.badge.warn { color: #a05a00; border-color: #a05a0033; }
+.badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.badge.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }

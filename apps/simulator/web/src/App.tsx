@@ -80,6 +80,7 @@ export function App() {
   const [lang, setLang] = useState<Lang>("en-US");
   const [voiceOut, setVoiceOut] = useState(true);
   const [voiceSource, setVoiceSource] = useState<SpeechSource>("none");
+  const [speaking, setSpeaking] = useState(false);
   const [input, setInput] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [busy, setBusy] = useState(false);
@@ -127,7 +128,8 @@ export function App() {
       if (turn.fallbackReason) setBrain((b) => (b ? { ...b, kind: turn.brain, degraded: turn.fallbackReason ?? null } : b));
       for (const s of turn.speak) setLines((l) => [...l, { who: "alexa", text: s }]);
       if (voiceOut && turn.speak[0]) {
-        speechRef.current = speak(turn.speak.join(" "), lang);
+        setSpeaking(true);
+        speechRef.current = speak(turn.speak.join(" "), lang).finally(() => setSpeaking(false));
         void speechRef.current.then(setVoiceSource);
       }
       setCheckout(turn.checkout ?? null);
@@ -292,10 +294,15 @@ export function App() {
   const sceneTurns = (id: string) => inspection?.turns.filter((t) => t.scene === id) ?? [];
 
   return (
-    <div className={`sim theme-${theme}`}>
+    <div className={`shell theme-${theme}`}>
       <aside className="panel">
-        <h1>AgentPOS Alexa+ simulator</h1>
-        <p className="muted">
+        <div className="brand">
+          <span className="mark">
+            Agent<b>POS</b>
+          </span>
+          <span className="for">for Alexa+</span>
+        </div>
+        <p className="muted small">
           Simulated Alexa+ experience. Brain:{" "}
           <b>{brain?.kind === "agent" ? `Household agent on Bedrock (${brain.modelId ?? "model"}, ${brain.region ?? "region"})` : brain?.kind === "recorded" ? "recorded responses, no model" : "scripted router, no model"}</b>
           {brain?.degraded ? <span className="small"> {brain.degraded}</span> : null}
@@ -426,16 +433,38 @@ export function App() {
           <div className={`screen mode-${mode}`} style={{ width: frameSpec.width, height: frameSpec.height, transform: `scale(${scale})` }}>
             <div className="statusbar">
               <span>{current?.name ?? "No add-on"}</span>
+              <div className={`wave ${speaking ? "on" : ""}`} aria-hidden="true">
+                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                  <span key={i} />
+                ))}
+              </div>
               <span>{runningScene ? `Scene: ${scenes.find((s) => s.id === runningScene)?.title ?? runningScene}` : mode}</span>
             </div>
             <div className="conversation">
-              {lines.slice(-4).map((l, i) => (
+              {lines.slice(checkout ? -1 : -4).map((l, i) => (
                 <div key={i} className={`bubble ${l.who}`}>
                   {l.text}
                 </div>
               ))}
               {busy ? <div className="bubble alexa thinking">...</div> : null}
             </div>
+            {lines.length === 0 && !busy && !checkout && !view ? (
+              <div className="idle">
+                <div className="idle-mark" aria-hidden="true">
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <span key={i} />
+                  ))}
+                </div>
+                <p className="idle-title">Ask the store, out loud</p>
+                <div className="idle-prompts">
+                  {SUGGESTIONS.slice(0, 3).map((t) => (
+                    <button key={t} onClick={() => void submit(t)} disabled={busy || !addon || Boolean(runningScene)}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {checkout && mode !== "voice-only" ? (
               <div className="viewport inline">
                 <Checkout state={checkout} busy={busy} onConfirm={(h, i) => void confirmCheckout(checkout, h, i)} onCancel={() => void cancelCheckout()} />

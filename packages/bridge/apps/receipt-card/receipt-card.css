@@ -1,12 +1,12 @@
-.receipt { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-.eyebrow { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-h1 { font-size: 20px; margin: 2px 0 0; }
-.badge.big { font-size: 14px; padding: 6px 12px; align-self: flex-start; }
-.badge.bad { color: #b3261e; border-color: #b3261e33; }
+.receipt { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.eyebrow { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+h1 { font-size: 1.5rem; margin: 2px 0 0; }
+.badge.big { font-size: 0.85rem; padding: 8px 16px; align-self: flex-start; }
+.badge.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
 .chain { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
 .row { display: flex; justify-content: space-between; gap: 8px; }
 .type { font-weight: 600; }
-.hash { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hash { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .muted { color: var(--muted); }
-.small { font-size: 12px; }
+.small { font-size: 0.78rem; }
 .empty { color: var(--muted); padding: 12px; }

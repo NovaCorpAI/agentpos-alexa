@@ -91,7 +91,13 @@ export function Merchant() {
   return (
     <div className="merchant">
       <header>
-        <h1>Merchant console</h1>
+        <div className="brand">
+          <span className="mark">
+            Agent<b>POS</b>
+          </span>
+          <span className="for">merchant console</span>
+        </div>
+        <h1>Onboard a store to Alexa+</h1>
         <p className="muted">
           Onboarding: from a Store URL to a voice-ready catalog. The agent drafts; you confirm; nothing is published before that. <a href="#/">Back to the simulator</a>
         </p>
