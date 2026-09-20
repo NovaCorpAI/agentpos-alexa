@@ -21,6 +21,20 @@ const FRAMES: Record<Frame, { label: string; width: number; height: number }> = 
   show5: { label: "Echo Show 5", width: 960, height: 480 },
 };
 
+/** The display modes Alexa+ can ask a view for, named the way a person would describe them. */
+const MODE_LABELS: Record<Mode, string> = {
+  inline: "A card under the answer",
+  fullscreen: "The whole screen",
+  "voice-only": "Voice only",
+  hydrated: "The raw data too",
+};
+const MODE_HELP: Record<Mode, string> = {
+  inline: "What an Echo Show does while the conversation continues around the card.",
+  fullscreen: "The view takes the screen, the way a recipe or a map would.",
+  "voice-only": "No screen at all, like an Echo speaker. The answer has to stand on its own.",
+  hydrated: "The card, and underneath it the data the store returned, for a host that renders its own.",
+};
+
 const SUGGESTIONS = ["What bread do you have?", "Tell me about the gluten-free seeded loaf", "Do you deliver?", "Buy two sourdough loaf", "Show my order", "Show me the receipt", "The same as last week"];
 
 interface Line {
@@ -302,37 +316,34 @@ export function App() {
           </span>
           <span className="for">for Alexa+</span>
         </div>
-        <p className="muted small">
-          Simulated Alexa+ experience. Brain:{" "}
-          <b>{brain?.kind === "agent" ? `Household agent on Bedrock (${brain.modelId ?? "model"}, ${brain.region ?? "region"})` : brain?.kind === "recorded" ? "recorded responses, no model" : "scripted router, no model"}</b>
-          {brain?.degraded ? <span className="small"> {brain.degraded}</span> : null}
-          {voiceOut ? <span className="small"> Voice: {voiceSource === "polly" ? "Amazon Polly" : voiceSource === "browser" ? "browser" : "not yet"}</span> : null}
+        <p className="lede">
+          An Echo Show, simulated. Talk to the store on the right: it answers out loud, puts a card on the screen, and takes the payment without leaving the conversation.
         </p>
         {error ? <p className="error">{error}</p> : null}
 
-        <label>Enabled add-ons</label>
-        <select value={addon} onChange={(e) => setAddon(e.target.value)}>
+        <label>The store on screen</label>
+        <select value={addon} onChange={(e) => setAddon(e.target.value)} aria-label="The store on screen">
           {addons.map((a) => (
             <option key={a.slug} value={a.slug}>
-              {a.name} ({a.slug})
+              {a.name}
             </option>
           ))}
         </select>
-        {current ? (
-          <p className="muted small">
-            MCP {current.mcp}
-            <br />
-            handlers {current.paymentHandlers.join(", ") || "none"}
-          </p>
-        ) : null}
-
         <p className="muted small">
-          <a href="#/merchant">Open the Merchant console</a> (onboarding, Scene 5).
+          A real store, reached the way Alexa+ would reach it. Ask it anything in the box under the screen, or press the mic and speak.
         </p>
 
-        <Playground />
+        <label>Ask it something</label>
+        <div className="chips">
+          {SUGGESTIONS.map((t) => (
+            <button key={t} onClick={() => void submit(t)} disabled={busy || !addon || Boolean(runningScene)}>
+              {t}
+            </button>
+          ))}
+        </div>
 
-        <label>Scenes</label>
+        <label>Or watch a whole scene</label>
+        <p className="muted small">Each one runs a real conversation against that store and marks its own checks.</p>
         <div className="scenes">
           {scenes.map((s) => {
             const turns = sceneTurns(s.id);
@@ -356,44 +367,75 @@ export function App() {
           })}
         </div>
 
-        <label>Display mode</label>
-        <div className="seg">
-          {(["inline", "fullscreen", "voice-only", "hydrated"] as Mode[]).map((m) => (
-            <button key={m} className={mode === m ? "on" : ""} onClick={() => setMode(m)}>
-              {m}
-            </button>
-          ))}
-        </div>
+        <p className="muted small">
+          <a href="#/merchant">Put a store on Alexa+ yourself</a>, in the Merchant console. It is Scene 5, done by hand.
+        </p>
 
-        <label>Device</label>
-        <div className="seg">
-          {(Object.keys(FRAMES) as Frame[]).map((f) => (
-            <button key={f} className={frame === f ? "on" : ""} onClick={() => setFrame(f)}>
-              {FRAMES[f].label}
-            </button>
-          ))}
-        </div>
+        <Playground />
 
-        <label>Theme, language, voice</label>
-        <div className="seg">
-          <button className={theme === "dark" ? "on" : ""} onClick={() => setTheme("dark")}>dark</button>
-          <button className={theme === "light" ? "on" : ""} onClick={() => setTheme("light")}>light</button>
-          <button className={lang === "en-US" ? "on" : ""} onClick={() => setLang("en-US")}>en-US</button>
-          <button className={lang === "es-CL" ? "on" : ""} onClick={() => setLang("es-CL")}>es-CL</button>
-          <button className={voiceOut ? "on" : ""} onClick={() => setVoiceOut((v) => !v)}>speak {voiceOut ? "on" : "off"}</button>
-        </div>
+        <details className="drawer">
+          <summary>Screen, voice and device</summary>
 
-        <label>Try</label>
-        <div className="chips">
-          {SUGGESTIONS.map((t) => (
-            <button key={t} onClick={() => void submit(t)} disabled={busy || !addon || Boolean(runningScene)}>
-              {t}
-            </button>
-          ))}
-        </div>
+          <label>What the screen does with an answer</label>
+          <div className="seg">
+            {(["inline", "fullscreen", "voice-only", "hydrated"] as Mode[]).map((m) => (
+              <button key={m} className={mode === m ? "on" : ""} onClick={() => setMode(m)}>
+                {MODE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+          <p className="muted small">{MODE_HELP[mode]}</p>
 
-        <label>Inspection summary</label>
-        {inspection ? (
+          <label>Device</label>
+          <div className="seg">
+            {(Object.keys(FRAMES) as Frame[]).map((f) => (
+              <button key={f} className={frame === f ? "on" : ""} onClick={() => setFrame(f)}>
+                {FRAMES[f].label}
+              </button>
+            ))}
+          </div>
+
+          <label>Look</label>
+          <div className="seg">
+            <button className={theme === "dark" ? "on" : ""} onClick={() => setTheme("dark")}>Dark room</button>
+            <button className={theme === "light" ? "on" : ""} onClick={() => setTheme("light")}>Daylight</button>
+          </div>
+
+          <label>Language and voice</label>
+          <div className="seg">
+            <button className={lang === "en-US" ? "on" : ""} onClick={() => setLang("en-US")}>English</button>
+            <button className={lang === "es-CL" ? "on" : ""} onClick={() => setLang("es-CL")}>Español</button>
+            <button className={voiceOut ? "on" : ""} onClick={() => setVoiceOut((v) => !v)}>{voiceOut ? "Speaking" : "Muted"}</button>
+          </div>
+          <p className="muted small">
+            {voiceOut
+              ? voiceSource === "polly"
+                ? "Amazon Polly is speaking the answers."
+                : voiceSource === "browser"
+                  ? "Your browser is speaking the answers: Polly is not reachable from here."
+                  : "The next answer will be spoken."
+              : "Answers are written, not spoken."}
+          </p>
+        </details>
+
+        <details className="drawer">
+          <summary>Under the hood</summary>
+
+          <p className="muted small">
+            Answers come from{" "}
+            <b>{brain?.kind === "agent" ? `a Household agent on Amazon Bedrock (${brain.modelId ?? "model"}, ${brain.region ?? "region"})` : brain?.kind === "recorded" ? "recorded responses, no model" : "a scripted router, no model"}</b>
+            {brain?.degraded ? <span> {brain.degraded}</span> : null}. It reaches the store the way Alexa+ would: MCP for the catalogue, UCP checkout sessions for the payment.
+          </p>
+          {current ? (
+            <p className="muted small">
+              MCP endpoint {current.mcp}
+              <br />
+              payment handlers {current.paymentHandlers.join(", ") || "none"}
+            </p>
+          ) : null}
+
+          <label>What each turn did</label>
+          {inspection ? (
           <div className="inspection">
             <div>
               turns {inspection.totals.turns}, tool calls {inspection.totals.toolCalls}, failed checks <b className={inspection.totals.failedChecks ? "bad" : "good"}>{inspection.totals.failedChecks}</b>
@@ -423,9 +465,10 @@ export function App() {
               inspection-summary.json
             </a>
           </div>
-        ) : (
-          <p className="muted small">No turns yet.</p>
-        )}
+          ) : (
+            <p className="muted small">Nothing said yet. Ask the store something and this fills in.</p>
+          )}
+        </details>
       </aside>
 
       <main className="stage">
@@ -463,6 +506,7 @@ export function App() {
                     </button>
                   ))}
                 </div>
+                <p className="idle-hint">{recognitionAvailable() ? "or press the mic and speak" : "type it in the box below"}</p>
               </div>
             ) : null}
             {checkout && mode !== "voice-only" ? (

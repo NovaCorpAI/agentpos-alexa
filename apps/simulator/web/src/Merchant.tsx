@@ -97,35 +97,36 @@ export function Merchant() {
           </span>
           <span className="for">merchant console</span>
         </div>
-        <h1>Onboard a store to Alexa+</h1>
+        <h1>Put a store on Alexa+</h1>
         <p className="muted">
-          Onboarding: from a Store URL to a voice-ready catalog. The agent drafts; you confirm; nothing is published before that. <a href="#/">Back to the simulator</a>
+          Four steps, about a minute. An agent reads what the store already publishes and drafts how it should sound out loud; you read every line and decide what goes live. <a href="#/">Back to the simulator</a>
         </p>
       </header>
 
-      <section className="card">
-        <label>Store URL</label>
+      <section className="card step" data-step="1">
+        <h2>Point at the store</h2>
+        <p className="muted small">Its own address, the one customers use. The agent only reads what the store publishes, and never writes anything back to it.</p>
         <div className="row">
-          <input value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} placeholder="https://your-store.example" />
-          <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+          <input value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} placeholder="https://your-store.example" aria-label="Store address" />
+          <select value={language} onChange={(e) => setLanguage(e.target.value)} aria-label="Language">
             <option value="en-US">English (US)</option>
             <option value="es-CL">Español (Chile)</option>
           </select>
           <button className="primary" onClick={() => void scan()} disabled={busy !== null || !storeUrl.trim()}>
-            {busy === "scan" ? "Scanning and drafting" : "Scan and draft"}
+            {busy === "scan" ? "Reading the store" : "Read it and draft"}
           </button>
         </div>
+        {busy === "scan" ? <p className="muted small">Reading the catalogue, then writing a spoken name, a one sentence summary and the words a household might use for each item.</p> : null}
         {error ? <p className="error">{error}</p> : null}
       </section>
 
       {state ? (
-        <section className="card">
-          <div className="row between">
-            <h2>
-              {state.origin} <span className={`pill ${state.status === "published" ? "ok" : ""}`}>{state.status}</span>
-            </h2>
-            <span className="muted small">{state.modelUsed ? "drafted by the strong model on Bedrock" : "drafted by the deterministic drafter (no model)"}</span>
-          </div>
+        <section className="card step" data-step="2">
+          <h2>What the agent did, timed</h2>
+          <p className="muted small">
+            {state.origin} <span className={`pill ${state.status === "published" ? "ok" : ""}`}>{state.status === "published" ? "published" : "draft, not live"}</span>{" "}
+            {state.modelUsed ? "Drafted by the strong model on Amazon Bedrock." : "Drafted by the deterministic drafter, with no model."}
+          </p>
           <ol className="stages">
             {STAGES.map(([key, label]) => (
               <li key={key} className={state.stages[key] ? "done" : ""}>
@@ -143,9 +144,12 @@ export function Merchant() {
       ) : null}
 
       {state && overlay.length ? (
-        <section className="card">
-          <h2>Voice overlay</h2>
-          <p className="muted small">Spoken name replaces the title on the speaker; the summary is one sentence; synonyms are what a household might say. Edit anything, then confirm.</p>
+        <section className="card step" data-step="3">
+          <h2>Read every line before anyone hears it</h2>
+          <p className="muted small">
+            The spoken name is what the speaker says instead of the catalogue title. The summary is the one sentence a customer hears when they ask about the item. The synonyms are the words a household
+            might actually use for it. Change anything here: this is the draft, not the store.
+          </p>
           <table>
             <thead>
               <tr>
@@ -172,16 +176,32 @@ export function Merchant() {
               ))}
             </tbody>
           </table>
-          <h2>Voice policies</h2>
+          <h2>What the store says about itself</h2>
+          <p className="muted small">Three sentences the assistant may repeat: how the store introduces itself, how it delivers, and what it wants a person to check before an order goes through.</p>
           <label>Introduction</label>
           <input value={policies.voiceIntro} onChange={(e) => setPolicies({ ...policies, voiceIntro: e.target.value })} />
           <label>Delivery</label>
           <input value={policies.deliveryNote} onChange={(e) => setPolicies({ ...policies, deliveryNote: e.target.value })} />
           <label>Human review</label>
           <input value={policies.reviewNote} onChange={(e) => setPolicies({ ...policies, reviewNote: e.target.value })} />
+        </section>
+      ) : null}
+
+      {state && overlay.length ? (
+        <section className="card step" data-step="4">
+          <h2>{state.status === "published" ? "It is live" : "Publish it"}</h2>
+          <p className="muted small">
+            {state.status === "published" ? (
+              <>
+                Alexa+ now answers for this store in the words above. Go and <a href="#/">ask it for something</a>, or change a line and publish again.
+              </>
+            ) : (
+              "Until you confirm, the assistant answers in the store's own catalogue words. Nothing here is live yet."
+            )}
+          </p>
           <div className="row end">
             <button className="primary" onClick={() => void confirm()} disabled={busy !== null}>
-              {busy === "confirm" ? "Publishing" : state.status === "published" ? "Confirm and publish again" : "Confirm and publish"}
+              {busy === "confirm" ? "Publishing" : state.status === "published" ? "Publish the changes" : "Confirm and publish"}
             </button>
           </div>
         </section>

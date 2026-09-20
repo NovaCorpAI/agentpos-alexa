@@ -114,6 +114,38 @@ html, body {
 }
 .panel select:hover, .panel input:hover, .merchant input:hover, .merchant select:hover { border-color: rgba(232, 225, 212, 0.3); }
 
+/* The first thing read: what this is, in one breath. */
+.lede { margin: 2px 0 6px; font-size: 14px; line-height: 1.5; color: var(--panel-fg); opacity: 0.86; }
+
+/* Everything a visitor does not need on arrival lives in a drawer, closed. */
+.drawer { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; }
+.drawer > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  transition: color 0.15s ease;
+}
+.drawer > summary::-webkit-details-marker { display: none; }
+.drawer > summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border: 4px solid transparent;
+  border-left-color: currentColor;
+  transition: transform 0.18s ease;
+}
+.drawer[open] > summary::before { transform: rotate(90deg) translateX(-1px); }
+.drawer > summary:hover { color: var(--panel-fg); }
+.drawer > *:not(summary) { margin-top: 8px; }
+.drawer > label:first-of-type { margin-top: 10px; }
+
 .muted { color: var(--muted); }
 .small { font-size: 12px; line-height: 1.5; }
 .error { color: var(--bad); }
@@ -452,6 +484,25 @@ a { color: var(--accent); text-decoration-color: rgba(111, 178, 210, 0.4); text-
   gap: 10px;
   box-shadow: var(--shadow);
 }
+/* A numbered step, so the order of the work is visible before reading a word of it. */
+.merchant .card.step { position: relative; padding-left: 62px; }
+.merchant .card.step::before {
+  content: attr(data-step);
+  position: absolute;
+  left: 18px;
+  top: 20px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--ember);
+  color: var(--ember);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.merchant .card.step h2 { margin-bottom: 4px; }
+
 .merchant .row { display: flex; gap: 10px; align-items: center; }
 .merchant .row.between { justify-content: space-between; }
 .merchant .row.end { justify-content: flex-end; }
@@ -607,6 +658,7 @@ a { color: var(--accent); text-decoration-color: rgba(111, 178, 210, 0.4); text-
 .idle-prompts button:hover:not(:disabled) { border-color: var(--ember); background: var(--ember-soft); }
 .idle-prompts button:active:not(:disabled) { transform: translateY(1px); }
 .idle-prompts button:disabled { opacity: 0.4; cursor: default; }
+.idle-hint { margin: 2px 0 0; font-size: 15px; opacity: 0.5; }
 .theme-light .idle-prompts button { border-color: rgba(8, 11, 18, 0.12); background: rgba(8, 11, 18, 0.03); }
 
 /* Scrollbars belong to the instrument too. */
