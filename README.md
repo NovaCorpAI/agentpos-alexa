@@ -185,7 +185,7 @@ words the question, and the guardian never sees the buyer's email, only a hash.
 
 ![The simulator rendering the bridge's carousel view inside an Echo Show frame](docs/assets/simulator-carousel.png)
 
-![The host's checkout pattern with the simulated Amazon handlers](docs/assets/simulator-checkout.png)
+![The host's checkout pattern: the store's own Stripe in test mode chosen, the simulated Amazon handlers labeled below it](docs/assets/simulator-checkout.png)
 
 Scene 1 on the real Household agent (Amazon Bedrock, Nova 2 Lite) with Amazon Polly speaking:
 
