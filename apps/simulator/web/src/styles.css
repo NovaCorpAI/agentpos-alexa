@@ -304,7 +304,8 @@ a { color: var(--accent); text-decoration-color: rgba(111, 178, 210, 0.4); text-
 }
 
 .viewport { flex: 1 1 auto; padding: 10px 26px 92px; overflow: auto; }
-.viewport.fullscreen { position: absolute; inset: 62px 0 0 0; background: inherit; padding: 18px 26px 92px; z-index: 2; }
+.viewport.fullscreen { position: absolute; inset: 62px 0 0 0; background: #0b1120; padding: 18px 26px 92px; z-index: 2; }
+.theme-light .viewport.fullscreen { background: #ffffff; }
 .mode-voice-only .conversation { max-height: none; flex: 1; }
 
 .hydrated { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
