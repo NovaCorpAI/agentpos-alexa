@@ -379,7 +379,5 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
 }
 
 function storeName(store: RegisteredStore): string {
-  const p = store.profile as { ucp?: { ["com.novacorplabs.agentpos"]?: unknown } } | undefined;
-  void p;
-  return new URL(store.origin).hostname;
+  return store.displayName || new URL(store.origin).hostname;
 }

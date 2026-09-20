@@ -93,13 +93,16 @@ describe("Bridge app", () => {
     expect(csv).toContain("us.amazon.nova-2-lite-v1:0");
   });
 
-  it("lists registered Stores without any secret material", async () => {
+  it("lists registered Stores by the name they publish, without any secret material", async () => {
     const store = parseStoreProfile("https://bakery.example", bakeryProfile);
+    storage.stores.register("bakery", store, "Sourdough & Co. Bakery");
+    // A re-register without the name keeps it: discovery runs again on every boot.
     storage.stores.register("bakery", store);
     const body = (await (await app().request("/stores")).json()) as { stores: unknown[] };
     expect(body.stores).toEqual([
       {
         slug: "bakery",
+        name: "Sourdough & Co. Bakery",
         origin: "https://bakery.example",
         ucpVersion: "2026-08-25",
         paymentHandlers: ["x402-stellar"],

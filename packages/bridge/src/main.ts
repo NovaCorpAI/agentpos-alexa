@@ -7,7 +7,7 @@ import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { serve } from "@hono/node-server";
 import { cacheConfigFor, CatalogAgent, Guardian, OnboardingAgent } from "@agentpos-alexa/agents";
 import { BedrockModel } from "@strands-agents/sdk";
-import { discoverStore, StoreDiscoveryError } from "@agentpos-alexa/store-client";
+import { AgentPosStoreClient, discoverStore, StoreDiscoveryError } from "@agentpos-alexa/store-client";
 import { createApp } from "./app.js";
 import { amazonRailsFromMode } from "./rails/amazon-simulated.js";
 import { merchantPspRail } from "./rails/merchant-psp.js";
@@ -37,8 +37,12 @@ if (storeUrl) {
   try {
     const store = await discoverStore(storeUrl);
     const slug = slugFromOrigin(store.origin);
-    storage.stores.register(slug, store);
-    logger.log("info", "store registered", { slug, origin: store.origin, ucpVersion: store.ucpVersion });
+    const displayName = await new AgentPosStoreClient(store)
+      .catalog()
+      .then((c) => c.site.name)
+      .catch(() => "");
+    storage.stores.register(slug, store, displayName);
+    logger.log("info", "store registered", { slug, origin: store.origin, ucpVersion: store.ucpVersion, displayName: displayName || null });
   } catch (e) {
     if (e instanceof StoreDiscoveryError) {
       logger.log("error", "store discovery failed", { ...e.toJSON(), storeUrl });

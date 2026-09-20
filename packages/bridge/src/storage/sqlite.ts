@@ -52,6 +52,7 @@ export function openStorage(opts: OpenStorageOptions): Storage {
   addColumnIfMissing(db, "usage_events", "psp_mode", "TEXT");
   addColumnIfMissing(db, "usage_events", "cache_read_tokens", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(db, "usage_events", "cache_write_tokens", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(db, "stores", "display_name", "TEXT NOT NULL DEFAULT ''");
   return {
     stores: new SqliteStoreRegistry(db),
     usageEvents: new SqliteUsageEventsRepo(db),

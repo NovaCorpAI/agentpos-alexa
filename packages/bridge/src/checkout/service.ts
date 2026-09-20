@@ -258,7 +258,7 @@ export class CheckoutService {
     const recent = internal.buyerKey ? this.deps.storage.checkout.listCompletedByBuyer(ctx.store.slug, internal.buyerKey, since) : [];
     const started = performance.now();
     const verdict = await guardian.review({
-      storeName: new URL(ctx.store.origin).hostname,
+      storeName: ctx.store.displayName || new URL(ctx.store.origin).hostname,
       language: session.context?.language === "es-CL" ? "es-CL" : "en-US",
       lines: session.line_items.map((l) => ({ itemId: l.item.id, title: l.item.title, quantity: l.quantity })),
       totalCents: session.totals.find((t) => t.type === "total")?.amount ?? 0,

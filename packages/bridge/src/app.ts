@@ -118,6 +118,7 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails =
     c.json({
       stores: storage.stores.list().map((s) => ({
         slug: s.slug,
+        name: s.displayName || new URL(s.origin).hostname,
         origin: s.origin,
         ucpVersion: s.ucpVersion,
         paymentHandlers: s.paymentHandlers,

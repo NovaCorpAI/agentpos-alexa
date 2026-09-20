@@ -9,12 +9,15 @@ import type { StoreEndpoints } from "@agentpos-alexa/store-client";
 
 export interface RegisteredStore extends StoreEndpoints {
   slug: string;
+  /** What the Store calls itself, as published in its catalog. Empty until it is read. */
+  displayName: string;
   /** ISO 8601, UTC. */
   registeredAt: string;
 }
 
 export interface StoreRegistry {
-  register(slug: string, store: StoreEndpoints): RegisteredStore;
+  /** A name that is not given keeps the one already stored, so a re-register never loses it. */
+  register(slug: string, store: StoreEndpoints, displayName?: string): RegisteredStore;
   get(slug: string): RegisteredStore | undefined;
   list(): RegisteredStore[];
 }
@@ -28,7 +31,8 @@ CREATE TABLE IF NOT EXISTS stores (
   mcp_endpoint     TEXT NOT NULL,
   payment_handlers TEXT NOT NULL,
   profile          TEXT NOT NULL,
-  registered_at    TEXT NOT NULL
+  registered_at    TEXT NOT NULL,
+  display_name     TEXT NOT NULL DEFAULT ''
 );
 `;
 
@@ -54,6 +58,7 @@ interface Row {
   payment_handlers: string;
   profile: string;
   registered_at: string;
+  display_name: string | null;
 }
 
 function rowToStore(r: Row): RegisteredStore {
@@ -65,6 +70,7 @@ function rowToStore(r: Row): RegisteredStore {
     mcpEndpoint: r.mcp_endpoint,
     paymentHandlers: JSON.parse(r.payment_handlers) as string[],
     profile: JSON.parse(r.profile) as unknown,
+    displayName: r.display_name ?? "",
     registeredAt: r.registered_at,
   };
 }
@@ -72,19 +78,20 @@ function rowToStore(r: Row): RegisteredStore {
 export class SqliteStoreRegistry implements StoreRegistry {
   constructor(private readonly db: DatabaseSync) {}
 
-  register(slug: string, store: StoreEndpoints): RegisteredStore {
+  register(slug: string, store: StoreEndpoints, displayName?: string): RegisteredStore {
     if (!isValidSlug(slug)) {
       throw new RangeError(`Invalid store slug ${JSON.stringify(slug)}`);
     }
     const registeredAt = new Date().toISOString();
     this.db
       .prepare(
-        `INSERT INTO stores (slug, origin, ucp_version, rest_base, mcp_endpoint, payment_handlers, profile, registered_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO stores (slug, origin, ucp_version, rest_base, mcp_endpoint, payment_handlers, profile, registered_at, display_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(slug) DO UPDATE SET
            origin = excluded.origin, ucp_version = excluded.ucp_version, rest_base = excluded.rest_base,
            mcp_endpoint = excluded.mcp_endpoint, payment_handlers = excluded.payment_handlers,
-           profile = excluded.profile`,
+           profile = excluded.profile,
+           display_name = CASE WHEN excluded.display_name = '' THEN stores.display_name ELSE excluded.display_name END`,
       )
       .run(
         slug,
@@ -95,6 +102,7 @@ export class SqliteStoreRegistry implements StoreRegistry {
         JSON.stringify(store.paymentHandlers),
         JSON.stringify(store.profile ?? null),
         registeredAt,
+        displayName ?? "",
       );
     const saved = this.get(slug);
     if (!saved) throw new Error("store vanished after insert");

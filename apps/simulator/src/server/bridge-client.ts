@@ -52,8 +52,9 @@ export class BridgeClient {
   async listAddons(): Promise<EnabledAddon[]> {
     const res = await this.fetchImpl(`${this.config.url}/stores`, { headers: { accept: "application/json" } });
     if (!res.ok) throw new Error(`Bridge answered ${res.status} to /stores`);
-    const body = (await res.json()) as { stores: Array<Omit<EnabledAddon, "name">> };
-    return body.stores.map((s) => ({ ...s, name: new URL(s.origin).hostname }));
+    const body = (await res.json()) as { stores: Array<Omit<EnabledAddon, "name"> & { name?: string }> };
+    // The Store's own name when the Bridge read it; the host only as a last resort.
+    return body.stores.map((s) => ({ ...s, name: s.name || new URL(s.origin).hostname }));
   }
 
   private client(slug: string, traceId: string): Promise<Client> {
