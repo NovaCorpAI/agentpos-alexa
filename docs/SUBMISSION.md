@@ -109,6 +109,11 @@ Replay the sequence with `pnpm demo:run <simulator url>`.
 
 ## Evidence on file (2026-09-17)
 
+`pnpm submission:bundle` gathers all of it into one zip for the form's file upload: the costs
+and the raw rows behind them, the AWS integration with file paths, the friction log, the
+decisions and the stills from the recorded demo. Every file in it is a copy of a file in the
+repository.
+
 | Claim | Where it is verifiable |
 | --- | --- |
 | Demo video, recorded against the live deployment | https://youtu.be/MOxcz6SIt6c |

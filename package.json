@@ -23,7 +23,8 @@
     "demo:run": "node scripts/demo-run.mjs",
     "video:narration": "node scripts/video-narration.mjs",
     "video:record": "node scripts/video-record.mjs",
-    "video:build": "node scripts/video-build.mjs"
+    "video:build": "node scripts/video-build.mjs",
+    "submission:bundle": "node scripts/submission-bundle.mjs"
   },
   "devDependencies": {
     "@aws-sdk/client-acm": "^3.1135.0",
