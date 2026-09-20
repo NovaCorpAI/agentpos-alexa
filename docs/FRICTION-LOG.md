@@ -4,9 +4,9 @@ Written while building, one entry per obstacle with an Amazon or AWS SDK, API, s
 console or document. Severity: Blocking (could not proceed), High (hours lost), Medium
 (confusion, quick workaround), Low (detail).
 
-Each entry: date, tool, what we tried, what happened (exact error, observed behavior, doc
-link), severity, time lost, workaround, concrete suggestion for the Amazon team, link to the
-commit or file. The tools that gave us no trouble are at the end, so the feedback covers
+Each entry: date, tool, the task attempted, the steps taken, what we expected, what actually
+happened (exact error, observed behaviour, doc link), severity, time lost, the workaround, a
+concrete suggestion for the Amazon team, and a link to the commit or file. The tools that gave us no trouble are at the end, so the feedback covers
 everything we used, not only what hurt.
 
 ---
@@ -16,7 +16,8 @@ everything we used, not only what hurt.
 - Date: 2026-09-14
 - Tool: Alexa+ MCP Toolkit and Alexa+ for Builders
 - What we tried: enroll to register a self-hosted MCP add-on from a company account in Chile.
-- What happened: the MCP Toolkit overview states "The MCP Toolkit is available in the United
+- Expected: a self-serve path to a sandbox, or a documented way in from outside the United States.
+- Actual: the MCP Toolkit overview states "The MCP Toolkit is available in the United
   States" and Alexa+ for Builders is "currently available to select partners working directly
   with our team". No self-serve path found.
 - Severity: High (changes the demo strategy)
@@ -38,7 +39,8 @@ everything we used, not only what hurt.
   `npm install -g @alexa-ai/cli`, and the Local Inspector page promises to "connect to your MCP
   server, call its tools, and instantly see how the resulting UI widgets render inside Alexa
   device frames, before you submit anything for review".
-- What happened: both packages must be pulled from a private AWS CodeArtifact registry
+- Expected: `npm install -g @alexa-ai/cli` and the Local Inspector to install from the public registry, as the set-up page shows.
+- Actual: both packages must be pulled from a private AWS CodeArtifact registry
   (`aws codeartifact login ... --domain alexa-ai --domain-owner 372468808636`) with a role
   obtained from an Alexa Solutions Architect. `npm view @alexa-ai/cli` and
   `npm view @alexa-ai/addon-local-inspector` return E404 on the public registry. The web
@@ -66,7 +68,8 @@ everything we used, not only what hurt.
   sandbox issuer for the network token handler, so the `complete` path can be exercised end to
   end without program access. Also checked whether the merchant's PSP (Stripe) can accept a
   third-party network token plus cryptogram directly.
-- What happened: the checkout doc states "You receive an encrypted token only you can decrypt"
+- Expected: a sandbox issuer, a sample encrypted payload or test vectors, so the handler can be exercised end to end.
+- Actual: the checkout doc states "You receive an encrypted token only you can decrypt"
   but publishes no key format, sample payload or sandbox. Stripe's public API exposes no
   parameter for a third-party network token (only `card.number`, the legacy `token`, and the
   3D Secure import fields for CAVV cryptograms); its Vault and Forward product is outbound only
@@ -92,7 +95,8 @@ everything we used, not only what hurt.
 - What we tried: give the Household agent the Bridge's MCP tools through the SDK's own
   `McpClient`, so that the agent and the host (the simulator) share one connection and one
   tool list.
-- What happened: `McpTool.stream` maps only `result.content` (text, image, embedded resource)
+- Expected: the SDK's MCP client to hand us the whole tool result, `structuredContent` and `_meta` included.
+- Actual: `McpTool.stream` maps only `result.content` (text, image, embedded resource)
   and `isError`; the `structuredContent` block and the result `_meta` are accepted and
   dropped. MCP Apps depends on `_meta.ui.resourceUri` on the tool definition and on the host
   forwarding the full result to the view, and our tools carry exact prices in
@@ -116,7 +120,8 @@ everything we used, not only what hurt.
 - Tool: Amazon Bedrock model access and pricing pages, from a TypeScript build.
 - What we tried: pin the exact Bedrock model ids and per-token prices for Nova 2 Lite and
   Claude Sonnet in `usage_events` before having an account with model access.
-- What happened: the model id an account can invoke depends on the region and on whether the
+- Expected: model ids and prices a build can read, so the cost table needs no manual step.
+- Actual: the model id an account can invoke depends on the region and on whether the
   model is served only through a cross-region inference profile (`us.` prefix), and the
   pricing page is not machine readable. Without credentials there is no way to check either,
   so the code ships an estimate table that has to be verified by hand.
@@ -135,7 +140,8 @@ everything we used, not only what hurt.
 - Tool: Amazon Bedrock, Anthropic models on a new account (Converse API through Strands).
 - What we tried: the first real guardian call on `us.anthropic.claude-sonnet-4-6` after the
   account listed the model and the IAM policy allowed `bedrock:InvokeModel`.
-- What happened: `ModelError: Model use case details have not been submitted for this
+- Expected: an answer from the model, since the account listed it and IAM allowed the call.
+- Actual: `ModelError: Model use case details have not been submitted for this
   account. Fill out the Anthropic use case details form before using the model. If you have
   already filled out the form, try again in 15 minutes.` Nothing in the model listing, in the
   IAM simulator or in the access page said that Anthropic models carry an extra, per-account
@@ -162,7 +168,8 @@ everything we used, not only what hurt.
 - Tool: Amazon Bedrock runtime quotas on a new account (Nova 2 Lite cross-region profile, Converse through Strands).
 - What we tried: measure cost per closed session by running five household sessions back to
   back, about four model calls per turn.
-- What happened: after roughly a dozen calls within a minute, Converse answered `ModelError:
+- Expected: either headroom for a handful of calls a minute, or a quota we could read before hitting it.
+- Actual: after roughly a dozen calls within a minute, Converse answered `ModelError:
   Too many requests, please wait before trying again.` The SDK's own retries did not absorb it,
   and our simulator reported it as "I could not reach the store", which sent us looking at the
   Bridge first. Nothing in the console's model page shows the account's effective per-minute
@@ -183,7 +190,8 @@ everything we used, not only what hurt.
 - Tool: AWS App Runner (CreateService, ListServices) from a deployment script, new account.
 - What we tried: deploy the Bridge, the Simulator and the fixture Store as App Runner services,
   the path our architecture document and the hackathon's AWS guidance both pointed to.
-- What happened: the image built in CodeBuild and landed in ECR, then the first App Runner
+- Expected: a service, or an error naming what is actually wrong.
+- Actual: the image built in CodeBuild and landed in ECR, then the first App Runner
   call answered `SubscriptionRequiredException: The AWS Access Key Id needs a subscription for
   the service`. App Runner stopped accepting new customers on 2026-04-30
   (https://docs.aws.amazon.com/apprunner/latest/dg/apprunner-availability-change.html). The
@@ -204,7 +212,8 @@ everything we used, not only what hurt.
 - Tool: Amazon ECS Express Mode (CreateExpressGatewayService, getting started guide).
 - What we tried: create three services whose environment carries each other's public URLs,
   using the URL format the guide documents: `https://<service-name>.ecs.<region>.on.aws/`.
-- What happened: the service reached ACTIVE with its task running and registered, but that
+- Expected: `https://<service-name>.ecs.<region>.on.aws` to resolve, as the getting started guide documents.
+- Actual: the service reached ACTIVE with its task running and registered, but that
   host name did not resolve. The real endpoint is generated
   (`ag-<32 hex>.ecs.us-east-1.on.aws`) and appears only in
   `activeConfigurations[].ingressPaths[].endpoint` after creation. Our deploy waited 30 minutes
@@ -224,7 +233,8 @@ everything we used, not only what hurt.
 - Tool: Amazon Bedrock AgentCore Memory (CreateEvent, TypeScript SDK).
 - What we tried: write one JSON event per order reference, following the SDK's payload union
   (`PayloadType.JsonMember`).
-- What happened: the union's member is `json: MemoryJsonData`, and the JSON value goes one
+- Expected: the JSON value to go at `json`, which is what the payload union's member is named after.
+- Actual: the union's member is `json: MemoryJsonData`, and the JSON value goes one
   level deeper, in `MemoryJsonData.content`. Passing the object straight to `json` compiles,
   because both are documents, and fails at runtime with `ValidationException: Value at
   'payload.1.member.json.content' failed to satisfy constraint: Member must not be null`. The
@@ -246,7 +256,8 @@ everything we used, not only what hurt.
 - What we tried: cut the Household agent's input cost, which is 99 percent of its token volume
   because seven tool schemas and the system prompt travel with every call, by turning on
   `cacheConfig: { strategy: "auto" }`.
-- What happened: nothing was cached and `cacheReadInputTokens` stayed at zero, with no warning.
+- Expected: cached reads on the static prefix, or a warning that caching was not applied.
+- Actual: nothing was cached and `cacheReadInputTokens` stayed at zero, with no warning.
   The SDK's auto-detection enables caching only for model ids containing "anthropic" or
   "claude", although Bedrock caches Nova as well. Forcing `strategy: "anthropic"` on the same
   Nova model works: the first call wrote 1,499 tokens to the cache and the second read 1,502.
