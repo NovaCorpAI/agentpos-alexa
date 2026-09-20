@@ -283,25 +283,30 @@ everything we used, not only what hurt.
 - Date: 2026-09-20
 - Tool: Amazon ECS Express Mode with its generated Application Load Balancer.
 - What we tried: keep `alexa.agentposhq.com` and `bridge.agentposhq.com` answering across a
-  release. Both are host header rules on the listener Express Mode created, each forwarding
-  to the same target group as the service's generated `https://ag-<id>.ecs.us-east-1.on.aws`
-  name, which is the only way to put your own name in front of a service: Express Mode has no
-  custom domain of its own.
+  release. Both are host header rules on the listener Express Mode created, each copied from
+  the rule of the service's generated `https://ag-<id>.ecs.us-east-1.on.aws` name, which is
+  the only way to put your own name in front of a service: Express Mode has no custom domain
+  of its own.
 - Expected: a name that survives a deployment, since the service and its endpoint do.
-- Actual: every deployment creates a new target group and moves the generated name's rule to
-  it. Our rule keeps pointing at the previous target group, which empties when the old
-  deployment drains, so the custom name answers `503 Service Temporarily Unavailable` while
-  the generated name answers 200. Nothing in the deployment output mentions it. Re-running the
-  setup script did not help either: the rule for the name exists, so it was left alone.
+- Actual: after the release the custom names answered `503 Service Temporarily Unavailable`
+  from `awselb/2.0` while the generated names answered 200, with the same certificate, the
+  same load balancer and the same two target groups in the rule. Express Mode deploys blue
+  and green across two target groups per service and flips the forward weights on every
+  deployment, updating only the generated name's rule: ours still read
+  `tg-853dc=0, tg-129d2=100` when the live tasks were all in `tg-853dc`, so every request
+  went to the empty group. Nothing in the deployment output mentions it, and a rule that
+  lists both target groups looks correct in the console. Re-running our setup did not help
+  either: the rule for the name existed, so it was left alone.
 - Severity: High (the public playground's own names go dark after each release)
-- Time lost: about 45 min, including finding that the generated name still worked.
-- Workaround: `scripts/custom-domain.mjs` now re-points an existing rule at whatever the
-  generated name points at, `infra/domains.json` holds the names, and `pnpm deploy:aws` runs
-  the sync after a release. `node scripts/custom-domain.mjs --sync` fixes it by hand.
-- Suggestion: let an Express Mode service carry its own custom domain names, or keep the
-  service's target group stable across deployments the way a classic ECS service does. Short
-  of that, say it in the docs: any listener rule an operator adds beside the generated one has
-  to be re-pointed on every deployment.
+- Time lost: about 1 h, most of it spent trusting the target group ARNs, which never changed.
+- Workaround: `scripts/custom-domain.mjs` compares target groups and weights, re-points an
+  existing rule instead of skipping it, `infra/domains.json` holds the names, and
+  `pnpm deploy:aws` runs the sync once the services are ready. `node scripts/custom-domain.mjs
+  --sync` fixes it by hand.
+- Suggestion: let an Express Mode service carry its own custom domain names, or move every
+  rule that matches the service's target groups when the weights flip. Short of that, say it
+  in the docs, and have the deployment output name the weight change: a rule copied from the
+  generated one is the documented way to add a name, and it silently stops working.
 - Link: scripts/custom-domain.mjs, infra/domains.json, docs/DEPLOY.md
 
 ---

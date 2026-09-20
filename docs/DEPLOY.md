@@ -46,11 +46,12 @@ balancer has a host rule for each. To add another name:
 5. Redeploy with `PUBLIC_BRIDGE_URL=https://bridge.agentposhq.com` in `.env` so the Bridge
    publishes that name in its profile and checkout links.
 
-Add the name to `infra/domains.json`, because a release moves it. Express Mode gives a
-service a new target group on every deployment and moves only the generated name's rule to
-it, so a name added beside it answers 503 as soon as the old tasks drain (FL-012).
-`pnpm deploy:aws` re-points every name in that file once the services are ready, and
-`node scripts/custom-domain.mjs --sync` does it on its own if a release was interrupted.
+Add the name to `infra/domains.json`, because a release moves it. Express Mode deploys blue
+and green across two target groups and flips the forward weights on every deployment,
+updating only the generated name's rule, so a name added beside it sends every request to the
+group that just emptied and answers 503 (FL-012). `pnpm deploy:aws` re-points every name in
+that file once the services are ready, and `node scripts/custom-domain.mjs --sync` does it on
+its own if a release was interrupted.
 
 ## Permissions (one time, by the account owner)
 

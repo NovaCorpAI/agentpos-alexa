@@ -10,8 +10,9 @@
  * Idempotent, and it never touches DNS: it prints the records to create (validation first,
  * then the CNAME to the load balancer) and waits for the certificate to be issued.
  *
- * Express Mode gives a service a new target group on every deployment (FL-012), so the names
- * have to follow it. `pnpm deploy:aws` imports syncDomainRules and calls it after a release.
+ * Express Mode flips the weights between the service's two target groups on every deployment
+ * (FL-012), so the names have to follow. `pnpm deploy:aws` imports syncDomainRules and calls
+ * it after a release.
  */
 import { ACMClient, DescribeCertificateCommand, ListCertificatesCommand, RequestCertificateCommand } from "@aws-sdk/client-acm";
 import {
@@ -79,8 +80,10 @@ export async function httpsListener() {
 
 /**
  * Points each name at whatever the service's generated host points at right now, creating
- * the rule the first time and moving it afterwards. A name whose rule is left behind answers
- * 503 as soon as the deployment that created its target group drains.
+ * the rule the first time and following it afterwards. Express Mode deploys blue and green
+ * across two target groups and flips the weights, so a rule copied once keeps sending every
+ * request to the group that is empty after the next release, and the name answers 503 while
+ * the generated one answers 200 (FL-012).
  */
 export async function syncDomainRules(pairs, listenerArn) {
   if (pairs.length === 0) return [];
@@ -94,8 +97,18 @@ export async function syncDomainRules(pairs, listenerArn) {
     return priority;
   };
   const hostsOf = (rule) => (rule.Conditions ?? []).flatMap((c) => c.HostHeaderConfig?.Values ?? c.Values ?? []);
-  const targetOf = (actions = []) => actions.map((a) => a.TargetGroupArn ?? "").join(",");
-  const shortTarget = (actions) => targetOf(actions).split("/").at(-2) ?? "";
+  /** Both target groups and both weights: Express Mode flips the weights, it does not swap the groups. */
+  const targetOf = (actions = []) =>
+    actions
+      .map((a) => (a.ForwardConfig?.TargetGroups ?? [{ TargetGroupArn: a.TargetGroupArn, Weight: 1 }]).map((g) => `${g.TargetGroupArn ?? ""}:${g.Weight ?? 0}`).join("+"))
+      .join(",");
+  /** What the rule actually sends traffic to, for the log line. */
+  const shortTarget = (actions = []) =>
+    actions
+      .flatMap((a) => a.ForwardConfig?.TargetGroups ?? [{ TargetGroupArn: a.TargetGroupArn, Weight: 1 }])
+      .filter((g) => (g.Weight ?? 0) > 0)
+      .map((g) => (g.TargetGroupArn ?? "").split("/").at(-2) ?? "")
+      .join(",");
 
   const changes = [];
   for (const { domain, service } of pairs) {
