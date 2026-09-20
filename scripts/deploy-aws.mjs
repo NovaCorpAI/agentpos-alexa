@@ -4,7 +4,7 @@
  * GitHub repository, pushes it to ECR, and creates or updates three Amazon ECS Express Mode
  * services (fixture Store, Bridge, Simulator). Idempotent: every resource is found by name first.
  *
- *   node scripts/deploy-aws.mjs [--skip-build] [--ref main]
+ *   node scripts/deploy-aws.mjs [--skip-build] [--ref main] [--only sim,bridge] [--tag <sha>]
  *
  * AWS access comes from the environment or .env (AWS_* only are read from it). Nothing
  * secret is printed; the Bridge bearer token lives only in the services' configuration.
@@ -34,7 +34,12 @@ if (existsSync(envFile)) {
 
 const args = process.argv.slice(2);
 const skipBuild = args.includes("--skip-build");
-const ref = args[args.indexOf("--ref") + 1] && args.includes("--ref") ? args[args.indexOf("--ref") + 1] : "main";
+const valueOf = (flag) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
+const ref = valueOf("--ref") ?? "main";
+/** `--only sim,bridge` leaves the other services exactly as they are, on the image they run. */
+const only = new Set((valueOf("--only") ?? "").split(",").map((x) => x.trim()).filter(Boolean));
+/** `--tag <sha>` picks an image already in the registry, for a deploy that skips the build. */
+const argTag = valueOf("--tag");
 const region = process.env.AWS_REGION || "us-east-1";
 const NAME = "agentpos-alexa";
 const REPO_URL = "https://github.com/NovaCorpAI/agentpos-alexa.git";
@@ -206,6 +211,15 @@ async function waitStable(name, path) {
   throw new Error(`${name} did not become stable and healthy in 30 minutes`);
 }
 
+/** Upserts a service, or leaves it untouched when `--only` names the others. Returns its URL. */
+async function serviceUrl(short, name, envFor, healthPath) {
+  if (only.size === 0 || only.has(short)) return upsertService(name, envFor, healthPath);
+  const url = endpointOf(await describe(name));
+  if (!url) throw new Error(`${name} is not deployed yet, so --only cannot skip it`);
+  log("service left as it is", { name, url });
+  return url;
+}
+
 /** Creates or updates a service; env may be a function of the service's own URL. Returns its URL. */
 async function upsertService(name, envFor, healthPath) {
   const build = (ownUrl) => {
@@ -256,7 +270,7 @@ async function upsertService(name, envFor, healthPath) {
   return url;
 }
 
-const tag = builtTag ?? "latest";
+const tag = builtTag ?? argTag ?? "latest";
 const models = { AWS_REGION: region, BEDROCK_MODEL_FAST: cfg("BEDROCK_MODEL_FAST", "us.amazon.nova-2-lite-v1:0"), BEDROCK_MODEL_STRONG: cfg("BEDROCK_MODEL_STRONG", "us.anthropic.claude-sonnet-4-6"), BEDROCK_MODEL_STRONG_FALLBACK: cfg("BEDROCK_MODEL_STRONG_FALLBACK", "us.amazon.nova-pro-v1:0") };
 const storeName = `${NAME}-store`;
 const bridgeName = `${NAME}-bridge`;
@@ -273,7 +287,7 @@ if (!memoryId) {
 
 // The fixture Store's own Stripe account in test mode, when configured locally: only the Store receives it.
 const stripeEnv = fileEnv.FIXTURE_STRIPE_SECRET_KEY?.startsWith("sk_test_") ? { FIXTURE_STRIPE_SECRET_KEY: fileEnv.FIXTURE_STRIPE_SECRET_KEY, FIXTURE_STRIPE_PUBLISHABLE_KEY: fileEnv.FIXTURE_STRIPE_PUBLISHABLE_KEY || fileEnv.STRIPE_PUBLISHABLE_KEY || "" } : {};
-const storeUrl = await upsertService(storeName, (own) => ({ SERVICE: "fixture-store", FIXTURE_STORE_URL: own, ...stripeEnv }), "/.well-known/ucp");
+const storeUrl = await serviceUrl("store", storeName, (own) => ({ SERVICE: "fixture-store", FIXTURE_STORE_URL: own, ...stripeEnv }), "/.well-known/ucp");
 // PUBLIC_BRIDGE_URL is the name the Bridge publishes in profiles and checkout links (a
 // subdomain in front of the load balancer); its own endpoint is what the Simulator calls.
 const publicBridgeUrl = cfg("PUBLIC_BRIDGE_URL", "");
@@ -293,7 +307,7 @@ if (priorBridge && endpointOf(priorBridge)) {
   }
 }
 
-const bridgeUrl = await upsertService(bridgeName, (own) => ({ SERVICE: "bridge", AGENTPOS_STORE_URL: storeUrl, BRIDGE_BASE_URL: publicBridgeUrl || own, BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models }), "/health");
+const bridgeUrl = await serviceUrl("bridge", bridgeName, (own) => ({ SERVICE: "bridge", AGENTPOS_STORE_URL: storeUrl, BRIDGE_BASE_URL: publicBridgeUrl || own, BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models }), "/health");
 // The waitlist lives on the Simulator task's disk: export it before a redeploy replaces the task.
 const priorSim = await describe(simulatorName);
 const adminToken = envOf(priorSim).SIMULATOR_ADMIN_TOKEN || randomBytes(32).toString("base64url");
@@ -323,7 +337,7 @@ if (priorSim && envOf(priorSim).SIMULATOR_ADMIN_TOKEN && endpointOf(priorSim)) {
   }
 }
 
-const simulatorUrl = await upsertService(simulatorName, () => ({ SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", SIMULATOR_ADMIN_TOKEN: adminToken, ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }), "/api/health");
+const simulatorUrl = await serviceUrl("sim", simulatorName, () => ({ SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", SIMULATOR_ADMIN_TOKEN: adminToken, ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }), "/api/health");
 
 // Express Mode flips the forward weights between a service's two target groups on every
 // deployment and updates only the generated name's rule, so the project's own names have to
