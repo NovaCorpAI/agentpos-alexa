@@ -122,16 +122,19 @@ repository.
 | Cost per closed checkout session: US$0.0021 | `docs/COSTS.md`, `docs/impact/usage-events.csv` (63 rows) |
 | Onboarding: URL to first voice purchase | 28 s on the fixture Store, from `usage_events` stage rows |
 | Household memory on AgentCore Memory | memory `agentpos_alexa_household` in us-east-1, Scene 4 |
-| Ten friction entries | `docs/FRICTION-LOG.md` |
+| Twelve friction entries | `docs/FRICTION-LOG.md` |
 
 ## Product feedback (required field)
 
-Taken from `docs/FRICTION-LOG.md` (ten entries, 2026-09-15 to 2026-09-17). Lead with FL-002
+Taken from `docs/FRICTION-LOG.md` (twelve entries, 2026-09-15 to 2026-09-20). Lead with FL-002
 (publish the Local Inspector on public npm), FL-003 (a sandbox for the network token handler),
 FL-008 (App Runner closed to new customers behind a `SubscriptionRequiredException`) and FL-006
-(the Anthropic use case form on Bedrock is invisible until the first invoke fails). The rest
-are AgentCore Memory payload typing (FL-010), Express Mode endpoints (FL-009), Bedrock quotas
-(FL-007) and model ids and prices (FL-005).
+(the Anthropic use case form on Bedrock is invisible until the first invoke fails). Then
+FL-012: Express Mode flips the forward weights between a service's two target groups on every
+deployment and updates only the generated name's rule, so the custom domain an operator added
+beside it answers 503 after each release, with nothing in the output to say so. The rest are
+AgentCore Memory payload typing (FL-010), Bedrock prompt caching on Nova (FL-011), Express
+Mode endpoints (FL-009), Bedrock quotas (FL-007) and model ids and prices (FL-005).
 
 ## Checklist before submitting
 
