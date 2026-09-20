@@ -76,3 +76,9 @@ session expensive, gate it to sessions above a threshold or use Nova Pro.
 Export: `pnpm --filter @agentpos-alexa/bridge usage:export --summary [--since ISO]` prints the
 totals; `usage:export --since ISO --out docs/impact/usage-events.csv` writes the CSV committed
 with the submission, and the CSV reads back into the same events (tested round trip).
+
+The hosted playground writes its rows to a disk the next release replaces, so `pnpm
+deploy:aws` exports the Bridge's rows first and merges them into
+`docs/impact/playground-usage-events.csv`, which is committed (docs/DEPLOY.md). That file is
+the running history of what the public playground actually cost; the numbers above come from
+the measured run in `docs/impact/usage-events.csv` and do not move with it.

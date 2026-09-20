@@ -79,6 +79,31 @@ keys in the environment. The bearer token is generated at deploy time and kept o
 services' configuration. SQLite lives on the instance's disk and resets on redeploy, which
 suits a playground; orders of record live in the Store.
 
+## What a redeploy must not lose
+
+The task's disk goes with the task, so `pnpm deploy:aws` empties what was measured unless it
+is taken out first. Two exports run before the services are replaced, and both are logged:
+
+| What | From | Where it lands |
+| --- | --- | --- |
+| Waitlist | Simulator, `/api/waitlist/export` | `.data/waitlist-exports/waitlist-<timestamp>.csv`, never committed |
+| usage_events | Bridge, `/admin/usage-events.csv` | `docs/impact/playground-usage-events.csv`, committed |
+
+Both endpoints need the service's own token, which stays in its configuration. The usage
+rows are merged by event id, so re-running an export changes nothing, and the committed file
+is the playground's measured history across releases: the model calls, their tokens, their
+latency and their cost. Nothing in a row names a buyer, an order or a card.
+
+To merge an export taken by hand:
+
+```bash
+curl -H "Authorization: Bearer $BRIDGE_BEARER_TOKEN"   https://bridge.agentposhq.com/admin/usage-events.csv > rows.csv
+node scripts/impact-export.mjs rows.csv
+```
+
+Commit the file it changed. `docs/impact/usage-events.csv` stays as it is: it is the measured
+run behind `docs/COSTS.md`, not a running total.
+
 ## Verified locally
 
 The image's steps (frozen install, web build, entrypoint per service) run from a clean clone:

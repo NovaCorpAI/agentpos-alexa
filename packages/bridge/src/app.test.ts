@@ -4,6 +4,7 @@ import { createApp, TRACE_HEADER } from "./app.js";
 import { createLogger, memorySink } from "./logging.js";
 import { BRIDGE_VENDOR_KEY } from "./profile/serve.js";
 import { openStorage, type Storage } from "./storage/sqlite.js";
+import { USAGE_EVENTS_CSV_COLUMNS } from "./storage/usage-events.js";
 import { slugFromOrigin } from "./storage/store-registry.js";
 
 const bakeryProfile = {
@@ -64,6 +65,32 @@ describe("Bridge app", () => {
   it("generates a traceId when the caller sends none", async () => {
     const res = await app().request("/health");
     expect(res.headers.get(TRACE_HEADER)).toMatch(/[0-9a-f-]{36}/);
+  });
+
+  it("exports the measured rows to the operator only, so a redeploy does not lose them", async () => {
+    storage.usageEvents.record({
+      traceId: "trace-1",
+      source: "agent.catalog",
+      storeOrigin: "https://bakery.example",
+      model: "us.amazon.nova-2-lite-v1:0",
+      inputTokens: 120,
+      outputTokens: 30,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      latencyMs: 400,
+      estimatedCostUsdMicros: 11,
+      simulated: false,
+    });
+
+    expect((await app().request("/admin/usage-events.csv")).status).toBe(401);
+
+    const res = await app().request("/admin/usage-events.csv", { headers: { Authorization: "Bearer t" } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/csv");
+    expect(res.headers.get("X-Closed-Sessions")).toBe("0");
+    const csv = await res.text();
+    expect(csv.split("\r\n")[0]).toBe(USAGE_EVENTS_CSV_COLUMNS.join(","));
+    expect(csv).toContain("us.amazon.nova-2-lite-v1:0");
   });
 
   it("lists registered Stores without any secret material", async () => {

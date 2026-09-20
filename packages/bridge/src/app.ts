@@ -18,6 +18,7 @@ import { createStoreMcpServer } from "./mcp/server.js";
 import { buildServedProfile } from "./profile/serve.js";
 import { RailRegistry } from "./rails/rail.js";
 import type { Storage } from "./storage/sqlite.js";
+import { usageEventsToCsv } from "./storage/usage-export.js";
 import { BRIDGE_VERSION } from "./versions.js";
 
 export interface AppDeps {
@@ -95,6 +96,22 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails =
   app.get("/stats", (c) => {
     c.header("Cache-Control", "public, max-age=15");
     return c.json({ purchases: storage.checkout.countCompletedByOrigin(), stores: storage.stores.list().length });
+  });
+
+  /**
+   * The measured rows, for the operator only. The playground's disk is recreated on every
+   * redeploy (docs/DEPLOY.md), so a release pulls the rows out first and commits them under
+   * docs/impact/. Same bearer as MCP; nothing here names a buyer or an order.
+   */
+  app.get("/admin/usage-events.csv", async (c) => {
+    const auth = await gate(c.req.raw);
+    if (auth instanceof Response) return auth;
+    const since = c.req.query("since") ?? "";
+    const events = storage.usageEvents.list({ limit: 1_000_000 }).filter((e) => e.at >= since);
+    c.header("Content-Type", "text/csv; charset=utf-8");
+    c.header("Cache-Control", "no-store");
+    c.header("X-Closed-Sessions", String(storage.checkout.countByStatus("completed", since)));
+    return c.body(usageEventsToCsv(events));
   });
 
   app.get("/stores", (c) =>

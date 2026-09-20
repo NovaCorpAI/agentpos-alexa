@@ -17,6 +17,7 @@ import { BatchGetBuildsCommand, BatchGetProjectsCommand, CodeBuildClient, Create
 import { CreateRepositoryCommand, DescribeRepositoriesCommand, ECRClient } from "@aws-sdk/client-ecr";
 import { AttachRolePolicyCommand, CreateRoleCommand, GetRoleCommand, IAMClient, PutRolePolicyCommand } from "@aws-sdk/client-iam";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
+import { mergeUsageCsv } from "./impact-export.mjs";
 import { BedrockAgentCoreControlClient, ListMemoriesCommand } from "@aws-sdk/client-bedrock-agentcore-control";
 
 const root = resolve(import.meta.dirname, "..");
@@ -275,6 +276,22 @@ const storeUrl = await upsertService(storeName, (own) => ({ SERVICE: "fixture-st
 // PUBLIC_BRIDGE_URL is the name the Bridge publishes in profiles and checkout links (a
 // subdomain in front of the load balancer); its own endpoint is what the Simulator calls.
 const publicBridgeUrl = cfg("PUBLIC_BRIDGE_URL", "");
+// The Bridge's usage_events live on its task's disk, which the redeploy replaces: pull them
+// out first and merge them into the committed impact file, so the measured history of the
+// playground survives every release.
+const priorBridge = await describe(bridgeName);
+if (priorBridge && endpointOf(priorBridge)) {
+  try {
+    const res = await fetch(`${endpointOf(priorBridge)}/admin/usage-events.csv`, { headers: { Authorization: `Bearer ${bearer}` }, signal: AbortSignal.timeout(20_000) });
+    if (res.ok) {
+      const { added, total, path } = mergeUsageCsv(await res.text(), root);
+      log("usage events exported before redeploy", { added, total, file: path, closedSessions: Number(res.headers.get("X-Closed-Sessions") ?? 0) });
+    } else log("usage events export skipped", { status: res.status });
+  } catch (e) {
+    log("usage events export failed", { error: String(e).slice(0, 200) });
+  }
+}
+
 const bridgeUrl = await upsertService(bridgeName, (own) => ({ SERVICE: "bridge", AGENTPOS_STORE_URL: storeUrl, BRIDGE_BASE_URL: publicBridgeUrl || own, BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models }), "/health");
 // The waitlist lives on the Simulator task's disk: export it before a redeploy replaces the task.
 const priorSim = await describe(simulatorName);
