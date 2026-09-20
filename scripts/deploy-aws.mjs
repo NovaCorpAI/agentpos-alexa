@@ -18,6 +18,7 @@ import { CreateRepositoryCommand, DescribeRepositoriesCommand, ECRClient } from 
 import { AttachRolePolicyCommand, CreateRoleCommand, GetRoleCommand, IAMClient, PutRolePolicyCommand } from "@aws-sdk/client-iam";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { mergeUsageCsv } from "./impact-export.mjs";
+import { configuredDomains, syncDomainRules } from "./custom-domain.mjs";
 import { BedrockAgentCoreControlClient, ListMemoriesCommand } from "@aws-sdk/client-bedrock-agentcore-control";
 
 const root = resolve(import.meta.dirname, "..");
@@ -313,5 +314,13 @@ if (priorSim && envOf(priorSim).SIMULATOR_ADMIN_TOKEN && endpointOf(priorSim)) {
 }
 
 const simulatorUrl = await upsertService(simulatorName, () => ({ SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", SIMULATOR_ADMIN_TOKEN: adminToken, ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }), "/api/health");
+
+// Express Mode hands a service a new target group on every deployment, so the project's own
+// names have to be moved with it or they answer 503 as soon as the old tasks drain (FL-012).
+try {
+  for (const change of await syncDomainRules(configuredDomains())) log(change.msg, change);
+} catch (e) {
+  log("domain names not re-pointed", { error: String(e).slice(0, 200), hint: "node scripts/custom-domain.mjs --sync" });
+}
 
 log("deployed", { simulator: `${simulatorUrl}/`, merchantConsole: `${simulatorUrl}/#/merchant`, bridge: bridgeUrl, fixtureStore: storeUrl, image: `${imageUri}:${tag}` });

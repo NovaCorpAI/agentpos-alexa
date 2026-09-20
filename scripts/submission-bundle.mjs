@@ -60,7 +60,7 @@ cloning it. Nothing in this pack is written for the pack.
 04 costs                measured cost per closed checkout session, before and after caching
 05 usage events         the raw rows behind those numbers, 63 model and checkout calls
 06 usage events cached  the same measurement with Bedrock prompt caching on
-07 friction log         eleven obstacles with Amazon and AWS tooling, and what worked
+07 friction log         twelve obstacles with Amazon and AWS tooling, and what worked
 08 mcp design rules     the Alexa+ guidance we built against, quoted
 09 usage events schema  the table every model call is recorded in
 10 video shot list      what the demo video shows, with the system's own answers

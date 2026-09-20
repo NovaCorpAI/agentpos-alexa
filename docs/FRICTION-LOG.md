@@ -278,6 +278,34 @@ everything we used, not only what hurt.
 
 ---
 
+## FL-012
+
+- Date: 2026-09-20
+- Tool: Amazon ECS Express Mode with its generated Application Load Balancer.
+- What we tried: keep `alexa.agentposhq.com` and `bridge.agentposhq.com` answering across a
+  release. Both are host header rules on the listener Express Mode created, each forwarding
+  to the same target group as the service's generated `https://ag-<id>.ecs.us-east-1.on.aws`
+  name, which is the only way to put your own name in front of a service: Express Mode has no
+  custom domain of its own.
+- Expected: a name that survives a deployment, since the service and its endpoint do.
+- Actual: every deployment creates a new target group and moves the generated name's rule to
+  it. Our rule keeps pointing at the previous target group, which empties when the old
+  deployment drains, so the custom name answers `503 Service Temporarily Unavailable` while
+  the generated name answers 200. Nothing in the deployment output mentions it. Re-running the
+  setup script did not help either: the rule for the name exists, so it was left alone.
+- Severity: High (the public playground's own names go dark after each release)
+- Time lost: about 45 min, including finding that the generated name still worked.
+- Workaround: `scripts/custom-domain.mjs` now re-points an existing rule at whatever the
+  generated name points at, `infra/domains.json` holds the names, and `pnpm deploy:aws` runs
+  the sync after a release. `node scripts/custom-domain.mjs --sync` fixes it by hand.
+- Suggestion: let an Express Mode service carry its own custom domain names, or keep the
+  service's target group stable across deployments the way a classic ECS service does. Short
+  of that, say it in the docs: any listener rule an operator adds beside the generated one has
+  to be re-pointed on every deployment.
+- Link: scripts/custom-domain.mjs, infra/domains.json, docs/DEPLOY.md
+
+---
+
 ## Tools that worked
 
 No friction worth an entry, and worth saying so, since praise is feedback too.
