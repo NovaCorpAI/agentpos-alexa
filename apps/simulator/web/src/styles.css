@@ -328,15 +328,23 @@ a { color: var(--accent); text-decoration-color: rgba(111, 178, 210, 0.4); text-
 }
 
 .conversation {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   padding: 6px 30px 10px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   gap: 12px;
-  max-height: 34%;
-  overflow: hidden;
+  min-height: 90px;
+  max-height: 46%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+/* Bottom aligned while the conversation is short, scrollable from the top once it is not:
+   justify-content: flex-end would put the first lines out of reach of the scrollbar. */
+.conversation > *:first-child { margin-top: auto; }
+/* A decision on screen gets the room: the conversation keeps its last lines and its scroll. */
+.conversation.tight { max-height: 26%; }
+/* A card that is not the one being decided sits under it, and scrolls with the rest. */
+.viewport.under-checkout { padding-top: 0; }
 .bubble {
   max-width: 78%;
   padding: 12px 18px;

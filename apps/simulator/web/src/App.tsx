@@ -98,6 +98,7 @@ export function App() {
   const [brain, setBrain] = useState<BrainInfo | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [runningScene, setRunningScene] = useState<string | null>(null);
+  const conversationRef = useRef<HTMLDivElement>(null);
   const stopListen = useRef<(() => void) | null>(null);
   const busyRef = useRef(false);
   const speechRef = useRef<Promise<SpeechSource>>(Promise.resolve("none"));
@@ -120,6 +121,12 @@ export function App() {
       .then(({ scenes }) => setScenes(scenes))
       .catch(() => undefined);
   }, [lang]);
+
+  // New lines scroll into view; scrolling up by hand stays where the reader left it.
+  useEffect(() => {
+    const el = conversationRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [lines, busy]);
 
   const refreshInspection = useCallback(() => {
     api.inspection().then(setInspection).catch(() => undefined);
@@ -145,14 +152,22 @@ export function App() {
         speechRef.current = speak(turn.speak.join(" "), lang).finally(() => setSpeaking(false));
         void speechRef.current.then(setVoiceSource);
       }
-      setCheckout(turn.checkout ?? null);
+      setCheckout((prev) => {
+        if (turn.checkout) return turn.checkout;
+        // The assistant may be asking about a card opened two turns ago: keep it until it closes.
+        const open = prev && prev.session.status !== "completed" && prev.session.status !== "canceled";
+        return open ? prev : null;
+      });
       if (turn.view && mode !== "voice-only" && mode !== "hydrated") {
         const r = await api.resource(addon, turn.view.resourceUri);
         setView({ turnId: turn.turnId, submittedAt, html: r.html, toolName: turn.view.toolName, toolArguments: turn.view.arguments, result: turn.view.result, resourceUri: turn.view.resourceUri });
-      } else {
+      } else if (turn.view) {
+        // The other modes draw the same result themselves, from lastTurn.
         setView(null);
-        if (turn.view) void api.render(turn.turnId, { displayMode: mode, component: null });
+        void api.render(turn.turnId, { displayMode: mode, component: null });
       }
+      // A turn that brought no card leaves the last one where it is: a speaker with a screen
+      // does not blank it because the next answer was spoken, and the assistant may point at it.
       refreshInspection();
     },
     [addon, mode, voiceOut, lang, refreshInspection],
@@ -480,8 +495,8 @@ export function App() {
               </div>
               <span>{runningScene ? `${t("scene")}: ${scenes.find((s) => s.id === runningScene)?.title ?? runningScene}` : MODE_TEXT[uiLang][mode].short}</span>
             </div>
-            <div className="conversation">
-              {lines.slice(checkout ? -1 : -4).map((l, i) => (
+            <div className={`conversation ${checkout ? "tight" : ""}`} ref={conversationRef}>
+              {lines.map((l, i) => (
                 <div key={i} className={`bubble ${l.who}`}>
                   {l.text}
                 </div>
@@ -509,6 +524,22 @@ export function App() {
             {checkout && mode !== "voice-only" ? (
               <div className="viewport inline">
                 <Checkout state={checkout} busy={busy} onConfirm={(h, i) => void confirmCheckout(checkout, h, i)} onCancel={() => void cancelCheckout()} />
+              </div>
+            ) : null}
+            {mode !== "voice-only" && view && checkout ? (
+              <div className="viewport inline under-checkout">
+                <AppHost
+                  html={view.html}
+                  toolName={view.toolName}
+                  toolArguments={view.toolArguments}
+                  result={view.result}
+                  theme={theme}
+                  displayMode="inline"
+                  width={Math.min(frameSpec.width - 48, 900)}
+                  onMessage={(text) => void submit(text)}
+                  onRequestDisplayMode={(m) => setMode(m)}
+                  onInitialized={onViewInitialized}
+                />
               </div>
             ) : null}
             {mode !== "voice-only" && view && !checkout ? (
