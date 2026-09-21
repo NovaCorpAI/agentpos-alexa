@@ -119,7 +119,7 @@ export interface Scene {
 
 export const api = {
   addons: () => fetch("/api/addons").then((r) => json<{ addons: Addon[] }>(r)),
-  scenes: () => fetch("/api/scenes").then((r) => json<{ scenes: Scene[] }>(r)),
+  scenes: (language?: string) => fetch(`/api/scenes${language ? `?lang=${encodeURIComponent(language)}` : ""}`).then((r) => json<{ scenes: Scene[] }>(r)),
   brain: () => fetch("/api/brain").then((r) => json<BrainInfo>(r)),
   reset: (addon: string) => fetch("/api/reset", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ addon }) }).then((r) => json<unknown>(r)),
   turn: (addon: string, text: string, language: string, scene?: string) =>
@@ -152,7 +152,8 @@ export const merchantApi = {
 };
 
 export const checkoutApi = {
-  confirm: (sessionId: string, handlerId: string, instrumentId?: string, scene?: string) =>
-    fetch(`/api/checkout/${sessionId}/confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handlerId, instrumentId, scene }) }).then((r) => json<Turn>(r)),
-  cancel: (sessionId: string) => fetch(`/api/checkout/${sessionId}/cancel`, { method: "POST" }).then((r) => json<{ speak: string[] }>(r)),
+  confirm: (sessionId: string, handlerId: string, instrumentId?: string, scene?: string, language?: string) =>
+    fetch(`/api/checkout/${sessionId}/confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handlerId, instrumentId, scene, language }) }).then((r) => json<Turn>(r)),
+  cancel: (sessionId: string, language?: string) =>
+    fetch(`/api/checkout/${sessionId}/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ language }) }).then((r) => json<{ speak: string[] }>(r)),
 };

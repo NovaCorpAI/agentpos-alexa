@@ -18,14 +18,14 @@ interface ItemView {
   attributes: Record<string, unknown>;
 }
 
-function Facts({ attributes }: { attributes: Record<string, unknown> }) {
+function Facts({ attributes, t }: { attributes: Record<string, unknown>; t: (key: "allergens" | "ingredients" | "weight" | "pieces") => string }) {
   const rows: Array<[string, string]> = [];
   const allergens = attributes.allergens;
-  if (Array.isArray(allergens) && allergens.length) rows.push(["Allergens", allergens.map(String).join(", ")]);
+  if (Array.isArray(allergens) && allergens.length) rows.push([t("allergens"), allergens.map(String).join(", ")]);
   const ingredients = attributes.ingredients;
-  if (Array.isArray(ingredients) && ingredients.length) rows.push(["Ingredients", ingredients.map(String).join(", ")]);
-  if (typeof attributes.weightGrams === "number") rows.push(["Weight", `${attributes.weightGrams} g`]);
-  if (typeof attributes.pieces === "number") rows.push(["Pieces", String(attributes.pieces)]);
+  if (Array.isArray(ingredients) && ingredients.length) rows.push([t("ingredients"), ingredients.map(String).join(", ")]);
+  if (typeof attributes.weightGrams === "number") rows.push([t("weight"), `${attributes.weightGrams} g`]);
+  if (typeof attributes.pieces === "number") rows.push([t("pieces"), String(attributes.pieces)]);
   if (rows.length === 0) return null;
   return (
     <dl className="facts">
@@ -40,11 +40,11 @@ function Facts({ attributes }: { attributes: Record<string, unknown> }) {
 }
 
 function ItemCard() {
-  const { app, data, isError } = useToolResult<{ item: ItemView }>("item-card");
-  if (isError) return <p className="empty">That item is not in the catalog.</p>;
-  if (!data) return <p className="empty" aria-busy="true">Loading item</p>;
+  const { app, data, isError, t } = useToolResult<{ item: ItemView }>("item-card");
+  if (isError) return <p className="empty">{t("notInCatalog")}</p>;
+  if (!data) return <p className="empty" aria-busy="true">{t("loadingItem")}</p>;
   const it = data.item;
-  const buy = () => void app?.sendMessage({ role: "user", content: [{ type: "text", text: `I want to buy ${it.title}` }] });
+  const buy = () => void app?.sendMessage({ role: "user", content: [{ type: "text", text: t("wantToBuy", { title: it.title }) }] });
   const gf = it.attributes.glutenFree;
   return (
     <article className="item">
@@ -54,12 +54,14 @@ function ItemCard() {
         <p className="price">{it.price.display}</p>
         <p className="desc">{it.description}</p>
         <div className="badges">
-          {gf === true ? <span className="badge ok">Gluten free</span> : null}
-          {gf === false ? <span className="badge warn">Contains gluten</span> : null}
-          {it.physical ? <span className="badge">Delivered</span> : <span className="badge">Digital</span>}
+          {gf === true ? <span className="badge ok">{t("glutenFree")}</span> : null}
+          {gf === false ? <span className="badge warn">{t("containsGluten")}</span> : null}
+          {it.physical ? <span className="badge">{t("delivered")}</span> : <span className="badge">{t("digital")}</span>}
         </div>
-        <Facts attributes={it.attributes} />
-        <button className="cta" onClick={buy}>Buy this</button>
+        <Facts attributes={it.attributes} t={t} />
+        <button className="cta" onClick={buy}>
+          {t("buyThis")}
+        </button>
       </div>
     </article>
   );

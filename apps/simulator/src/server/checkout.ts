@@ -54,35 +54,43 @@ export interface CheckoutState {
   speak: string;
 }
 
-const KNOWN: Record<string, { label: string; kind: "network_token" | "stored" | "tokenizer" | "unsupported" }> = {
-  "com.agentposhq.processor_tokenizer": { label: "Card through the store's Stripe", kind: "tokenizer" },
-  "com.amazon.payments.network_token": { label: "Amazon wallet card", kind: "network_token" },
-  "com.amazon.payments.stored_payment_method": { label: "Saved card", kind: "stored" },
-  "org.x402.stellar": { label: "USDC wallet (x402)", kind: "unsupported" },
+const KNOWN: Record<string, { label: string; labelEs: string; kind: "network_token" | "stored" | "tokenizer" | "unsupported" }> = {
+  "com.agentposhq.processor_tokenizer": { label: "Card through the store's Stripe", labelEs: "Tarjeta por el Stripe de la tienda", kind: "tokenizer" },
+  "com.amazon.payments.network_token": { label: "Amazon wallet card", labelEs: "Tarjeta de la billetera de Amazon", kind: "network_token" },
+  "com.amazon.payments.stored_payment_method": { label: "Saved card", labelEs: "Tarjeta guardada", kind: "stored" },
+  "org.x402.stellar": { label: "USDC wallet (x402)", labelEs: "Billetera USDC (x402)", kind: "unsupported" },
 };
+
+/** Words the host owns around a payment method, in the household's language. */
+const PAY_WORDS = {
+  "en-US": { testCard: "test card 4242", ending: "ending", card: "card", notWired: "not wired in the simulator yet", noLive: "live processors are not available to the demo household" },
+  "es-CL": { testCard: "tarjeta de prueba 4242", ending: "terminada en", card: "tarjeta", notWired: "todavía no está conectada en el simulador", noLive: "los procesadores en vivo no están disponibles para el hogar de demostración" },
+} as const;
 
 export function dollars(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-function options(session: Session): PaymentOption[] {
+function options(session: Session, language: SpokenLanguage = "en-US"): PaymentOption[] {
   const out: PaymentOption[] = [];
+  const w = PAY_WORDS[language];
+  const nameOf = (k: (typeof KNOWN)[string]) => (language === "es-CL" ? k.labelEs : k.label);
   for (const [ns, list] of Object.entries(session.ucp.payment_handlers)) {
     const known = KNOWN[ns];
     for (const h of list) {
       const testMode = h.test_mode === true || h.config?.environment === "sandbox";
       if (!known || known.kind === "unsupported") {
-        out.push({ handlerId: h.id, namespace: ns, label: known?.label ?? ns, simulated: h.simulated === true, testMode, available: false, reason: "not wired in the simulator yet" });
+        out.push({ handlerId: h.id, namespace: ns, label: known ? nameOf(known) : ns, simulated: h.simulated === true, testMode, available: false, reason: w.notWired });
       } else if (known.kind === "tokenizer") {
         // The Demo household only has a processor test card; a live processor is not offered.
-        out.push({ handlerId: h.id, namespace: ns, label: `${known.label} (test card 4242)`, simulated: false, testMode, available: testMode, ...(testMode ? {} : { reason: "live processors are not available to the demo household" }) });
+        out.push({ handlerId: h.id, namespace: ns, label: `${nameOf(known)} (${w.testCard})`, simulated: false, testMode, available: testMode, ...(testMode ? {} : { reason: w.noLive }) });
       } else if (known.kind === "stored") {
         for (const inst of session.payment?.instruments.filter((i) => i.handler_id === h.id) ?? []) {
           const d = inst.display ?? {};
-          out.push({ handlerId: h.id, namespace: ns, label: `${known.label}: ${String(d.brand ?? "card")} ending ${String(d.last_digits ?? "")}`, simulated: h.simulated === true, testMode, instrumentId: inst.id, available: true });
+          out.push({ handlerId: h.id, namespace: ns, label: `${nameOf(known)}: ${String(d.brand ?? w.card)} ${w.ending} ${String(d.last_digits ?? "")}`, simulated: h.simulated === true, testMode, instrumentId: inst.id, available: true });
         }
       } else {
-        out.push({ handlerId: h.id, namespace: ns, label: known.label, simulated: h.simulated === true, testMode, available: true });
+        out.push({ handlerId: h.id, namespace: ns, label: nameOf(known), simulated: h.simulated === true, testMode, available: true });
       }
     }
   }
@@ -93,11 +101,18 @@ function total(session: Session): number {
   return session.totals.find((t) => t.type === "total")?.amount ?? 0;
 }
 
-function speakSession(session: Session, opts: PaymentOption[]): string {
+export type SpokenLanguage = "en-US" | "es-CL";
+
+function speakSession(session: Session, opts: PaymentOption[], language: SpokenLanguage): string {
   const lines = session.line_items.map((l) => `${l.quantity} ${l.item.title}`).join(", ");
+  const es = language === "es-CL";
   if (session.status === "ready_for_complete") {
     const first = opts.find((o) => o.available);
-    return `${lines}. Your total is ${dollars(total(session))} delivered to ${SYNTHETIC_PERSONA.destination.street_address}. ${first ? `Shall I pay with your ${first.label}${first.simulated ? ", simulated" : first.testMode ? ", in test mode" : ""}?` : "No payment method is available."}`;
+    const label = first ? `${first.label}${first.simulated ? (es ? ", simulada" : ", simulated") : first.testMode ? (es ? ", en modo prueba" : ", in test mode") : ""}` : "";
+    if (es) {
+      return `${lines}. Tu total es ${dollars(total(session))} con entrega en ${SYNTHETIC_PERSONA.destination.street_address}. ${first ? `¿Pago con tu ${label}?` : "No hay medio de pago disponible."}`;
+    }
+    return `${lines}. Your total is ${dollars(total(session))} delivered to ${SYNTHETIC_PERSONA.destination.street_address}. ${first ? `Shall I pay with your ${label}?` : "No payment method is available."}`;
   }
   const err = session.messages.find((m) => m.type === "error");
   return err ? `${lines}. ${err.content}` : `${lines}.`;
@@ -114,6 +129,7 @@ export interface DemoMandate {
 export interface ConfirmOptions {
   purchaseOrigin?: "own" | "third_party";
   mandate?: DemoMandate;
+  language?: SpokenLanguage;
 }
 
 export class CheckoutFlow {
@@ -126,8 +142,8 @@ export class CheckoutFlow {
   }
 
   /** Create, then update with the persona's address so the Store quotes it: one call for the host. */
-  async start(addon: string, lines: LineItemInput[], traceId: string): Promise<CheckoutState> {
-    const created = await this.client.create(addon, { line_items: lines.map((l) => ({ item: { id: l.itemId }, quantity: l.quantity })), buyer: SYNTHETIC_PERSONA.buyer, context: { language: "en-US", address_country: SYNTHETIC_PERSONA.destination.address_country } }, traceId, randomUUID());
+  async start(addon: string, lines: LineItemInput[], traceId: string, language: SpokenLanguage = "en-US"): Promise<CheckoutState> {
+    const created = await this.client.create(addon, { line_items: lines.map((l) => ({ item: { id: l.itemId }, quantity: l.quantity })), buyer: SYNTHETIC_PERSONA.buyer, context: { language, address_country: SYNTHETIC_PERSONA.destination.address_country } }, traceId, randomUUID());
     if (created.status !== 201) throw new Error(`checkout create answered ${created.status}: ${JSON.stringify(created.body).slice(0, 200)}`);
     let session = created.body as unknown as Session;
     const needsAddress = session.messages.some((m) => m.type === "error" && m.path?.startsWith("$.fulfillment"));
@@ -135,14 +151,14 @@ export class CheckoutFlow {
       const updated = await this.client.update(addon, session.id, {
         line_items: session.line_items.map((l) => ({ id: l.id, item: { id: l.item.id }, quantity: l.quantity })),
         buyer: SYNTHETIC_PERSONA.buyer,
-        context: { language: "en-US", address_country: SYNTHETIC_PERSONA.destination.address_country },
+        context: { language, address_country: SYNTHETIC_PERSONA.destination.address_country },
         fulfillment: { methods: [{ id: "shipping_1", type: "shipping", selected_destination_id: SYNTHETIC_PERSONA.destination.id, line_item_ids: session.line_items.map((l) => l.id), destinations: [SYNTHETIC_PERSONA.destination] }] },
       }, traceId, randomUUID());
       if (updated.status !== 200) throw new Error(`checkout update answered ${updated.status}`);
       session = updated.body as unknown as Session;
     }
-    const opts = options(session);
-    const state: CheckoutState = { sessionId: session.id, addon, session, options: opts, speak: speakSession(session, opts) };
+    const opts = options(session, language);
+    const state: CheckoutState = { sessionId: session.id, addon, session, options: opts, speak: speakSession(session, opts, language) };
     this.states.set(session.id, state);
     return state;
   }
@@ -153,11 +169,16 @@ export class CheckoutFlow {
     if (!state) throw new Error("unknown checkout session");
     const opt = state.options.find((o) => o.handlerId === handlerId && (instrumentId ? o.instrumentId === instrumentId : true) && o.available);
     if (!opt) throw new Error("that payment option is not available");
+    const es = how.language === "es-CL";
     if (how.mandate) {
       const refusal = !opt.simulated && !opt.testMode
-        ? "The demo household can only pay with simulated or test mode methods. Bring your own wallet to buy for real."
+        ? es
+          ? "El hogar de demostración solo puede pagar con métodos simulados o en modo prueba. Trae tu propia billetera para comprar de verdad."
+          : "The demo household can only pay with simulated or test mode methods. Bring your own wallet to buy for real."
         : total(state.session) > how.mandate.maxTotalCents
-          ? `That is above the demo household's limit of ${dollars(how.mandate.maxTotalCents)} per order. Try fewer items.`
+          ? es
+            ? `Eso pasa el límite del hogar de demostración, que es ${dollars(how.mandate.maxTotalCents)} por pedido. Prueba con menos productos.`
+            : `That is above the demo household's limit of ${dollars(how.mandate.maxTotalCents)} per order. Try fewer items.`
           : undefined;
       if (refusal) {
         const refused: CheckoutState = { ...state, speak: refusal };
@@ -184,25 +205,34 @@ export class CheckoutFlow {
     const done = await this.client.complete(state.addon, sessionId, { payment: { instruments: [instrument] } }, traceId, randomUUID(), how.purchaseOrigin);
     if (done.status !== 200) throw new Error(`checkout complete answered ${done.status}: ${JSON.stringify(done.body).slice(0, 200)}`);
     const session = done.body as unknown as Session;
-    const opts = options(session);
+    const opts = options(session, how.language ?? "en-US");
     let speak: string;
     if (session.status === "completed" && session.order) {
-      speak = `Order placed. ${opt.simulated ? "This was a simulated payment, no money moved. " : opt.testMode ? "The store charged its Stripe account in test mode, no real money moved. " : ""}Your order number is ${session.order.id}.`;
+      const how_paid = opt.simulated
+        ? es
+          ? "Fue un pago simulado, no se movió dinero. "
+          : "This was a simulated payment, no money moved. "
+        : opt.testMode
+          ? es
+            ? "La tienda cobró en su cuenta de Stripe en modo prueba, no se movió dinero real. "
+            : "The store charged its Stripe account in test mode, no real money moved. "
+          : "";
+      speak = es ? `Pedido hecho. ${how_paid}Tu número de pedido es ${session.order.id}.` : `Order placed. ${how_paid}Your order number is ${session.order.id}.`;
     } else {
       const err = session.messages.find((m) => m.type === "error");
-      speak = err ? err.content : "The payment did not go through.";
+      speak = err ? err.content : es ? "El pago no se pudo completar." : "The payment did not go through.";
     }
     const next: CheckoutState = { sessionId, addon: state.addon, session, options: opts, speak };
     this.states.set(sessionId, next);
     return next;
   }
 
-  async cancel(sessionId: string, traceId: string): Promise<CheckoutState> {
+  async cancel(sessionId: string, traceId: string, language: SpokenLanguage = "en-US"): Promise<CheckoutState> {
     const state = this.states.get(sessionId);
     if (!state) throw new Error("unknown checkout session");
     const res = await this.client.cancel(state.addon, sessionId, traceId, randomUUID());
     const session = res.status === 200 ? (res.body as unknown as Session) : state.session;
-    const next: CheckoutState = { ...state, session, speak: "Checkout canceled. Nothing was charged." };
+    const next: CheckoutState = { ...state, session, speak: language === "es-CL" ? "Checkout cancelado. No se cobró nada." : "Checkout canceled. Nothing was charged." };
     this.states.set(sessionId, next);
     return next;
   }

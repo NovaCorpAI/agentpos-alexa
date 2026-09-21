@@ -70,7 +70,7 @@ html, body {
 }
 .panel > * { position: relative; z-index: 1; }
 
-.brand { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; flex-wrap: wrap; }
 .brand .mark {
   font-family: var(--display);
   font-weight: 300;
@@ -79,11 +79,29 @@ html, body {
   line-height: 1;
 }
 .brand .mark b { font-weight: 300; color: var(--ember); }
+/* The language switch sits with the wordmark, because it changes everything below it. */
+.langswitch { margin-left: auto; display: flex; gap: 2px; padding: 2px; border: 1px solid var(--line-strong); border-radius: 999px; }
+.langswitch button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.langswitch button:hover { color: var(--panel-fg); }
+.langswitch button.on { background: var(--ember); color: #150c04; font-weight: 700; }
+
 .brand .for {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
+  white-space: nowrap;
   color: var(--muted);
 }
 

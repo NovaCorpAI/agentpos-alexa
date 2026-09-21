@@ -104,6 +104,7 @@ const GetItemInput = z.object({
 
 const AskCatalogInput = z.object({
   question: z.string().min(1).max(300).describe("The customer's question as they said it, e.g. 'Is the seeded loaf gluten free?'"),
+  language: z.enum(["en-US", "es-CL"]).optional().describe("The language the customer is speaking, so the answer comes back in it. Defaults to en-US."),
 });
 
 const OrderInput = z.object({
@@ -171,13 +172,13 @@ export function createStoreMcpServer(deps: StoreMcpDeps): McpServer {
     },
     async (input) =>
       timed("ask_catalog", async () => {
-        const { question } = AskCatalogInput.parse(input);
+        const { question, language } = AskCatalogInput.parse(input);
         const catalog = await client.catalog();
         const overlay = deps.onboarding ? deps.onboarding.overlayFor(store.slug, catalog.items).overlay : [];
         const started = performance.now();
         const a = await catalogAgent.answer({
           question,
-          language: "en-US",
+          language: language ?? "en-US",
           storeName: catalog.site.name,
           items: catalog.items.map((it) => ({ id: it.id, title: it.title, description: it.description, priceDisplay: speakPrice(it.price.minor, it.price.asset), attributes: it.attributes ?? {} })),
           overlay,

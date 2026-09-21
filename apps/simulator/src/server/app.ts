@@ -10,9 +10,9 @@ import type { CheckoutFlow, CheckoutState } from "./checkout.js";
 import { inspectTurn, type InspectionLog, type RenderTiming } from "./inspection.js";
 import type { HouseholdMemory } from "./memory.js";
 import { TurnLimiter, type TurnLimits } from "./rate-limit.js";
-import type { DemoMandate } from "./checkout.js";
+import type { DemoMandate, SpokenLanguage } from "./checkout.js";
 import { parseWaitlist, type SqliteWaitlist } from "./waitlist.js";
-import { SCENES } from "./scenes.js";
+import { scenesFor } from "./scenes.js";
 import type { PollySpeech, SpeechLanguage } from "./speech.js";
 
 export const SIMULATOR_VERSION = "0.0.1";
@@ -160,7 +160,13 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
       // Say what actually failed: a model rate limit is not the store being down.
       const throttled = /too many requests|throttl|rate exceeded/i.test(String(e));
       c.status(throttled ? 429 : 502);
-      const speak = throttled ? "I am getting too many requests right now. Please ask again in a few seconds." : "I could not reach the store right now.";
+      const speak = throttled
+        ? language === "es-CL"
+          ? "Estoy recibiendo demasiadas consultas ahora mismo. Pregúntame de nuevo en unos segundos."
+          : "I am getting too many requests right now. Please ask again in a few seconds."
+        : language === "es-CL"
+          ? "No pude alcanzar la tienda en este momento."
+          : "I could not reach the store right now.";
       return c.json({ turnId, traceId, brain: deps.brain.kind, speak: [speak], toolCalls: [], view: null, checkout: null, error: String(e) });
     }
     learn(addon, brainTurn.toolCalls);
@@ -172,10 +178,10 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     if (started && sc?.checkout) {
       // The host's checkout pattern: open the session right away and read back the quote.
       try {
-        checkout = await deps.checkout.start(addon, sc.checkout.lineItems, traceId);
+        checkout = await deps.checkout.start(addon, sc.checkout.lineItems, traceId, language);
         speak.push(checkout.speak);
       } catch (e) {
-        speak.push(`I could not open the checkout: ${(e as Error).message}`);
+        speak.push(language === "es-CL" ? `No pude abrir el checkout: ${(e as Error).message}` : `I could not open the checkout: ${(e as Error).message}`);
       }
     }
     deps.inspection.add(inspectTurn(turnId, addon, body.text, brainTurn.brain, brainTurn.toolCalls, body.scene));
@@ -186,14 +192,15 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
 
   /** Confirm a checkout with a payment option; on success the order card follows. */
   app.post("/api/checkout/:id/confirm", async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { handlerId?: string; instrumentId?: string; scene?: string };
+    const body = (await c.req.json().catch(() => ({}))) as { handlerId?: string; instrumentId?: string; scene?: string; language?: string };
+    const language: SpokenLanguage = body.language === "es-CL" ? "es-CL" : "en-US";
     if (!body.handlerId) return c.json({ code: "BAD_CONFIRM", message: "handlerId is required", hint: "" }, 400);
     const turnId = `turn_${randomUUID()}`;
     const traceId = `sim-${turnId.slice(5, 13)}`;
     try {
       // A Scene is our demo; anything else on the public playground is a visitor buying.
       const purchaseOrigin = deps.playground && !body.scene ? "third_party" : "own";
-      const state = await deps.checkout.confirm(c.req.param("id"), body.handlerId, body.instrumentId, traceId, { purchaseOrigin, ...(deps.playground ? { mandate: deps.playground.mandate } : {}) });
+      const state = await deps.checkout.confirm(c.req.param("id"), body.handlerId, body.instrumentId, traceId, { purchaseOrigin, language, ...(deps.playground ? { mandate: deps.playground.mandate } : {}) });
       const calls: ToolCallRecord[] = [];
       const speak = [state.speak];
       let view: TurnView | null = null;
@@ -222,8 +229,9 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
 
   app.post("/api/checkout/:id/cancel", async (c) => {
     const traceId = `sim-${randomUUID().slice(0, 8)}`;
+    const cancelBody = (await c.req.json().catch(() => ({}))) as { language?: string };
     try {
-      const state = await deps.checkout.cancel(c.req.param("id"), traceId);
+      const state = await deps.checkout.cancel(c.req.param("id"), traceId, cancelBody.language === "es-CL" ? "es-CL" : "en-US");
       return c.json({ speak: [state.speak], checkout: null });
     } catch (e) {
       return c.json({ code: "CHECKOUT_FAILED", message: String(e), hint: "" }, 502);
@@ -251,7 +259,8 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
 
   app.get("/api/inspection", (c) => c.json(deps.inspection.summary()));
 
-  app.get("/api/scenes", (c) => c.json({ scenes: SCENES }));
+  // The Scenes as a household in that language would play them (the words a Scene says, too).
+  app.get("/api/scenes", (c) => c.json({ scenes: scenesFor(c.req.query("lang") === "es-CL" ? "es-CL" : "en-US") }));
 
   // Playground counters: purchases by visitors (from the Bridge) and the waitlist size. Totals only.
   app.get("/api/stats", async (c) => {

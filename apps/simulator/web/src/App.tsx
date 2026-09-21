@@ -10,32 +10,22 @@ import { api, checkoutApi, merchantApi, type Addon, type BrainInfo, type Checkou
 import { AppHost, type DisplayMode } from "./AppHost";
 import { Checkout } from "./Checkout";
 import { listenOnce, recognitionAvailable, speak, type SpeechSource } from "./speech";
+import { MODE_TEXT, MODES, turnLangOf, useLang, useT, type ViewMode } from "./i18n";
 
-type Mode = "inline" | "fullscreen" | "voice-only" | "hydrated";
+type Mode = ViewMode;
 type Frame = "show8" | "show5";
 type Theme = "light" | "dark";
-type Lang = "en-US" | "es-CL";
 
 const FRAMES: Record<Frame, { label: string; width: number; height: number }> = {
   show8: { label: "Echo Show 8", width: 1280, height: 800 },
   show5: { label: "Echo Show 5", width: 960, height: 480 },
 };
 
-/** The display modes Alexa+ can ask a view for, named the way a person would describe them. */
-const MODE_LABELS: Record<Mode, string> = {
-  inline: "A card under the answer",
-  fullscreen: "The whole screen",
-  "voice-only": "Voice only",
-  hydrated: "The raw data too",
+/** What a household might try, in each language. The Store answers in the same words either way. */
+const SUGGESTIONS: Record<"en" | "es", string[]> = {
+  en: ["What bread do you have?", "Tell me about the gluten-free seeded loaf", "Do you deliver?", "Buy two sourdough loaf", "Show my order", "Show me the receipt", "The same as last week"],
+  es: ["¿Qué pan tienes?", "Cuéntame del pan de semillas sin gluten", "¿Hacen delivery?", "Compra dos panes de masa madre", "Muéstrame mi pedido", "Muéstrame la boleta", "Lo mismo de la semana pasada"],
 };
-const MODE_HELP: Record<Mode, string> = {
-  inline: "What an Echo Show does while the conversation continues around the card.",
-  fullscreen: "The view takes the screen, the way a recipe or a map would.",
-  "voice-only": "No screen at all, like an Echo speaker. The answer has to stand on its own.",
-  hydrated: "The card, and underneath it the data the store returned, for a host that renders its own.",
-};
-
-const SUGGESTIONS = ["What bread do you have?", "Tell me about the gluten-free seeded loaf", "Do you deliver?", "Buy two sourdough loaf", "Show my order", "Show me the receipt", "The same as last week"];
 
 interface Line {
   who: "household" | "alexa";
@@ -91,7 +81,9 @@ export function App() {
   const [mode, setMode] = useState<Mode>("inline");
   const [frame, setFrame] = useState<Frame>("show8");
   const [theme, setTheme] = useState<Theme>("dark");
-  const [lang, setLang] = useState<Lang>("en-US");
+  const [uiLang, setUiLang] = useLang();
+  const t = useT();
+  const lang = turnLangOf(uiLang);
   const [voiceOut, setVoiceOut] = useState(true);
   const [voiceSource, setVoiceSource] = useState<SpeechSource>("none");
   const [speaking, setSpeaking] = useState(false);
@@ -119,8 +111,15 @@ export function App() {
       })
       .catch((e: Error) => setError(e.message));
     api.brain().then(setBrain).catch(() => undefined);
-    api.scenes().then(({ scenes }) => setScenes(scenes)).catch(() => undefined);
   }, []);
+
+  // The Scenes speak the language on screen, so switching it reloads their phrases.
+  useEffect(() => {
+    api
+      .scenes(lang)
+      .then(({ scenes }) => setScenes(scenes))
+      .catch(() => undefined);
+  }, [lang]);
 
   const refreshInspection = useCallback(() => {
     api.inspection().then(setInspection).catch(() => undefined);
@@ -171,13 +170,13 @@ export function App() {
         await applyTurn(turn, submittedAt);
         return turn;
       } catch (e) {
-        setLines((l) => [...l, { who: "alexa", text: `Something went wrong: ${(e as Error).message}` }]);
+        setLines((l) => [...l, { who: "alexa", text: t("wentWrong", { message: (e as Error).message }) }]);
         return null;
       } finally {
         setBusyBoth(false);
       }
     },
-    [addon, lang, applyTurn],
+    [addon, lang, applyTurn, t],
   );
 
   const confirmCheckout = useCallback(
@@ -186,7 +185,7 @@ export function App() {
       setBusyBoth(true);
       const submittedAt = performance.now();
       try {
-        const turn = await checkoutApi.confirm(state.sessionId, handlerId, instrumentId, scene);
+        const turn = await checkoutApi.confirm(state.sessionId, handlerId, instrumentId, scene, lang);
         await applyTurn(turn, submittedAt);
         return turn;
       } catch (e) {
@@ -196,13 +195,13 @@ export function App() {
         setBusyBoth(false);
       }
     },
-    [applyTurn],
+    [applyTurn, lang],
   );
 
   const cancelCheckout = useCallback(async () => {
     if (!checkout) return;
     try {
-      const r = await checkoutApi.cancel(checkout.sessionId);
+      const r = await checkoutApi.cancel(checkout.sessionId, lang);
       for (const s of r.speak) setLines((l) => [...l, { who: "alexa", text: s }]);
     } finally {
       setCheckout(null);
@@ -315,35 +314,39 @@ export function App() {
             Agent<b>POS</b>
           </span>
           <span className="for">for Alexa+</span>
+          <div className="langswitch" role="group" aria-label="Language">
+            <button className={uiLang === "en" ? "on" : ""} onClick={() => setUiLang("en")} lang="en">
+              EN
+            </button>
+            <button className={uiLang === "es" ? "on" : ""} onClick={() => setUiLang("es")} lang="es">
+              ES
+            </button>
+          </div>
         </div>
-        <p className="lede">
-          An Echo Show, simulated. Talk to the store on the right: it answers out loud, puts a card on the screen, and takes the payment without leaving the conversation.
-        </p>
+        <p className="lede">{t("lede")}</p>
         {error ? <p className="error">{error}</p> : null}
 
-        <label>The store on screen</label>
-        <select value={addon} onChange={(e) => setAddon(e.target.value)} aria-label="The store on screen">
+        <label>{t("storeOnScreen")}</label>
+        <select value={addon} onChange={(e) => setAddon(e.target.value)} aria-label={t("storeOnScreen")}>
           {addons.map((a) => (
             <option key={a.slug} value={a.slug}>
               {a.name}
             </option>
           ))}
         </select>
-        <p className="muted small">
-          A real store, reached the way Alexa+ would reach it. Ask it anything in the box under the screen, or press the mic and speak.
-        </p>
+        <p className="muted small">{t("storeHelp")}</p>
 
-        <label>Ask it something</label>
+        <label>{t("askSomething")}</label>
         <div className="chips">
-          {SUGGESTIONS.map((t) => (
-            <button key={t} onClick={() => void submit(t)} disabled={busy || !addon || Boolean(runningScene)}>
-              {t}
+          {SUGGESTIONS[uiLang].map((phrase) => (
+            <button key={phrase} onClick={() => void submit(phrase)} disabled={busy || !addon || Boolean(runningScene)}>
+              {phrase}
             </button>
           ))}
         </div>
 
-        <label>Or watch a whole scene</label>
-        <p className="muted small">Each one runs a real conversation against that store and marks its own checks.</p>
+        <label>{t("watchScene")}</label>
+        <p className="muted small">{t("sceneHelp")}</p>
         <div className="scenes">
           {scenes.map((s) => {
             const turns = sceneTurns(s.id);
@@ -351,14 +354,14 @@ export function App() {
             return (
               <div key={s.id} className="scene">
                 <button onClick={() => void runScene(s)} disabled={Boolean(s.pending) || Boolean(runningScene) || busy || !addon} title={s.proves}>
-                  {runningScene === s.id ? "Running" : "Run"}
+                  {runningScene === s.id ? t("sceneRunning") : t("sceneRun")}
                 </button>
                 <div>
                   <div>{s.title}</div>
-                  <div className="muted small">{s.pending ? `pending: ${s.pending}` : s.proves}</div>
+                  <div className="muted small">{s.pending ? `${t("scenePending")}: ${s.pending}` : s.proves}</div>
                   {turns.length ? (
                     <div className="small">
-                      {turns.length} turns, <span className={failed ? "bad" : "good"}>{failed} failed checks</span>
+                      {turns.length} {t("sceneTurns")}, <span className={failed ? "bad" : "good"}>{failed} {t("sceneFailed")}</span>
                     </div>
                   ) : null}
                 </div>
@@ -368,25 +371,26 @@ export function App() {
         </div>
 
         <p className="muted small">
-          <a href="#/merchant">Put a store on Alexa+ yourself</a>, in the Merchant console. It is Scene 5, done by hand.
+          <a href="#/merchant">{t("merchantLink")}</a>
+          {t("merchantLinkRest")}
         </p>
 
         <Playground />
 
         <details className="drawer">
-          <summary>Screen, voice and device</summary>
+          <summary>{t("drawerScreen")}</summary>
 
-          <label>What the screen does with an answer</label>
+          <label>{t("screenDoes")}</label>
           <div className="seg">
-            {(["inline", "fullscreen", "voice-only", "hydrated"] as Mode[]).map((m) => (
+            {MODES.map((m) => (
               <button key={m} className={mode === m ? "on" : ""} onClick={() => setMode(m)}>
-                {MODE_LABELS[m]}
+                {MODE_TEXT[uiLang][m].label}
               </button>
             ))}
           </div>
-          <p className="muted small">{MODE_HELP[mode]}</p>
+          <p className="muted small">{MODE_TEXT[uiLang][mode].help}</p>
 
-          <label>Device</label>
+          <label>{t("device")}</label>
           <div className="seg">
             {(Object.keys(FRAMES) as Frame[]).map((f) => (
               <button key={f} className={frame === f ? "on" : ""} onClick={() => setFrame(f)}>
@@ -395,50 +399,43 @@ export function App() {
             ))}
           </div>
 
-          <label>Look</label>
+          <label>{t("look")}</label>
           <div className="seg">
-            <button className={theme === "dark" ? "on" : ""} onClick={() => setTheme("dark")}>Dark room</button>
-            <button className={theme === "light" ? "on" : ""} onClick={() => setTheme("light")}>Daylight</button>
+            <button className={theme === "dark" ? "on" : ""} onClick={() => setTheme("dark")}>{t("dark")}</button>
+            <button className={theme === "light" ? "on" : ""} onClick={() => setTheme("light")}>{t("light")}</button>
           </div>
 
-          <label>Language and voice</label>
+          <label>{t("languageAndVoice")}</label>
           <div className="seg">
-            <button className={lang === "en-US" ? "on" : ""} onClick={() => setLang("en-US")}>English</button>
-            <button className={lang === "es-CL" ? "on" : ""} onClick={() => setLang("es-CL")}>Español</button>
-            <button className={voiceOut ? "on" : ""} onClick={() => setVoiceOut((v) => !v)}>{voiceOut ? "Speaking" : "Muted"}</button>
+            <button className={uiLang === "en" ? "on" : ""} onClick={() => setUiLang("en")}>English</button>
+            <button className={uiLang === "es" ? "on" : ""} onClick={() => setUiLang("es")}>Español</button>
+            <button className={voiceOut ? "on" : ""} onClick={() => setVoiceOut((v) => !v)}>{voiceOut ? t("speaking") : t("muted")}</button>
           </div>
-          <p className="muted small">
-            {voiceOut
-              ? voiceSource === "polly"
-                ? "Amazon Polly is speaking the answers."
-                : voiceSource === "browser"
-                  ? "Your browser is speaking the answers: Polly is not reachable from here."
-                  : "The next answer will be spoken."
-              : "Answers are written, not spoken."}
-          </p>
+          <p className="muted small">{voiceOut ? (voiceSource === "polly" ? t("voicePolly") : voiceSource === "browser" ? t("voiceBrowser") : t("voiceNext")) : t("voiceOff")}</p>
         </details>
 
         <details className="drawer">
-          <summary>Under the hood</summary>
+          <summary>{t("drawerHood")}</summary>
 
           <p className="muted small">
-            Answers come from{" "}
-            <b>{brain?.kind === "agent" ? `a Household agent on Amazon Bedrock (${brain.modelId ?? "model"}, ${brain.region ?? "region"})` : brain?.kind === "recorded" ? "recorded responses, no model" : "a scripted router, no model"}</b>
-            {brain?.degraded ? <span> {brain.degraded}</span> : null}. It reaches the store the way Alexa+ would: MCP for the catalogue, UCP checkout sessions for the payment.
+            {t("hoodAnswers")}{" "}
+            <b>{brain?.kind === "agent" ? `${t("hoodAgent")} (${brain.modelId ?? "model"}, ${brain.region ?? "region"})` : brain?.kind === "recorded" ? t("hoodRecorded") : t("hoodScripted")}</b>
+            {brain?.degraded ? <span> {brain.degraded}</span> : null}
+            {t("hoodRest")}
           </p>
           {current ? (
             <p className="muted small">
-              MCP endpoint {current.mcp}
+              {t("hoodEndpoint")} {current.mcp}
               <br />
-              payment handlers {current.paymentHandlers.join(", ") || "none"}
+              {t("hoodHandlers")} {current.paymentHandlers.join(", ") || t("hoodNone")}
             </p>
           ) : null}
 
-          <label>What each turn did</label>
+          <label>{t("eachTurn")}</label>
           {inspection ? (
           <div className="inspection">
             <div>
-              turns {inspection.totals.turns}, tool calls {inspection.totals.toolCalls}, failed checks <b className={inspection.totals.failedChecks ? "bad" : "good"}>{inspection.totals.failedChecks}</b>
+              {t("turnsTotals", { turns: inspection.totals.turns, calls: inspection.totals.toolCalls })} <b className={inspection.totals.failedChecks ? "bad" : "good"}>{inspection.totals.failedChecks}</b>
             </div>
             {inspection.turns.slice(-3).reverse().map((t) => (
               <div key={t.turnId} className="turn">
@@ -466,7 +463,7 @@ export function App() {
             </a>
           </div>
           ) : (
-            <p className="muted small">Nothing said yet. Ask the store something and this fills in.</p>
+            <p className="muted small">{t("turnsNone")}</p>
           )}
         </details>
       </aside>
@@ -475,13 +472,13 @@ export function App() {
         <div className="device" style={{ width: frameSpec.width * scale, height: frameSpec.height * scale }}>
           <div className={`screen mode-${mode}`} style={{ width: frameSpec.width, height: frameSpec.height, transform: `scale(${scale})` }}>
             <div className="statusbar">
-              <span>{current?.name ?? "No add-on"}</span>
+              <span>{current?.name ?? t("noAddon")}</span>
               <div className={`wave ${speaking ? "on" : ""}`} aria-hidden="true">
                 {[0, 1, 2, 3, 4, 5, 6].map((i) => (
                   <span key={i} />
                 ))}
               </div>
-              <span>{runningScene ? `Scene: ${scenes.find((s) => s.id === runningScene)?.title ?? runningScene}` : mode}</span>
+              <span>{runningScene ? `${t("scene")}: ${scenes.find((s) => s.id === runningScene)?.title ?? runningScene}` : MODE_TEXT[uiLang][mode].short}</span>
             </div>
             <div className="conversation">
               {lines.slice(checkout ? -1 : -4).map((l, i) => (
@@ -498,15 +495,15 @@ export function App() {
                     <span key={i} />
                   ))}
                 </div>
-                <p className="idle-title">Ask the store, out loud</p>
+                <p className="idle-title">{t("idleTitle")}</p>
                 <div className="idle-prompts">
-                  {SUGGESTIONS.slice(0, 3).map((t) => (
-                    <button key={t} onClick={() => void submit(t)} disabled={busy || !addon || Boolean(runningScene)}>
-                      {t}
+                  {SUGGESTIONS[uiLang].slice(0, 3).map((phrase) => (
+                    <button key={phrase} onClick={() => void submit(phrase)} disabled={busy || !addon || Boolean(runningScene)}>
+                      {phrase}
                     </button>
                   ))}
                 </div>
-                <p className="idle-hint">{recognitionAvailable() ? "or press the mic and speak" : "type it in the box below"}</p>
+                <p className="idle-hint">{recognitionAvailable() ? t("idleHintMic") : t("idleHintType")}</p>
               </div>
             ) : null}
             {checkout && mode !== "voice-only" ? (
@@ -536,12 +533,12 @@ export function App() {
               </div>
             ) : null}
             <div className="inputbar">
-              <button className={`mic ${listening ? "on" : ""}`} onClick={toggleListen} disabled={!recognitionAvailable() || busy} title={recognitionAvailable() ? "Speak" : "Speech recognition not available in this browser"}>
-                {listening ? "listening" : "mic"}
+              <button className={`mic ${listening ? "on" : ""}`} onClick={toggleListen} disabled={!recognitionAvailable() || busy} title={recognitionAvailable() ? t("micSpeak") : t("micUnavailable")}>
+                {listening ? t("listening") : t("mic")}
               </button>
               <input
                 value={input}
-                placeholder={`Alexa, ask ${current?.name ?? "the store"}...`}
+                placeholder={t("askPlaceholder", { store: current?.name ?? "" })}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void submit(input);
@@ -549,7 +546,7 @@ export function App() {
                 disabled={busy || !addon}
               />
               <button onClick={() => void submit(input)} disabled={busy || !addon || !input.trim()}>
-                Send
+                {t("send")}
               </button>
             </div>
           </div>

@@ -6,18 +6,20 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { merchantApi, type OnboardingState, type OverlayLine, type Policies } from "./api";
+import { turnLangOf, useLang, useT } from "./i18n";
 
-const STAGES: Array<[keyof OnboardingState["stages"], string]> = [
-  ["scan", "Scan"],
-  ["catalog_draft", "Catalog draft"],
-  ["policies_draft", "Policies draft"],
-  ["human_confirm", "Human confirm"],
-  ["published", "Published"],
-  ["first_voice_purchase", "First voice purchase"],
+/** The stages of the run, in order, each with the key the dictionary translates. */
+const STAGES: Array<[keyof OnboardingState["stages"], "stageScan" | "stageCatalog" | "stagePolicies" | "stageConfirm" | "stagePublished" | "stageFirstPurchase"]> = [
+  ["scan", "stageScan"],
+  ["catalog_draft", "stageCatalog"],
+  ["policies_draft", "stagePolicies"],
+  ["human_confirm", "stageConfirm"],
+  ["published", "stagePublished"],
+  ["first_voice_purchase", "stageFirstPurchase"],
 ];
 
-function fmt(ms: number | null): string {
-  if (ms === null) return "not yet";
+function fmt(ms: number | null, notYet: string): string {
+  if (ms === null) return notYet;
   const s = Math.round(ms / 1000);
   return s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`;
 }
@@ -27,8 +29,10 @@ function clock(iso: string | undefined): string {
 }
 
 export function Merchant() {
+  const t = useT();
+  const [uiLang, setUiLang] = useLang();
+  const language = turnLangOf(uiLang);
   const [storeUrl, setStoreUrl] = useState("");
-  const [language, setLanguage] = useState("en-US");
   const [state, setState] = useState<OnboardingState | null>(null);
   const [overlay, setOverlay] = useState<OverlayLine[]>([]);
   const [policies, setPolicies] = useState<Policies>({ voiceIntro: "", deliveryNote: "", reviewNote: "" });
@@ -104,69 +108,74 @@ export function Merchant() {
           <span className="mark">
             Agent<b>POS</b>
           </span>
-          <span className="for">merchant console</span>
+          <span className="for">{t("merchantEyebrow")}</span>
+          <div className="langswitch" role="group" aria-label="Language">
+            <button className={uiLang === "en" ? "on" : ""} onClick={() => setUiLang("en")} lang="en">
+              EN
+            </button>
+            <button className={uiLang === "es" ? "on" : ""} onClick={() => setUiLang("es")} lang="es">
+              ES
+            </button>
+          </div>
         </div>
-        <h1>Put a store on Alexa+</h1>
+        <h1>{t("merchantTitle")}</h1>
         <p className="muted">
-          Four steps, about a minute. An agent reads what the store already publishes and drafts how it should sound out loud; you read every line and decide what goes live. <a href="#/">Back to the simulator</a>
+          {t("merchantLede")} <a href="#/">{t("backToSimulator")}</a>
         </p>
       </header>
 
       <section className="card step" data-step="1">
-        <h2>Point at the store</h2>
-        <p className="muted small">Its own address, the one customers use. The agent only reads what the store publishes, and never writes anything back to it.</p>
+        <h2>{t("step1")}</h2>
+        <p className="muted small">{t("step1Help")}</p>
         <div className="row">
-          <input value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} placeholder="https://your-store.example" aria-label="Store address" />
-          <select value={language} onChange={(e) => setLanguage(e.target.value)} aria-label="Language">
-            <option value="en-US">English (US)</option>
-            <option value="es-CL">Español (Chile)</option>
-          </select>
+          <input value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} placeholder="https://tu-tienda.ejemplo" aria-label={t("storeAddress")} />
           <button className="primary" onClick={() => void scan()} disabled={busy !== null || !storeUrl.trim()}>
-            {busy === "scan" ? "Reading the store" : "Read it and draft"}
+            {busy === "scan" ? t("reading") : t("readAndDraft")}
           </button>
         </div>
-        {busy === "scan" ? <p className="muted small">Reading the catalogue, then writing a spoken name, a one sentence summary and the words a household might use for each item.</p> : null}
+        {busy === "scan" ? <p className="muted small">{t("readingHelp")}</p> : null}
         {error ? <p className="error">{error}</p> : null}
       </section>
 
       {state ? (
         <section className="card step" data-step="2">
-          <h2>{fromEarlier && !state.stages.scan ? "A draft left here earlier" : "What the agent did, timed"}</h2>
+          <h2>{fromEarlier && !state.stages.scan ? t("step2Earlier") : t("step2")}</h2>
           <p className="muted small">
-            {state.origin} <span className={`pill ${state.status === "published" ? "ok" : ""}`}>{state.status === "published" ? "published" : "draft, not live"}</span>{" "}
-            {state.modelUsed ? "Drafted by the strong model on Amazon Bedrock." : "Drafted by the deterministic drafter, with no model."}
-            {fromEarlier ? " Nobody ran it in this session: read the store again to watch each stage take its time." : ""}
+            {state.origin} <span className={`pill ${state.status === "published" ? "ok" : ""}`}>{state.status === "published" ? t("published") : t("draftNotLive")}</span>{" "}
+            {state.modelUsed ? t("draftedByModel") : t("draftedByRules")}
+            {fromEarlier ? t("draftEarlierNote") : ""}
           </p>
           <ol className="stages">
             {STAGES.map(([key, label]) => (
               <li key={key} className={state.stages[key] ? "done" : ""}>
-                <span>{label}</span>
+                <span>{t(label)}</span>
                 <span className="muted small">{clock(state.stages[key])}</span>
               </li>
             ))}
           </ol>
           <p className="timer">
-            URL to published: <b>{fmt(state.elapsedMs.scanToPublished)}</b>. URL to first voice purchase: <b>{fmt(state.elapsedMs.scanToFirstVoicePurchase)}</b>.
-            <span className="muted small"> Computed from usage_events stage rows.</span>
+            {t("urlToPublished")} <b>{fmt(state.elapsedMs.scanToPublished, t("notYet"))}</b>. {t("urlToFirstPurchase")} <b>{fmt(state.elapsedMs.scanToFirstVoicePurchase, t("notYet"))}</b>.
+            <span className="muted small"> {t("fromUsageEvents")}</span>
           </p>
-          {state.stale.length ? <p className="error">Changed in the Store since publication, served in the Store's own words until you confirm again: {state.stale.join(", ")}</p> : null}
+          {state.stale.length ? (
+            <p className="error">
+              {t("staleWarning")} {state.stale.join(", ")}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
       {state && overlay.length ? (
         <section className="card step" data-step="3">
-          <h2>Read every line before anyone hears it</h2>
-          <p className="muted small">
-            The spoken name is what the speaker says instead of the catalogue title. The summary is the one sentence a customer hears when they ask about the item. The synonyms are the words a household
-            might actually use for it. Change anything here: this is the draft, not the store.
-          </p>
+          <h2>{t("step3")}</h2>
+          <p className="muted small">{t("step3Help")}</p>
           <table>
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Spoken name</th>
-                <th>Summary</th>
-                <th>Synonyms</th>
+                <th>{t("colItem")}</th>
+                <th>{t("colSpokenName")}</th>
+                <th>{t("colSummary")}</th>
+                <th>{t("colSynonyms")}</th>
               </tr>
             </thead>
             <tbody>
@@ -186,32 +195,33 @@ export function Merchant() {
               ))}
             </tbody>
           </table>
-          <h2>What the store says about itself</h2>
-          <p className="muted small">Three sentences the assistant may repeat: how the store introduces itself, how it delivers, and what it wants a person to check before an order goes through.</p>
-          <label>Introduction</label>
+          <h2>{t("policiesTitle")}</h2>
+          <p className="muted small">{t("policiesHelp")}</p>
+          <label>{t("policyIntro")}</label>
           <input value={policies.voiceIntro} onChange={(e) => setPolicies({ ...policies, voiceIntro: e.target.value })} />
-          <label>Delivery</label>
+          <label>{t("policyDelivery")}</label>
           <input value={policies.deliveryNote} onChange={(e) => setPolicies({ ...policies, deliveryNote: e.target.value })} />
-          <label>Human review</label>
+          <label>{t("policyReview")}</label>
           <input value={policies.reviewNote} onChange={(e) => setPolicies({ ...policies, reviewNote: e.target.value })} />
         </section>
       ) : null}
 
       {state && overlay.length ? (
         <section className="card step" data-step="4">
-          <h2>{state.status === "published" ? "It is live" : "Publish it"}</h2>
+          <h2>{state.status === "published" ? t("step4Live") : t("step4Publish")}</h2>
           <p className="muted small">
             {state.status === "published" ? (
               <>
-                Alexa+ now answers for this store in the words above. Go and <a href="#/">ask it for something</a>, or change a line and publish again.
+                {t("step4LiveNote")} <a href="#/">{t("step4LiveLink")}</a>
+                {t("step4LiveRest")}
               </>
             ) : (
-              "Until you confirm, the assistant answers in the store's own catalogue words. Nothing here is live yet."
+              t("step4Note")
             )}
           </p>
           <div className="row end">
             <button className="primary" onClick={() => void confirm()} disabled={busy !== null}>
-              {busy === "confirm" ? "Publishing" : state.status === "published" ? "Publish the changes" : "Confirm and publish"}
+              {busy === "confirm" ? t("publishing") : state.status === "published" ? t("publishChanges") : t("confirmAndPublish")}
             </button>
           </div>
         </section>

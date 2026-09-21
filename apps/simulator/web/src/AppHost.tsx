@@ -7,6 +7,7 @@ import { PostMessageTransport } from "@modelcontextprotocol/ext-apps";
 import { AppBridge } from "@modelcontextprotocol/ext-apps/app-bridge";
 import { useEffect, useRef, useState } from "react";
 import type { ToolResult } from "./api";
+import { turnLangOf, useLang } from "./i18n";
 
 export type DisplayMode = "inline" | "fullscreen";
 
@@ -26,6 +27,9 @@ export interface AppHostProps {
 }
 
 export function AppHost(props: AppHostProps) {
+  const [uiLang] = useLang();
+  // The host tells the view which language its few fixed words should be in.
+  const locale = turnLangOf(uiLang);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const bridgeRef = useRef<AppBridge | null>(null);
   const [height, setHeight] = useState(props.displayMode === "fullscreen" ? 560 : 300);
@@ -44,7 +48,7 @@ export function AppHost(props: AppHostProps) {
           displayMode: props.displayMode,
           availableDisplayModes: ["inline", "fullscreen"],
           containerDimensions: { width: props.width, height, maxHeight: props.displayMode === "fullscreen" ? 800 : 360 },
-          locale: "en-US",
+          locale,
         },
       },
     );
@@ -95,9 +99,9 @@ export function AppHost(props: AppHostProps) {
       displayMode: props.displayMode,
       availableDisplayModes: ["inline", "fullscreen"],
       containerDimensions: { width: props.width, height, maxHeight: props.displayMode === "fullscreen" ? 800 : 360 },
-      locale: "en-US",
+      locale,
     });
-  }, [props.theme, props.displayMode, props.width, height]);
+  }, [props.theme, props.displayMode, props.width, height, locale]);
 
   return (
     <iframe

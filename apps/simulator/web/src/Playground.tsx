@@ -4,8 +4,10 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { playgroundApi, type PlaygroundStats } from "./api";
+import { useT } from "./i18n";
 
 export function Playground() {
+  const t = useT();
   const [stats, setStats] = useState<PlaygroundStats | null>(null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"merchant" | "shopper">("merchant");
@@ -44,23 +46,23 @@ export function Playground() {
   if (!stats?.playground) return null;
   return (
     <div className="playground">
-      <label>Public playground</label>
+      <label>{t("playground")}</label>
       <p className="small">
-        Purchases by visitors: <b>{stats.purchases?.thirdParty ?? "n/a"}</b>
-        <span className="muted"> (simulated payments, capped at $50 per order; our own Scene runs are not counted)</span>
+        {t("purchasesByVisitors")} <b>{stats.purchases?.thirdParty ?? "n/a"}</b>
+        <span className="muted"> {t("purchasesNote")}</span>
       </p>
-      <label>Join the waitlist</label>
-      <select value={role} onChange={(e) => setRole(e.target.value === "shopper" ? "shopper" : "merchant")}>
-        <option value="merchant">I sell online and want my store on Alexa+</option>
-        <option value="shopper">I want to shop this way</option>
+      <label>{t("joinWaitlist")}</label>
+      <select value={role} onChange={(e) => setRole(e.target.value === "shopper" ? "shopper" : "merchant")} aria-label={t("joinWaitlist")}>
+        <option value="merchant">{t("roleMerchant")}</option>
+        <option value="shopper">{t("roleShopper")}</option>
       </select>
-      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-label="Email" />
-      {role === "merchant" ? <input value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} placeholder="https://your-store.example (optional)" aria-label="Store address" /> : null}
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("emailPlaceholder")} aria-label="Email" />
+      {role === "merchant" ? <input value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} placeholder={t("storeUrlOptional")} aria-label={t("storeAddress")} /> : null}
       <label className="consent">
-        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> Email me about AgentPOS for Alexa+. Nothing else, and I can ask to be removed.
+        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> {t("consent")}
       </label>
       <button onClick={() => void join()} disabled={busy || !email || !consent}>
-        {busy ? "Joining" : "Join"}
+        {busy ? t("joining") : t("join")}
       </button>
       {note ? <p className={note.ok ? "small good" : "small error"}>{note.text}</p> : null}
     </div>

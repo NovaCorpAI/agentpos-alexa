@@ -6,6 +6,7 @@
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { useApp } from "@modelcontextprotocol/ext-apps/react";
 import { useEffect, useState } from "react";
+import { langOf, words, type ViewLang } from "./strings";
 
 export interface ViewState<T> {
   app: App | null;
@@ -13,6 +14,10 @@ export interface ViewState<T> {
   isError: boolean;
   theme: "light" | "dark";
   displayMode: string;
+  /** The customer's language, as the host reports it. */
+  lang: ViewLang;
+  /** The view's own fixed words in that language. */
+  t: ReturnType<typeof words>;
 }
 
 export function useToolResult<T>(name: string): ViewState<T> {
@@ -20,6 +25,7 @@ export function useToolResult<T>(name: string): ViewState<T> {
   const [isError, setIsError] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [displayMode, setDisplayMode] = useState("inline");
+  const [lang, setLang] = useState<ViewLang>("en");
 
   const { app } = useApp({
     appInfo: { name: `agentpos-alexa:${name}`, version: "0.0.1" },
@@ -32,6 +38,7 @@ export function useToolResult<T>(name: string): ViewState<T> {
       a.onhostcontextchanged = (ctx) => {
         if (ctx.theme) setTheme(ctx.theme === "dark" ? "dark" : "light");
         if (ctx.displayMode) setDisplayMode(ctx.displayMode);
+        if (ctx.locale) setLang(langOf(ctx.locale));
       };
     },
   });
@@ -40,11 +47,16 @@ export function useToolResult<T>(name: string): ViewState<T> {
     const ctx = app?.getHostContext();
     if (ctx?.theme) setTheme(ctx.theme === "dark" ? "dark" : "light");
     if (ctx?.displayMode) setDisplayMode(ctx.displayMode);
+    if (ctx?.locale) setLang(langOf(ctx.locale));
   }, [app]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  return { app, data, isError, theme, displayMode };
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
+  return { app, data, isError, theme, displayMode, lang, t: words(lang) };
 }

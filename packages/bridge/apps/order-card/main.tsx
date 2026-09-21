@@ -26,18 +26,20 @@ function money(minor: string | null, asset: string): string {
 }
 
 function OrderCard() {
-  const { app, data, isError } = useToolResult<{ order: OrderView }>("order-card");
-  if (isError) return <p className="empty">I could not find that order.</p>;
-  if (!data) return <p className="empty" aria-busy="true">Loading order</p>;
+  const { app, data, isError, t } = useToolResult<{ order: OrderView }>("order-card");
+  if (isError) return <p className="empty">{t("orderNotFound")}</p>;
+  if (!data) return <p className="empty" aria-busy="true">{t("loadingOrder")}</p>;
   const o = data.order;
   const paid = o.status === "paid";
-  const receipt = () => void app?.sendMessage({ role: "user", content: [{ type: "text", text: `Show me the receipt for order ${o.orderId}` }] });
+  const receipt = () => void app?.sendMessage({ role: "user", content: [{ type: "text", text: t("showReceiptFor", { order: o.orderId }) }] });
   return (
     <article className="order">
       <header>
         <div>
           <span className="eyebrow">{o.store.name}</span>
-          <h1>Order {o.externalOrderId ?? o.orderId}</h1>
+          <h1>
+            {t("order")} {o.externalOrderId ?? o.orderId}
+          </h1>
         </div>
         <span className={`status ${paid ? "paid" : ""}`}>{o.status.replace(/_/g, " ")}</span>
       </header>
@@ -52,16 +54,18 @@ function OrderCard() {
         ))}
       </ul>
       <div className="total">
-        <span>Total</span>
+        <span>{t("total")}</span>
         <span className="price">{money(o.totalMinor, o.asset)}</span>
       </div>
       <div className="badges">
-        {o.payment.simulated ? <span className="badge warn">SIMULATED payment, no money moved</span> : null}
-        {o.payment.pspMode === "test_mode" ? <span className="badge">Test mode</span> : null}
+        {o.payment.simulated ? <span className="badge warn">{t("simulatedPayment")}</span> : null}
+        {o.payment.pspMode === "test_mode" ? <span className="badge">{t("testModeBadge")}</span> : null}
         {o.payment.handler ? <span className="badge">{o.payment.handler}</span> : null}
         {o.payment.network ? <span className="badge">{o.payment.network}</span> : null}
       </div>
-      <button className="cta" onClick={receipt}>Show receipt</button>
+      <button className="cta" onClick={receipt}>
+        {t("showReceipt")}
+      </button>
     </article>
   );
 }

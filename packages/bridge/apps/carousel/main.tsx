@@ -27,18 +27,19 @@ interface SearchResult {
 }
 
 function Carousel() {
-  const { app, data, isError, displayMode } = useToolResult<SearchResult>("carousel");
-  if (isError) return <p className="empty">The store could not answer right now.</p>;
-  if (!data) return <p className="empty" aria-busy="true">Loading items</p>;
-  if (data.items.length === 0) return <p className="empty">Nothing found{data.query ? ` for "${data.query}"` : ""}.</p>;
+  const { app, data, isError, displayMode, t } = useToolResult<SearchResult>("carousel");
+  if (isError) return <p className="empty">{t("storeSilent")}</p>;
+  if (!data) return <p className="empty" aria-busy="true">{t("loadingItems")}</p>;
+  if (data.items.length === 0) return <p className="empty">{data.query ? t("nothingFoundFor", { query: data.query }) : t("nothingFound")}.</p>;
   const items = data.items.slice(0, 5);
-  const ask = (it: ItemView) =>
-    void app?.sendMessage({ role: "user", content: [{ type: "text", text: `Tell me more about ${it.title}` }] });
+  const ask = (it: ItemView) => void app?.sendMessage({ role: "user", content: [{ type: "text", text: t("askAbout", { title: it.title }) }] });
   return (
     <section className={`carousel ${displayMode}`} aria-label={`${data.store.name} items`}>
       <header className="carousel-head">
         <span className="store">{data.store.name}</span>
-        <span className="count">{data.total} item{data.total === 1 ? "" : "s"}</span>
+        <span className="count">
+          {data.total} {data.total === 1 ? t("item") : t("items")}
+        </span>
       </header>
       <ul className="cards">
         {items.map((it) => (
@@ -47,7 +48,7 @@ function Carousel() {
               {it.imageUrl ? <img src={it.imageUrl} alt="" loading="lazy" /> : <div className="img-placeholder" aria-hidden="true" />}
               <span className="title">{it.title}</span>
               <span className="price">{it.price.display}</span>
-              {it.attributes.glutenFree === true ? <span className="badge ok">Gluten free</span> : null}
+              {it.attributes.glutenFree === true ? <span className="badge ok">{t("glutenFree")}</span> : null}
             </button>
           </li>
         ))}
