@@ -103,19 +103,25 @@ function total(session: Session): number {
 
 export type SpokenLanguage = "en-US" | "es-CL";
 
-function speakSession(session: Session, opts: PaymentOption[], language: SpokenLanguage): string {
+/** A session the household can still change: not paid, not canceled, not expired. */
+export function isOpen(session: Session): boolean {
+  return session.status !== "completed" && session.status !== "canceled" && session.status !== "expired";
+}
+
+function speakSession(session: Session, opts: PaymentOption[], language: SpokenLanguage, added = false): string {
   const lines = session.line_items.map((l) => `${l.quantity} ${l.item.title}`).join(", ");
   const es = language === "es-CL";
+  const head = added ? (es ? "Agregado al carro. " : "Added to the cart. ") : "";
   if (session.status === "ready_for_complete") {
     const first = opts.find((o) => o.available);
     const label = first ? `${first.label}${first.simulated ? (es ? ", simulada" : ", simulated") : first.testMode ? (es ? ", en modo prueba" : ", in test mode") : ""}` : "";
     if (es) {
-      return `${lines}. Tu total es ${dollars(total(session))} con entrega en ${SYNTHETIC_PERSONA.destination.street_address}. ${first ? `¿Pago con tu ${label}?` : "No hay medio de pago disponible."}`;
+      return `${head}${lines}. Tu total es ${dollars(total(session))} con entrega en ${SYNTHETIC_PERSONA.destination.street_address}. ${first ? `¿Pago con tu ${label}?` : "No hay medio de pago disponible."}`;
     }
-    return `${lines}. Your total is ${dollars(total(session))} delivered to ${SYNTHETIC_PERSONA.destination.street_address}. ${first ? `Shall I pay with your ${label}?` : "No payment method is available."}`;
+    return `${head}${lines}. Your total is ${dollars(total(session))} delivered to ${SYNTHETIC_PERSONA.destination.street_address}. ${first ? `Shall I pay with your ${label}?` : "No payment method is available."}`;
   }
   const err = session.messages.find((m) => m.type === "error");
-  return err ? `${lines}. ${err.content}` : `${lines}.`;
+  return err ? `${head}${lines}. ${err.content}` : `${head}${lines}.`;
 }
 
 /**
@@ -134,6 +140,8 @@ export interface ConfirmOptions {
 
 export class CheckoutFlow {
   private readonly states = new Map<string, CheckoutState>();
+  /** The open cart of each add-on, so another item joins it instead of starting a second one. */
+  private readonly openByAddon = new Map<string, string>();
 
   constructor(private readonly client: BridgeCheckoutClient) {}
 
@@ -141,8 +149,59 @@ export class CheckoutFlow {
     return this.states.get(sessionId);
   }
 
+  /** The cart this add-on still has open, if any: what a reloaded browser asks for. */
+  openFor(addon: string): CheckoutState | undefined {
+    const id = this.openByAddon.get(addon);
+    const state = id ? this.states.get(id) : undefined;
+    return state && isOpen(state.session) ? state : undefined;
+  }
+
+  /** The address the Store needs to quote delivery, attached to whatever lines are in the cart. */
+  private fulfillment(session: Session) {
+    return {
+      methods: [
+        {
+          id: "shipping_1",
+          type: "shipping",
+          selected_destination_id: SYNTHETIC_PERSONA.destination.id,
+          line_item_ids: session.line_items.map((l) => l.id),
+          destinations: [SYNTHETIC_PERSONA.destination],
+        },
+      ],
+    };
+  }
+
+  /**
+   * Another item while a cart is open: the quantities are merged and the Store re-quotes the
+   * whole cart. One session, one payment, the way a person would expect.
+   */
+  private async addLines(state: CheckoutState, lines: LineItemInput[], traceId: string, language: SpokenLanguage): Promise<CheckoutState> {
+    const merged = new Map<string, number>();
+    for (const l of state.session.line_items) merged.set(l.item.id, l.quantity);
+    for (const l of lines) merged.set(l.itemId, (merged.get(l.itemId) ?? 0) + l.quantity);
+    const body = {
+      line_items: [...merged].map(([itemId, quantity]) => ({ item: { id: itemId }, quantity })),
+      buyer: SYNTHETIC_PERSONA.buyer,
+      context: { language, address_country: SYNTHETIC_PERSONA.destination.address_country },
+    };
+    const first = await this.client.update(state.addon, state.sessionId, body, traceId, randomUUID());
+    if (first.status !== 200) throw new Error(`checkout update answered ${first.status}: ${JSON.stringify(first.body).slice(0, 200)}`);
+    let session = first.body as unknown as Session;
+    if (session.messages.some((m) => m.type === "error" && m.path?.startsWith("$.fulfillment"))) {
+      const second = await this.client.update(state.addon, state.sessionId, { ...body, line_items: session.line_items.map((l) => ({ id: l.id, item: { id: l.item.id }, quantity: l.quantity })), fulfillment: this.fulfillment(session) }, traceId, randomUUID());
+      if (second.status !== 200) throw new Error(`checkout update answered ${second.status}`);
+      session = second.body as unknown as Session;
+    }
+    const opts = options(session, language);
+    const next: CheckoutState = { sessionId: session.id, addon: state.addon, session, options: opts, speak: speakSession(session, opts, language, true) };
+    this.states.set(session.id, next);
+    return next;
+  }
+
   /** Create, then update with the persona's address so the Store quotes it: one call for the host. */
   async start(addon: string, lines: LineItemInput[], traceId: string, language: SpokenLanguage = "en-US"): Promise<CheckoutState> {
+    const open = this.openFor(addon);
+    if (open) return this.addLines(open, lines, traceId, language);
     const created = await this.client.create(addon, { line_items: lines.map((l) => ({ item: { id: l.itemId }, quantity: l.quantity })), buyer: SYNTHETIC_PERSONA.buyer, context: { language, address_country: SYNTHETIC_PERSONA.destination.address_country } }, traceId, randomUUID());
     if (created.status !== 201) throw new Error(`checkout create answered ${created.status}: ${JSON.stringify(created.body).slice(0, 200)}`);
     let session = created.body as unknown as Session;
@@ -152,7 +211,7 @@ export class CheckoutFlow {
         line_items: session.line_items.map((l) => ({ id: l.id, item: { id: l.item.id }, quantity: l.quantity })),
         buyer: SYNTHETIC_PERSONA.buyer,
         context: { language, address_country: SYNTHETIC_PERSONA.destination.address_country },
-        fulfillment: { methods: [{ id: "shipping_1", type: "shipping", selected_destination_id: SYNTHETIC_PERSONA.destination.id, line_item_ids: session.line_items.map((l) => l.id), destinations: [SYNTHETIC_PERSONA.destination] }] },
+        fulfillment: this.fulfillment(session),
       }, traceId, randomUUID());
       if (updated.status !== 200) throw new Error(`checkout update answered ${updated.status}`);
       session = updated.body as unknown as Session;
@@ -160,6 +219,7 @@ export class CheckoutFlow {
     const opts = options(session, language);
     const state: CheckoutState = { sessionId: session.id, addon, session, options: opts, speak: speakSession(session, opts, language) };
     this.states.set(session.id, state);
+    this.openByAddon.set(addon, session.id);
     return state;
   }
 
@@ -224,6 +284,7 @@ export class CheckoutFlow {
     }
     const next: CheckoutState = { sessionId, addon: state.addon, session, options: opts, speak };
     this.states.set(sessionId, next);
+    if (!isOpen(session)) this.openByAddon.delete(state.addon);
     return next;
   }
 
@@ -234,6 +295,7 @@ export class CheckoutFlow {
     const session = res.status === 200 ? (res.body as unknown as Session) : state.session;
     const next: CheckoutState = { ...state, session, speak: language === "es-CL" ? "Checkout cancelado. No se cobró nada." : "Checkout canceled. Nothing was charged." };
     this.states.set(sessionId, next);
+    this.openByAddon.delete(state.addon);
     return next;
   }
 }

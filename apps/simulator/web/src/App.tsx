@@ -49,6 +49,27 @@ function componentOf(uri: string): string | null {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** What this browser remembers of the visit: the lines said, so a reload can put them back. */
+const TRANSCRIPT_KEY = "agentpos.transcript";
+
+function storedLines(): Line[] {
+  try {
+    const raw = sessionStorage.getItem(TRANSCRIPT_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Line[]) : [];
+    return Array.isArray(parsed) ? parsed.slice(-40) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberLines(lines: Line[]): void {
+  try {
+    sessionStorage.setItem(TRANSCRIPT_KEY, JSON.stringify(lines.slice(-40)));
+  } catch {
+    // A browser that refuses storage simply forgets on reload, as before.
+  }
+}
+
 function fmtMs(ms: number | null): string {
   if (ms === null) return "n/a";
   const s = Math.round(ms / 1000);
@@ -88,7 +109,7 @@ export function App() {
   const [voiceSource, setVoiceSource] = useState<SpeechSource>("none");
   const [speaking, setSpeaking] = useState(false);
   const [input, setInput] = useState("");
-  const [lines, setLines] = useState<Line[]>([]);
+  const [lines, setLines] = useState<Line[]>(storedLines);
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [view, setView] = useState<ViewState | null>(null);
@@ -122,11 +143,33 @@ export function App() {
       .catch(() => undefined);
   }, [lang]);
 
-  // New lines scroll into view; scrolling up by hand stays where the reader left it.
+  // New lines scroll into view, after the layout has them: on a restored transcript the
+  // height is not final when the effect runs. Scrolling up by hand stays where it was left.
   useEffect(() => {
     const el = conversationRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [lines, busy]);
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [lines, busy, checkout, view]);
+
+  useEffect(() => rememberLines(lines), [lines]);
+
+  // A reloaded browser lost the card, not the cart: the Bridge holds the session for six hours.
+  useEffect(() => {
+    if (!addon) return;
+    let cancelled = false;
+    checkoutApi
+      .open(addon)
+      .then(({ checkout: open }) => {
+        if (!cancelled && open) setCheckout(open);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [addon]);
 
   const refreshInspection = useCallback(() => {
     api.inspection().then(setInspection).catch(() => undefined);
@@ -234,6 +277,7 @@ export function App() {
           if ("reset" in step) {
             await api.reset(addon);
             setLines([]);
+            rememberLines([]);
             setView(null);
             setCheckout(null);
             lastCheckout = null;

@@ -224,6 +224,28 @@ row-1,${since || "2026-09-20T00:00:00.000Z"}
     expect((await stats()).purchases).toEqual({ own: 1, thirdParty: 1 });
   });
 
+  it("adds a second item to the cart that is already open, and hands it back after a reload", async () => {
+    await turn("What bread do you have?");
+    const first = await turn("Buy one baguette");
+    expect(first.checkout?.session.line_items).toHaveLength(1);
+
+    const second = await turn("Buy one sourdough loaf");
+    // One cart, not two: the same session, re-quoted with both lines.
+    expect(second.checkout?.sessionId).toBe(first.checkout!.sessionId);
+    expect(second.checkout?.session.line_items.map((l) => l.item.id).sort()).toEqual(["baguette", "sourdough-loaf"]);
+    expect(second.checkout?.session.totals.at(-1)?.amount).toBe(280 + 650);
+    expect(second.speak.join(" ")).toMatch(/Added to the cart/);
+
+    // What a reloaded browser asks for, since it kept nothing of its own.
+    const open = (await (await sim.request(`/api/checkout/open?addon=bakery`)).json()) as { checkout: { sessionId: string; session: { line_items: unknown[] } } | null };
+    expect(open.checkout?.sessionId).toBe(first.checkout!.sessionId);
+    expect(open.checkout?.session.line_items).toHaveLength(2);
+
+    await post(`/api/checkout/${first.checkout!.sessionId}/confirm`, { handlerId: "amazon_pay_network_token" });
+    // Paid: there is no cart to come back to any more.
+    expect((await (await sim.request(`/api/checkout/open?addon=bakery`)).json()) as { checkout: unknown }).toEqual({ checkout: null });
+  });
+
   it("refuses an order above the Demo household's mandate without reaching the Bridge", async () => {
     await turn("What bread do you have?");
     const big = await turn("Buy 6 cinnamon rolls, box of 4");

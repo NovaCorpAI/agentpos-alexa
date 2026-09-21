@@ -190,6 +190,17 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     return c.json(res);
   });
 
+  /**
+   * The cart an add-on still has open. A browser that was reloaded asks for this: the session
+   * lives in the Bridge for six hours, so the purchase does not have to start over.
+   */
+  app.get("/api/checkout/open", (c) => {
+    const addon = c.req.query("addon");
+    if (!addon) return c.json({ code: "BAD_ADDON", message: "addon is required", hint: "" }, 400);
+    const state = deps.checkout.openFor(addon);
+    return c.json({ checkout: state ?? null });
+  });
+
   /** Confirm a checkout with a payment option; on success the order card follows. */
   app.post("/api/checkout/:id/confirm", async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { handlerId?: string; instrumentId?: string; scene?: string; language?: string };

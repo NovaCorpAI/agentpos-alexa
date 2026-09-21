@@ -152,6 +152,7 @@ export const merchantApi = {
 };
 
 export const checkoutApi = {
+  open: (addon: string) => fetch(`/api/checkout/open?addon=${encodeURIComponent(addon)}`).then((r) => json<{ checkout: CheckoutState | null }>(r)),
   confirm: (sessionId: string, handlerId: string, instrumentId?: string, scene?: string, language?: string) =>
     fetch(`/api/checkout/${sessionId}/confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handlerId, instrumentId, scene, language }) }).then((r) => json<Turn>(r)),
   cancel: (sessionId: string, language?: string) =>
