@@ -20,7 +20,10 @@
     "@aws-sdk/credential-providers": "^3.1132.0",
     "@hono/node-server": "^2.1.1",
     "@modelcontextprotocol/client": "^2.0.0",
+    "@stellar/stellar-sdk": "^17.1.0",
     "@strands-agents/sdk": "~1.17.0",
+    "@x402/core": "^2.26.0",
+    "@x402/stellar": "^2.26.0",
     "hono": "^4.13.7",
     "zod": "^4.2.0"
   },
