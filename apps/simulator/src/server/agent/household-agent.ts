@@ -7,7 +7,7 @@
 import { Agent, ModelStreamUpdateEvent, tool, type Model } from "@strands-agents/sdk";
 import type { NewUsageEvent } from "@agentpos-alexa/bridge";
 import type { BridgeClient, ToolCallRecord } from "../bridge-client.js";
-import { estimateCostUsdMicros } from "@agentpos-alexa/agents";
+import { estimateCostUsdMicros, spokenText } from "@agentpos-alexa/agents";
 
 export interface HouseholdAgentDeps {
   bridge: BridgeClient;
@@ -114,10 +114,13 @@ export class HouseholdAgent {
     this.currentTraceId = traceId;
     this.collector = [];
     const result = await agent.invoke(text);
-    const spoken = result.lastMessage.content
-      .map((b) => (b.type === "textBlock" ? (b as { text: string }).text : ""))
-      .join(" ")
-      .trim();
+    // The prompt asks for no markdown; models write it anyway, and a speaker cannot say an
+    // asterisk. The same clean-up the other agents use (no dashes, no emphasis).
+    const spoken = spokenText(
+      result.lastMessage.content
+        .map((b) => (b.type === "textBlock" ? (b as { text: string }).text : ""))
+        .join(" "),
+    );
     return { text: spoken, toolCalls: [...this.collector], stopReason: String(result.stopReason) };
   }
 
