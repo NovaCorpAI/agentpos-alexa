@@ -34,6 +34,8 @@ export function Merchant() {
   const [policies, setPolicies] = useState<Policies>({ voiceIntro: "", deliveryNote: "", reviewNote: "" });
   const [busy, setBusy] = useState<"scan" | "confirm" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** A draft left by an earlier visit, rather than something that happened just now. */
+  const [fromEarlier, setFromEarlier] = useState(false);
 
   // The first Enabled add-on is the natural URL to try; the field stays editable.
   useEffect(() => {
@@ -43,7 +45,13 @@ export function Merchant() {
         const first = b.addons[0];
         if (!first) return;
         setStoreUrl((u) => u || first.origin);
-        merchantApi.get(first.slug).then(load).catch(() => undefined);
+        merchantApi
+          .get(first.slug)
+          .then((st) => {
+            setFromEarlier(true);
+            load(st);
+          })
+          .catch(() => undefined);
       })
       .catch(() => undefined);
   }, []);
@@ -58,6 +66,7 @@ export function Merchant() {
     setBusy("scan");
     setError(null);
     try {
+      setFromEarlier(false);
       load(await merchantApi.scan(storeUrl.trim(), language));
     } catch (e) {
       setError((e as Error).message);
@@ -122,10 +131,11 @@ export function Merchant() {
 
       {state ? (
         <section className="card step" data-step="2">
-          <h2>What the agent did, timed</h2>
+          <h2>{fromEarlier && !state.stages.scan ? "A draft left here earlier" : "What the agent did, timed"}</h2>
           <p className="muted small">
             {state.origin} <span className={`pill ${state.status === "published" ? "ok" : ""}`}>{state.status === "published" ? "published" : "draft, not live"}</span>{" "}
             {state.modelUsed ? "Drafted by the strong model on Amazon Bedrock." : "Drafted by the deterministic drafter, with no model."}
+            {fromEarlier ? " Nobody ran it in this session: read the store again to watch each stage take its time." : ""}
           </p>
           <ol className="stages">
             {STAGES.map(([key, label]) => (
