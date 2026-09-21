@@ -151,6 +151,14 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
   In a real Alexa+ deployment the household asks Alexa to mail it, with the address Amazon
   already holds.
 
+- **x402 pays the Store, not the Bridge.** The three roles the protocol names sit where they
+  belong: the customer's wallet in the host, which signs; the Store as resource server and as
+  its own facilitator, which verifies and submits the transfer and sponsors its fee; the
+  Bridge only carrying the signed payload, holding no key and taking no cut. The asset is the
+  one the catalogue quotes, Circle's USDC, in atomic units with seven decimals, on the Stellar
+  testnet. The order is idempotent by the transaction hash, like every other rail's reference.
+  A Store that cannot settle says so in its profile, and the rail is not offered for it.
+
 - **One Brain interface, picked at boot.** The Simulator runs the Household agent (Strands on
   Bedrock) when AWS credentials resolve, the scripted router with no model otherwise, and
   degrades to the router at runtime on a credentials error, saying so on screen. The agent

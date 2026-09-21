@@ -208,7 +208,7 @@ Every picture below is a frame of the demo video, filmed against the hosted play
 - No order is created without settled payment and a settlement reference.
 - Every protocol detail (MCP, UCP, x402) lives behind an adapter and is pinned to a version.
 - Amounts are integers in minor units. Never floats for money.
-- Cryptography only through official SDKs (`@x402/*`, `@stellar/stellar-sdk`, MCP SDK).
+- Cryptography only through official SDKs (`@x402/*`, `@stellar/stellar-sdk`, MCP SDK), which is how x402 settles on the Stellar testnet.
 - Simulated means labeled: in code, logs, responses and UI, and never switchable to a real PSP by configuration.
 
 ## Strategy

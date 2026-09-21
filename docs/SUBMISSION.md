@@ -49,8 +49,11 @@ merchant's own PSP through the UCP processor tokenizer handler (Stripe in test m
 demo; the charge appears in the store's Stripe dashboard with the store as merchant of
 record), Amazon Wallet (`com.amazon.payments.network_token` and `stored_payment_method`,
 implemented against the published contract and exercised with a clearly labeled simulated PSP
-while the program is in preview), and USDC on Stellar through x402 when the agent brings a
-wallet. Nothing in the bridge holds a key or funds. No order exists without settled payment.
+while the program is in preview), and USDC on Stellar through x402, which settles for real on
+the Stellar testnet: the household's wallet signs, the store verifies and submits the transfer
+as its own facilitator, and the order carries the transaction hash the network recorded,
+verifiable in any explorer. Nothing in the bridge holds a key or funds. No order exists
+without settled payment.
 
 **Three merchant agents, each visible in the demo.** Onboarding turns a store URL into a
 voice-ready catalog (spoken names, one-sentence summaries, synonyms) and proposed voice
