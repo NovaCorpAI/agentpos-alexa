@@ -246,6 +246,18 @@ row-1,${since || "2026-09-20T00:00:00.000Z"}
     expect((await (await sim.request(`/api/checkout/open?addon=bakery`)).json()) as { checkout: unknown }).toEqual({ checkout: null });
   });
 
+  it("answers the household's own question about what it has spent here, with the host's card", async () => {
+    await turn("What bread do you have?");
+    const bought = await turn("Buy one baguette");
+    await post(`/api/checkout/${bought.checkout!.sessionId}/confirm`, { handlerId: "amazon_pay_network_token" });
+
+    const asked = await turn("How much have I spent this month?");
+    expect(asked.spend?.totals).toEqual({ orders: 1, amountCents: 280 });
+    expect(asked.spend?.top[0]?.title).toBe("Baguette");
+    // It is the host answering about the household, so no store tool was called for it.
+    expect(asked.toolCalls.map((t) => t.name)).not.toContain("get_order");
+  });
+
   it("refuses an order above the Demo household's mandate without reaching the Bridge", async () => {
     await turn("What bread do you have?");
     const big = await turn("Buy 6 cinnamon rolls, box of 4");

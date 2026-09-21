@@ -509,6 +509,40 @@ a { color: var(--accent); text-decoration-color: rgba(111, 178, 210, 0.4); text-
 .checkout .actions .secondary { background: rgba(232, 225, 212, 0.1); color: inherit; }
 .checkout .actions button:disabled { opacity: 0.45; cursor: default; }
 
+/* The household's own history: the host's card, quieter than a decision. */
+.history {
+  background: linear-gradient(180deg, rgba(232, 225, 212, 0.07), rgba(232, 225, 212, 0.04));
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 14px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 18px;
+  max-width: 760px;
+  box-shadow: var(--shadow);
+  animation: rise 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.theme-light .history { background: rgba(8, 11, 18, 0.04); }
+.history header { display: flex; justify-content: space-between; align-items: center; }
+.history .eyebrow { margin: 0; font-size: 11px; letter-spacing: 0.2em; opacity: 0.75; }
+.history .pill {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(232, 225, 212, 0.08);
+  border: 1px solid var(--line-strong);
+}
+.history .headline { display: flex; align-items: baseline; gap: 10px; }
+.history .headline b { font-size: 30px; font-variant-numeric: tabular-nums; color: var(--ember); }
+.history .headline .muted { font-size: 15px; }
+.history .lines { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.history .lines li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 16px; border-bottom: 1px solid rgba(232, 225, 212, 0.05); }
+.history .lines li span:last-child { font-variant-numeric: tabular-nums; }
+.history .small { font-size: 14px; }
+
 /* The merchant console: the same hand, in daylight. */
 .merchant { max-width: 1120px; margin: 0 auto; padding: 32px 20px 56px; display: flex; flex-direction: column; gap: 18px; }
 .merchant header h1 { font-family: var(--display); font-weight: 300; font-size: 28px; letter-spacing: 0.04em; margin: 8px 0 6px; }

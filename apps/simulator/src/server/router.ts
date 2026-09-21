@@ -25,6 +25,17 @@ const NO_ORDER = "There is no order yet in this session.";
 /** Words that ask about a property the item card may not state: the catalog agent answers those. */
 const PROPERTY_WORDS = /gluten|vegan|organic|contain|allerg|ingredient|nuts?\b|milk|dairy|egg|sesame|soy|weigh|grams|how many|pieces|made (?:of|with|from)/i;
 
+/**
+ * "How much have I spent this month", "what have I bought", "my orders of the month". The
+ * host answers these from what it knows about the household, so it has to notice them.
+ */
+const HISTORY_WORDS =
+  /\bhow much (?:have i |did i |i )?(?:spent|spend)\b|\bspending\b|\bmy (?:spend|spending|orders|purchases|history)\b|\bwhat have i (?:bought|ordered|spent)\b|\border history\b|cu[aá]nto\s+(?:he\s+|llevo\s+|me\s+he\s+)?gast|\bgast[oé]\s+(?:este|el)\s+mes\b|\bmis\s+(?:pedidos|compras|gastos)\b|\bhistorial\b|qu[eé]\s+he\s+comprado/i;
+
+export function looksLikeHistory(text: string): boolean {
+  return HISTORY_WORDS.test(text);
+}
+
 function clean(s: string): string {
   return s.trim().replace(/[?.!]+$/, "").trim();
 }

@@ -26,6 +26,14 @@ export interface PaymentOption {
   reason?: string;
 }
 
+export interface PurchaseSummary {
+  since: string;
+  currency: string;
+  orders: Array<{ orderId: string; at: string; totalCents: number; lines: Array<{ itemId: string; title: string; quantity: number }> }>;
+  totals: { orders: number; amountCents: number };
+  top: Array<{ itemId: string; title: string; quantity: number }>;
+}
+
 export interface CheckoutState {
   sessionId: string;
   addon: string;
@@ -51,6 +59,8 @@ export interface Turn {
   toolCalls: Array<{ name: string; arguments: Record<string, unknown>; result: ToolResult; resourceUri: string | null; latencyMs: number }>;
   view: { resourceUri: string; toolName: string; arguments: Record<string, unknown>; result: ToolResult } | null;
   checkout: CheckoutState | null;
+  /** The household's own purchases, when it asked about them. */
+  spend?: PurchaseSummary;
   error?: string;
 }
 

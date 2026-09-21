@@ -23,6 +23,8 @@ export interface TurnContext {
   known: Array<{ id: string; title: string }>;
   lastOrderId?: string;
   remembered?: RememberedOrder;
+  /** What this household has settled at this store in the period it asked about. */
+  spend?: { since: string; totals: { orders: number; amountCents: number }; top: Array<{ title: string; quantity: number }> };
 }
 
 export interface BrainTurn {
@@ -107,6 +109,13 @@ export class AgentBrain implements Brain {
         notes.push(`household memory holds the previous order ${ctx.remembered.orderId} placed ${ctx.remembered.at.slice(0, 10)}: ${lines}; for "the same as last time" or "my usual", call start_checkout with exactly those itemIds and quantities`);
       } else {
         notes.push("household memory holds no previous order at this store");
+      }
+      if (ctx.spend) {
+        const money = `$${(ctx.spend.totals.amountCents / 100).toFixed(2)}`;
+        const top = ctx.spend.top.map((t) => `${t.title} x${t.quantity}`).join(", ") || "nothing repeated";
+        notes.push(
+          `this household's own history at this store since ${ctx.spend.since.slice(0, 10)}: ${ctx.spend.totals.orders} paid orders, ${money} in total, most bought ${top}; answer a question about what they spent or bought from these numbers, in one sentence, without calling a tool`,
+        );
       }
       const note = `\n\n(Context, not spoken: ${notes.join("; ")}.)`;
       const r = await this.agentFor(ctx).turn(`${text}${note}`, ctx.traceId);

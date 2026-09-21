@@ -144,6 +144,14 @@ export class BridgeOnboardingClient {
   }
 }
 
+export interface PurchaseSummary {
+  since: string;
+  currency: string;
+  orders: Array<{ orderId: string; at: string; totalCents: number; lines: Array<{ itemId: string; title: string; quantity: number }> }>;
+  totals: { orders: number; amountCents: number };
+  top: Array<{ itemId: string; title: string; quantity: number }>;
+}
+
 export class BridgeCheckoutClient {
   constructor(
     private readonly config: BridgeConfig,
@@ -185,5 +193,11 @@ export class BridgeCheckoutClient {
   }
   cancel(slug: string, id: string, traceId: string, key: string) {
     return this.call("POST", `/stores/${slug}/checkout-sessions/${id}/cancel`, traceId, {}, key);
+  }
+
+  /** What this household has settled at this Store in a period. The buyer travels in the body. */
+  async purchases(slug: string, buyerEmail: string, period: "this_month" | "last_30_days" | "all_time", traceId: string): Promise<PurchaseSummary | null> {
+    const res = await this.call("POST", `/stores/${slug}/household/purchases`, traceId, { buyer: { email: buyerEmail }, period });
+    return res.status === 200 ? (res.body as unknown as PurchaseSummary) : null;
   }
 }

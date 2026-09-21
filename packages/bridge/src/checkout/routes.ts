@@ -9,6 +9,7 @@ import type { AuthInfo } from "@modelcontextprotocol/server";
 import { BridgeError, storeNotFound } from "../errors.js";
 import type { Logger } from "../logging.js";
 import type { Storage } from "../storage/sqlite.js";
+import { buyerKeyOf, startOfDaysAgo, startOfMonth, summarize } from "./household.js";
 import type { CallContext, CheckoutService } from "./service.js";
 import type { CompleteRequest, SessionRequest } from "./types.js";
 
@@ -28,6 +29,7 @@ function bodyHash(body: string): string {
 
 export function registerCheckoutRoutes(app: Hono<Env>, deps: CheckoutRouteDeps): void {
   const base = "/stores/:slug/checkout-sessions";
+  const household = "/stores/:slug/household/purchases";
 
   app.use(`${base}/*`, async (c, next) => {
     c.header("Cache-Control", "no-store");
@@ -36,6 +38,13 @@ export function registerCheckoutRoutes(app: Hono<Env>, deps: CheckoutRouteDeps):
     await next();
   });
   app.use(base, async (c, next) => {
+    c.header("Cache-Control", "no-store");
+    const auth = await deps.gate(c.req.raw);
+    if (auth instanceof Response) return auth;
+    await next();
+  });
+
+  app.use(household, async (c, next) => {
     c.header("Cache-Control", "no-store");
     const auth = await deps.gate(c.req.raw);
     if (auth instanceof Response) return auth;
@@ -114,4 +123,23 @@ export function registerCheckoutRoutes(app: Hono<Env>, deps: CheckoutRouteDeps):
       return { status: 200, body: deps.service.cancel(ctx, c.req.param("id")!) };
     }),
   );
+
+  /**
+   * What this household has bought at this Store, for the host to read back. A POST because
+   * the buyer's address goes in the body: it never belongs in a URL, and it is hashed here
+   * and not stored again. Read only: it adds up sessions that already settled.
+   */
+  app.post(household, async (c) => {
+    const slug = c.req.param("slug")!;
+    if (!deps.storage.stores.get(slug)) throw storeNotFound(slug);
+    const body = (await c.req.json().catch(() => ({}))) as { buyer?: { email?: string }; period?: string; since?: string; limit?: number };
+    const email = body.buyer?.email?.trim();
+    if (!email) {
+      throw new BridgeError(400, { code: "BUYER_REQUIRED", message: "buyer.email is required to look up a household's purchases", hint: "Send the same buyer the checkout used." });
+    }
+    const now = new Date();
+    const since = body.since ?? (body.period === "last_30_days" ? startOfDaysAgo(now, 30) : body.period === "all_time" ? new Date(0).toISOString() : startOfMonth(now));
+    const sessions = deps.storage.checkout.listCompletedByBuyer(slug, buyerKeyOf(email), since, Math.min(body.limit ?? 50, 100));
+    return c.json(summarize(sessions, since));
+  });
 }

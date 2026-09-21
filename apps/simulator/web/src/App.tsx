@@ -6,9 +6,10 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Playground } from "./Playground";
-import { api, checkoutApi, merchantApi, type Addon, type BrainInfo, type CheckoutState, type Inspection, type Scene, type Turn } from "./api";
+import { api, checkoutApi, merchantApi, type Addon, type BrainInfo, type CheckoutState, type Inspection, type PurchaseSummary, type Scene, type Turn } from "./api";
 import { AppHost, type DisplayMode } from "./AppHost";
 import { Checkout } from "./Checkout";
+import { History } from "./History";
 import { listenOnce, recognitionAvailable, speak, type SpeechSource } from "./speech";
 import { MODE_TEXT, MODES, turnLangOf, useLang, useT, type ViewMode } from "./i18n";
 
@@ -116,6 +117,7 @@ export function App() {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [lastTurn, setLastTurn] = useState<Turn | null>(null);
   const [checkout, setCheckout] = useState<CheckoutState | null>(null);
+  const [spend, setSpend] = useState<PurchaseSummary | null>(null);
   const [brain, setBrain] = useState<BrainInfo | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [runningScene, setRunningScene] = useState<string | null>(null);
@@ -195,6 +197,8 @@ export function App() {
         speechRef.current = speak(turn.speak.join(" "), lang).finally(() => setSpeaking(false));
         void speechRef.current.then(setVoiceSource);
       }
+      // The host's own answer about the household, kept until another question replaces it.
+      if (turn.spend) setSpend(turn.spend);
       setCheckout((prev) => {
         if (turn.checkout) return turn.checkout;
         // The assistant may be asking about a card opened two turns ago: keep it until it closes.
@@ -278,6 +282,7 @@ export function App() {
             await api.reset(addon);
             setLines([]);
             rememberLines([]);
+            setSpend(null);
             setView(null);
             setCheckout(null);
             lastCheckout = null;
@@ -547,7 +552,7 @@ export function App() {
               ))}
               {busy ? <div className="bubble alexa thinking">...</div> : null}
             </div>
-            {lines.length === 0 && !busy && !checkout && !view ? (
+            {lines.length === 0 && !busy && !checkout && !view && !spend ? (
               <div className="idle">
                 <div className="idle-mark" aria-hidden="true">
                   {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -568,6 +573,11 @@ export function App() {
             {checkout && mode !== "voice-only" ? (
               <div className="viewport inline">
                 <Checkout state={checkout} busy={busy} onConfirm={(h, i) => void confirmCheckout(checkout, h, i)} onCancel={() => void cancelCheckout()} />
+              </div>
+            ) : null}
+            {spend && mode !== "voice-only" ? (
+              <div className="viewport inline">
+                <History summary={spend} />
               </div>
             ) : null}
             {mode !== "voice-only" && view && checkout ? (

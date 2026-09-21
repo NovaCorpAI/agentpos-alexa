@@ -136,6 +136,21 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
   instrument that paid. A decline is a 200 with `payment_failed`; a merchant review is a 200
   with `requires_buyer_review`; only protocol errors are 4xx.
 
+- **A household's own history belongs to the host, not to the store's tools.** The store
+  answers about its catalogue and its orders; what a household has bought and spent across
+  visits is the host's, the way Alexa knows your Amazon orders. The Bridge exposes it once,
+  at `POST /stores/{slug}/household/purchases`, adding up sessions that already settled for
+  the buyer whose email the host sends; it stores nothing new and hashes the address the same
+  way the guardian does. The Simulator asks for it only when the household asks, injects it as
+  a context note so the answer costs no extra tool call, and draws it with its own card. The
+  MCP surface stays at seven tools, as Amazon's guidance asks.
+- **No monthly statement by email from us.** A statement of what a household spent at a store
+  is the store's to send: it has the customer relationship and the merchant of record. We keep
+  a hash of the buyer, never an address, so we could not send it without starting to store
+  identities, and sending it would make the Bridge the intermediary the project refuses to be.
+  In a real Alexa+ deployment the household asks Alexa to mail it, with the address Amazon
+  already holds.
+
 - **One Brain interface, picked at boot.** The Simulator runs the Household agent (Strands on
   Bedrock) when AWS credentials resolve, the scripted router with no model otherwise, and
   degrades to the router at runtime on a credentials error, saying so on screen. The agent

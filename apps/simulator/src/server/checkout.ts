@@ -149,6 +149,11 @@ export class CheckoutFlow {
     return this.states.get(sessionId);
   }
 
+  /** What the Demo household has settled at this Store this month. The host's own question. */
+  async purchases(addon: string, traceId: string, period: "this_month" | "last_30_days" | "all_time" = "this_month") {
+    return this.client.purchases(addon, SYNTHETIC_PERSONA.buyer.email, period, traceId);
+  }
+
   /** The cart this add-on still has open, if any: what a reloaded browser asks for. */
   openFor(addon: string): CheckoutState | undefined {
     const id = this.openByAddon.get(addon);

@@ -11,6 +11,8 @@ import { inspectTurn, type InspectionLog, type RenderTiming } from "./inspection
 import type { HouseholdMemory } from "./memory.js";
 import { TurnLimiter, type TurnLimits } from "./rate-limit.js";
 import type { DemoMandate, SpokenLanguage } from "./checkout.js";
+import type { PurchaseSummary } from "./bridge-client.js";
+import { looksLikeHistory } from "./router.js";
 import { parseWaitlist, type SqliteWaitlist } from "./waitlist.js";
 import { scenesFor } from "./scenes.js";
 import type { PollySpeech, SpeechLanguage } from "./speech.js";
@@ -70,6 +72,8 @@ export interface TurnResponse {
   view: TurnView | null;
   /** A checkout to confirm natively, when the turn started one. */
   checkout: CheckoutState | null;
+  /** The household's own purchases, when it asked about them: the host answers this one. */
+  spend?: PurchaseSummary;
 }
 
 export function createSimulatorApp(deps: SimulatorDeps): Hono {
@@ -149,12 +153,19 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     const turnId = `turn_${randomUUID()}`;
     const traceId = `sim-${turnId.slice(5, 13)}`;
     let brainTurn;
+    let spend: PurchaseSummary | undefined;
     try {
       // Memory is a convenience: if its runtime is unreachable the turn goes on without it.
       const remembered = (await deps.memory.recall(addon, 1).catch(() => []))[0];
       const ctx = { addon, storeOrigin: await originOf(addon), traceId, language, known: known.get(addon) ?? [], remembered } as Parameters<Brain["turn"]>[1];
       const last = lastOrder.get(addon);
       if (last) ctx.lastOrderId = last;
+      // The household's own history is the host's to answer, not the store's: asked for only
+      // when the household asks for it, so an ordinary turn costs nothing extra.
+      if (looksLikeHistory(body.text)) {
+        spend = (await deps.checkout.purchases(addon, traceId).catch(() => null)) ?? undefined;
+        if (spend) ctx.spend = spend;
+      }
       brainTurn = await deps.brain.turn(body.text, ctx);
     } catch (e) {
       // Say what actually failed: a model rate limit is not the store being down.
@@ -186,6 +197,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     }
     deps.inspection.add(inspectTurn(turnId, addon, body.text, brainTurn.brain, brainTurn.toolCalls, body.scene));
     const res: TurnResponse = { turnId, traceId, brain: brainTurn.brain, speak, toolCalls: brainTurn.toolCalls, view: checkout ? null : viewOf(brainTurn.toolCalls.at(-1)), checkout };
+    if (spend) res.spend = spend;
     if (brainTurn.fallbackReason) res.fallbackReason = brainTurn.fallbackReason;
     return c.json(res);
   });
