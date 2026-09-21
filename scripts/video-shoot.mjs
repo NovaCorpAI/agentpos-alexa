@@ -87,7 +87,7 @@ async function take(name, run, { lang = "en", path = "/" } = {}) {
   marks.endMs = Date.now() - t0;
   ab(["record", "stop"]);
   await sleep(1500);
-  // The recorder drops a take now and then, writing a file of a tenth of a second (FL-013).
+  // The recorder drops a take now and then, writing a file of a tenth of a second.
   const size = existsSync(file) ? statSync(file).size : 0;
   if (size < 60_000) {
     log("take dropped by the recorder, shooting it again", { name, bytes: size });

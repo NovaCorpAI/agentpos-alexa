@@ -183,15 +183,22 @@ otherwise), the checkout stays open with the same quote, and the button reads "Y
 again". Scene 3 plays exactly that. The rule is deterministic and runs first; the model only
 words the question, and the guardian never sees the buyer's email, only a hash.
 
-![The simulator rendering the bridge's carousel view inside an Echo Show frame](docs/assets/simulator-carousel.png)
+Every picture below is a frame of the demo video, filmed against the hosted playground on
+2026-09-21 with the real Household agent on Amazon Bedrock and Amazon Polly speaking.
+
+![The bridge's carousel view inside an Echo Show frame, prices exactly as the store publishes them](docs/assets/simulator-carousel.png)
 
 ![The host's checkout pattern: the store's own Stripe in test mode chosen, the simulated Amazon handlers labeled below it](docs/assets/simulator-checkout.png)
 
-Scene 1 on the real Household agent (Amazon Bedrock, Nova 2 Lite) with Amazon Polly speaking:
+![The guardian asking before the money moves, and the order card once the household says yes](docs/assets/simulator-guardian-and-order.png)
 
-![Scene 1: the agent starts the checkout and the host renders it](docs/assets/scene1-checkout-agent.png)
+![One cart, item by item: a second item joins the session instead of opening another](docs/assets/simulator-cart.png)
 
-![Scene 1: the receipt card with honest badges: fixture receipt, simulated payment](docs/assets/scene1-receipt.png)
+![What this household has spent at this store this month, answered by the host](docs/assets/simulator-history.png)
+
+![One switch, and the interface, the assistant and the cards all speak Spanish](docs/assets/simulator-spanish.png)
+
+![The merchant console: four steps from a store address to a voice-ready catalog](docs/assets/merchant-console.png)
 
 ## Principles we do not bend
 

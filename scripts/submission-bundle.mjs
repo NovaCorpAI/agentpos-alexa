@@ -36,17 +36,18 @@ const FILES = [
   ["docs/adr/0002-demo-household-never-operates-live.md", "14-adr-0002.md"],
   ["docs/assets/simulator-carousel.png", "screens/01-carousel.png"],
   ["docs/assets/simulator-checkout.png", "screens/02-checkout.png"],
-  ["docs/assets/scene1-checkout-agent.png", "screens/03-scene1-checkout.png"],
-  ["docs/assets/scene1-receipt.png", "screens/04-scene1-receipt.png"],
-  ["docs/assets/scene2-catalog.png", "screens/05-scene2-catalog.png"],
-  ["docs/assets/scene4-memory.png", "screens/06-scene4-memory.png"],
+  ["docs/assets/simulator-guardian-and-order.png", "screens/03-guardian-and-order.png"],
+  ["docs/assets/simulator-cart.png", "screens/04-one-cart.png"],
+  ["docs/assets/simulator-history.png", "screens/05-household-history.png"],
+  ["docs/assets/simulator-spanish.png", "screens/06-in-spanish.png"],
+  ["docs/assets/merchant-console.png", "screens/07-merchant-console.png"],
 ];
 
 const INDEX = `AgentPOS for Alexa+, evidence pack
 ==================================
 
 Repository:       https://github.com/NovaCorpAI/agentpos-alexa  (Apache-2.0)
-Demo video:       https://youtu.be/MOxcz6SIt6c
+Demo video:       https://youtu.be/MOxcz6SIt6c  (older cut; the 2026-09-21 film is being uploaded)
 Playground:       https://alexa.agentposhq.com
 Merchant console: https://alexa.agentposhq.com/#/merchant
 Bridge:           https://bridge.agentposhq.com
@@ -68,7 +69,7 @@ cloning it. Nothing in this pack is written for the pack.
 12 domain glossary      the words this project uses and the ones it avoids
 13, 14 decisions        the two architecture decisions worth their own record
 
-screens/                stills from the recorded demo, not mock-ups
+screens/                frames of the demo video, filmed against the live playground
 `;
 
 mkdirSync(resolve(stage, "screens"), { recursive: true });

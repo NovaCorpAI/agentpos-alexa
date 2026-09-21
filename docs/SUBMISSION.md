@@ -65,6 +65,15 @@ Amazon Bedrock AgentCore Memory and holds order references only. Every model cal
 tokens, latency, model and cost in `usage_events`: a closed checkout session costs
 US$0.0021 in inference, measured over five sessions (`docs/COSTS.md`).
 
+**What a household actually gets.** One cart per store: naming a second item joins the
+session that is open, the store re-quotes the whole cart, and one payment closes it. A
+reloaded browser finds its purchase where it left it, because the session lives in the bridge
+for six hours. And the household can ask about itself: "how much have I spent this month"
+is answered by the host from sessions that settled, with its own card, because the store
+answers about its catalog and the host answers about you. The whole surface, interface,
+assistant, cards and scenes, switches between English and Spanish with one control, and opens
+in the visitor's own language.
+
 **Try it:** https://alexa.agentposhq.com/ (merchant console at `/#/merchant`).
 
 **The simulated Alexa+ experience.** Amazon's tooling is available to partners only, so the
@@ -107,7 +116,7 @@ Replay the sequence with `pnpm demo:run <simulator url>`.
 | 2:20 | Impact | Three real stores, the public playground's third-party purchase counter, US$0.0021 per closed session from usage_events. |
 | 2:40 | Close | Repo, Apache-2.0, the UCP proposal, the friction log. |
 
-## Evidence on file (2026-09-17)
+## Evidence on file (2026-09-21)
 
 `pnpm submission:bundle` gathers all of it into one zip for the form's file upload: the costs
 and the raw rows behind them, the AWS integration with file paths, the friction log, the
@@ -116,13 +125,65 @@ repository.
 
 | Claim | Where it is verifiable |
 | --- | --- |
-| Demo video, recorded against the live deployment | https://youtu.be/MOxcz6SIt6c |
+| Demo video, filmed against the live deployment, 2 min 17 s | `.data/video/agentpos-alexa-demo.mp4`, upload pending (the published https://youtu.be/MOxcz6SIt6c is the older cut) |
 | Hosted playground, five Scenes green | https://alexa.agentposhq.com/ |
 | The merchant's own Stripe charges the card, in test mode | `pi_3UGkN5375U7THQYH0sTSjSMZ` (public), `pi_3UGjrV375U7THQYH1WeScCOB` (by voice), Stripe test dashboard |
 | Cost per closed checkout session: US$0.0021 | `docs/COSTS.md`, `docs/impact/usage-events.csv` (63 rows) |
 | Onboarding: URL to first voice purchase | 28 s on the fixture Store, from `usage_events` stage rows |
 | Household memory on AgentCore Memory | memory `agentpos_alexa_household` in us-east-1, Scene 4 |
+| One cart per store, and a reload that keeps it | `apps/simulator/src/server/checkout.ts`, test in `app.test.ts` |
+| The household's own spending, answered by the host | `packages/bridge/src/checkout/household.ts`, `GET`-free by design, tests in `household.test.ts` |
+| English and Spanish across the whole surface | `apps/simulator/web/src/i18n.ts`, `packages/bridge/apps/shared/strings.ts` |
 | Twelve friction entries | `docs/FRICTION-LOG.md` |
+
+## Uploading the video
+
+The file is `.data/video/agentpos-alexa-demo.mp4` (2 min 17 s, 1920 by 1080, 9 MB) and a copy
+sits on the desktop. Thumbnail: `docs/assets/youtube-thumbnail.png` (1280 by 720).
+
+Title:
+
+```
+AgentPOS for Alexa+: buy from the corner store, by voice
+```
+
+Description, to paste as it is:
+
+```
+Alexa+ for Builders is built for Priceline. This is for the corner store.
+
+AgentPOS for Alexa+ is the add-on a small store can afford: it sits in front of any AgentPOS
+store and speaks the Alexa+ contract, MCP for the catalogue and UCP checkout sessions for the
+payment. The store stays the merchant of record, and the bridge never holds a key or a cent.
+
+Filmed against the live playground, nothing staged:
+0:06 A store answering over MCP, in its own published words
+0:19 A baker onboards her store: an agent drafts how each item should sound, she confirms
+0:29 Buying as a conversation, with the checkout as the host's pattern
+0:40 Her own Stripe charges the card in test mode; the Amazon wallet handlers are simulated and labeled
+0:49 A guardian checks before the money moves, and the household decides
+1:09 One cart, item by item
+1:28 Memory: the same as last week, from order references only, on AgentCore Memory
+1:39 What this household has spent here this month, answered by the host
+1:51 One switch, and the whole thing speaks Spanish
+
+Try it: https://alexa.agentposhq.com
+Merchant console: https://alexa.agentposhq.com/#/merchant
+Code, Apache-2.0: https://github.com/NovaCorpAI/agentpos-alexa
+
+Built on Amazon Bedrock (Nova 2 Lite, Claude Sonnet 4.6), Bedrock AgentCore Memory, Amazon
+Polly, Amazon ECS Express Mode, Amazon ECR and AWS CodeBuild, with the Strands Agents SDK and
+the Model Context Protocol TypeScript SDK. A closed checkout session costs US$0.0021 in
+inference, measured, with every model call recorded.
+
+Built in Chile by NovaCorp AI.
+```
+
+Tags: `alexa`, `alexa plus`, `mcp`, `model context protocol`, `amazon bedrock`, `agentcore`,
+`ucp`, `checkout`, `voice commerce`, `small business`, `strands agents`, `aws`.
+
+After uploading: replace the link in the Devpost form's video field, in this file's evidence
+table, and in `docs/VIDEO.md`.
 
 ## Product feedback (required field)
 

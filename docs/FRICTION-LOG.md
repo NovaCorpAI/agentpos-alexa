@@ -174,6 +174,9 @@ everything we used, not only what hurt.
   and our simulator reported it as "I could not reach the store", which sent us looking at the
   Bridge first. Nothing in the console's model page shows the account's effective per-minute
   quota for a cross-region inference profile.
+- Also seen on 2026-09-21: the same draft of eight items, on Claude Sonnet 4.6 through the
+  same account, answered in 15 s one run and 126 s the next, with no throttling error and no
+  way to see from the API which of the two to expect.
 - Severity: Medium
 - Time lost: about 25 min
 - Workaround: pace the measurement (8 s between turns, 30 s back-off on throttling); the

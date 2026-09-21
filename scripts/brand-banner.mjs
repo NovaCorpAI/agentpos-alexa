@@ -216,6 +216,36 @@ function thumbnail() {
   </svg>`;
 }
 
+/**
+ * The video thumbnail, 1280 by 720: what a person sees in a list of submissions before they
+ * press play. Same plate as the rest, one claim, and the three words that place it.
+ */
+function videoThumbnail() {
+  const TW = 1280;
+  const TH = 720;
+  const mid = TH / 2;
+  const strokes = [];
+  for (let x = 70; x <= TW - 70; x += 6) {
+    const t = (x - 70) / (TW - 140);
+    const quiet = smooth(Math.abs(x - TW / 2), 300, 470);
+    if (quiet <= 0.002) continue;
+    const h = Math.max(5, 230 * quiet * Math.abs(0.5 + 0.5 * Math.sin(t * 57) * Math.sin(t * 15 + 0.9)) * (0.85 + next() * 0.3));
+    strokes.push(`<rect x="${x.toFixed(1)}" y="${(mid + 120 - h / 2).toFixed(1)}" width="1.6" height="${h.toFixed(1)}" fill="${BONE}" opacity="${(0.3 * (0.4 + 0.6 * quiet)).toFixed(3)}"/>`);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${TW}" height="${TH}" viewBox="0 0 ${TW} ${TH}">
+    <rect width="${TW}" height="${TH}" fill="${INK}"/>
+    ${[120, 240, 360, 480, 600].map((y) => `<line x1="0" y1="${y}" x2="${TW}" y2="${y}" stroke="${BONE}" stroke-width="0.6" opacity="0.045"/>`).join("")}
+    ${strokes.join("")}
+    <line x1="${TW / 2 - 360}" y1="${mid + 120}" x2="${TW / 2 + 360}" y2="${mid + 120}" stroke="${BONE}" stroke-width="1" opacity="0.13"/>
+    <g text-anchor="middle">
+      <text x="${TW / 2}" y="${mid - 168}" font-family="GeistMono" font-size="17" letter-spacing="10" fill="${BONE}" opacity="0.5">ALEXA+ ADD-ON FOR AGENTPOS STORES</text>
+      <text x="${TW / 2}" y="${mid - 52}" font-family="Jura" font-weight="300" font-size="132" letter-spacing="10" fill="${BONE}">Agent<tspan fill="${EMBER}">POS</tspan></text>
+      <text x="${TW / 2}" y="${mid + 34}" font-family="Instrument Serif" font-size="46" fill="${EMBER}">Buy from the corner store, by voice.</text>
+      <text x="${TW / 2}" y="${mid + 248}" font-family="GeistMono" font-size="16" letter-spacing="6" fill="${BONE}" opacity="0.4">MCP · UCP CHECKOUT · BEDROCK AGENTS · APACHE-2.0</text>
+    </g>
+  </svg>`;
+}
+
 const png = new Resvg(svg, {
   fitTo: { mode: "width", value: W },
   font: { fontDirs: [fontDir()], loadSystemFonts: false, defaultFontFamily: "Jura" },
@@ -228,6 +258,11 @@ const thumb = resolve(out, "..", "devpost-thumbnail.png");
 const thumbPng = new Resvg(thumbnail(), { fitTo: { mode: "width", value: 1500 }, font: { fontDirs: [fontDir()], loadSystemFonts: false, defaultFontFamily: "Jura" }, background: INK }).render();
 writeFileSync(thumb, thumbPng.asPng());
 console.log(`wrote ${thumb}`);
+
+const videoThumb = resolve(out, "..", "youtube-thumbnail.png");
+const videoThumbPng = new Resvg(videoThumbnail(), { fitTo: { mode: "width", value: 1280 }, font: { fontDirs: [fontDir()], loadSystemFonts: false, defaultFontFamily: "Jura" }, background: INK }).render();
+writeFileSync(videoThumb, videoThumbPng.asPng());
+console.log(`wrote ${videoThumb}`);
 
 const square = resolve(out, "..", "youtube-avatar.png");
 const avatarPng = new Resvg(avatar(), { fitTo: { mode: "width", value: 800 }, font: { fontDirs: [fontDir()], loadSystemFonts: false, defaultFontFamily: "Jura" }, background: INK }).render();
