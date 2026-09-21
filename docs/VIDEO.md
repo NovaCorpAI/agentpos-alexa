@@ -30,11 +30,12 @@ which is what Polly reads, so the two cannot drift.
 
 ## The film as it stands (2026-09-21)
 
+Published: https://youtu.be/Jfyoqvlb-7I (channel @Agent-Pos).
+
 `.data/video/agentpos-alexa-demo.mp4`: 2 minutes 17 seconds, 1920 by 1080 at 30 frames a
 second, 9 MB, H.264 and AAC, shot against https://alexa.agentposhq.com and narrated by Polly.
-Real screen motion, not stills: the typing, the cards arriving, the language switching. Ready
-to upload; the previous cut (https://youtu.be/MOxcz6SIt6c) shows the older interface and an
-older flow.
+Real screen motion, not stills: the typing, the cards arriving, the language switching. It
+replaces the cut of 2026-09-19, which showed the older interface and an older flow.
 
 Three things came out of watching the takes, and were fixed before the final one: the
 assistant was saying markdown asterisks out loud, the first purchase of the film tripped the

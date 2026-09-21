@@ -47,7 +47,7 @@ const INDEX = `AgentPOS for Alexa+, evidence pack
 ==================================
 
 Repository:       https://github.com/NovaCorpAI/agentpos-alexa  (Apache-2.0)
-Demo video:       https://youtu.be/MOxcz6SIt6c  (older cut; the 2026-09-21 film is being uploaded)
+Demo video:       https://youtu.be/Jfyoqvlb-7I
 Playground:       https://alexa.agentposhq.com
 Merchant console: https://alexa.agentposhq.com/#/merchant
 Bridge:           https://bridge.agentposhq.com

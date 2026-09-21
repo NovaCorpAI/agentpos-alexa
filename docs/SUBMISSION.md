@@ -27,7 +27,7 @@ updated at every milestone, so that a missed freeze still leaves a complete entr
 | Track | Alexa+ |
 | Mini challenges | AWS Builder, Open Source |
 | Repository | https://github.com/NovaCorpAI/agentpos-alexa (Apache-2.0) |
-| Video | https://youtu.be/MOxcz6SIt6c (public, English, 2 min 39 s; shot list in `docs/VIDEO.md`) |
+| Video | https://youtu.be/Jfyoqvlb-7I (public, English, 2 min 17 s; shot list in `docs/VIDEO.md`) |
 | Built with | TypeScript, Node 22, Hono, node:sqlite, MCP SDK, Amazon Bedrock (Nova 2 Lite, Nova Pro, Claude Sonnet 4.6), Bedrock AgentCore Memory, Strands Agents SDK, Amazon Polly, Amazon ECS Express Mode (Fargate), Amazon ECR, AWS CodeBuild, x402, Stellar |
 | Existed before? | AgentPOS (the store side: catalog, quotes, policies, receipts, settlement) existed before the hackathon and is a separate repository. Everything in this repository is new: the MCP server for Alexa+, the UCP checkout sessions, the payment rails, the merchant agents on AgentCore, the simulated Alexa+ client. See "What we built" below. |
 
@@ -125,7 +125,7 @@ repository.
 
 | Claim | Where it is verifiable |
 | --- | --- |
-| Demo video, filmed against the live deployment, 2 min 17 s | `.data/video/agentpos-alexa-demo.mp4`, upload pending (the published https://youtu.be/MOxcz6SIt6c is the older cut) |
+| Demo video, filmed against the live deployment, 2 min 17 s | https://youtu.be/Jfyoqvlb-7I |
 | Hosted playground, five Scenes green | https://alexa.agentposhq.com/ |
 | The merchant's own Stripe charges the card, in test mode | `pi_3UGkN5375U7THQYH0sTSjSMZ` (public), `pi_3UGjrV375U7THQYH1WeScCOB` (by voice), Stripe test dashboard |
 | Cost per closed checkout session: US$0.0021 | `docs/COSTS.md`, `docs/impact/usage-events.csv` (63 rows) |
@@ -157,6 +157,7 @@ store and speaks the Alexa+ contract, MCP for the catalogue and UCP checkout ses
 payment. The store stays the merchant of record, and the bridge never holds a key or a cent.
 
 Filmed against the live playground, nothing staged:
+0:00 Alexa+ for Builders is for Priceline. This is for the corner store.
 0:06 A store answering over MCP, in its own published words
 0:19 A baker onboards her store: an agent drafts how each item should sound, she confirms
 0:29 Buying as a conversation, with the checkout as the host's pattern
@@ -179,11 +180,13 @@ inference, measured, with every model call recorded.
 Built in Chile by NovaCorp AI.
 ```
 
+YouTube turns the list into chapters only when the first timestamp is 0:00 and there are at
+least three of them, which is why the title card has a line of its own.
+
 Tags: `alexa`, `alexa plus`, `mcp`, `model context protocol`, `amazon bedrock`, `agentcore`,
 `ucp`, `checkout`, `voice commerce`, `small business`, `strands agents`, `aws`.
 
-After uploading: replace the link in the Devpost form's video field, in this file's evidence
-table, and in `docs/VIDEO.md`.
+Uploaded on 2026-09-21 as https://youtu.be/Jfyoqvlb-7I, and set in the Devpost form.
 
 ## Product feedback (required field)
 
@@ -200,7 +203,7 @@ Mode endpoints (FL-009), Bedrock quotas (FL-007) and model ids and prices (FL-00
 ## Checklist before submitting
 
 - [x] Repository public, Apache-2.0 detected by GitHub, and a clean clone installs, builds and runs the three services (checked 2026-09-17 and 2026-09-19).
-- [x] Video under 3 minutes, English, public on YouTube, shows the simulated experience clearly: https://youtu.be/MOxcz6SIt6c
+- [x] Video under 3 minutes, English, public on YouTube, shows the simulated experience clearly: https://youtu.be/Jfyoqvlb-7I
 - [ ] Impact numbers filled from `usage_events` export, with the CSV committed under `docs/impact/`. Cost per closed session done (US$0.0021, `docs/impact/usage-events.csv`); onboarding time on real stores and third-party purchases pending.
 - [x] Friction log with at least ten entries, each with date, severity, time lost, workaround, suggestion.
 - [x] `.env.example` covers every key the local `.env` sets; the whole history scanned for Stripe, AWS and private-key patterns, and for committed `.env` or credential files: nothing found (2026-09-19).
