@@ -21,3 +21,8 @@ ca1dcab1-5f65-4f23-8317-3cbb6a6f484e,sim-3574fc79,2026-09-20T07:34:27.285Z,bridg
 e7f20bd6-50ba-4f8b-8f68-97acbe786689,sim-ca3c7830,2026-09-20T23:00:06.307Z,simulator,https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws,,us.amazon.nova-2-lite-v1:0,296,24,0,1727,792,153,,,,0,
 079c2df6-4ef9-4b6d-9887-909dbf319910,sim-ca3c7830,2026-09-20T23:00:07.538Z,simulator,https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws,,us.amazon.nova-2-lite-v1:0,2181,32,0,912,625,207,,,,0,
 3dd5682c-a836-4839-bb19-a25c325241e7,sim-ca3c7830,2026-09-20T23:00:06.780Z,bridge.mcp,https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws,,,0,0,0,0,220,0,,,,0,
+da0369a5-756e-4256-8e23-9e1c479af704,sim-178bac7a,2026-09-21T01:53:19.905Z,simulator,https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws,,us.amazon.nova-2-lite-v1:0,275,12,0,1744,734,150,,,,0,
+0fdf82ca-885c-4fd2-b435-bf32693c0592,sim-95c217ad,2026-09-21T01:53:27.661Z,simulator,https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws,,us.amazon.nova-2-lite-v1:0,539,20,1562,0,539,47,,,,0,
+915f9691-5e02-4e2f-ad29-8aacf6ede3ff,sim-4c734b74,2026-09-21T01:53:48.665Z,simulator,https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws,,us.amazon.nova-2-lite-v1:0,783,42,1409,0,603,66,,,,0,
+965a0d92-e2ca-44e4-aa4f-6aed9ca19c93,sim-8e8c9cc1,2026-09-21T01:54:10.408Z,simulator,https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws,,us.amazon.nova-2-lite-v1:0,1039,59,1265,0,809,84,,,,0,
+dd6a55f9-b4ab-4749-8985-d24696d51575,sim-d84bf25c,2026-09-21T01:54:17.608Z,simulator,https://ag-8e0161c11f574824accc60bc26c8d2f4.ecs.us-east-1.on.aws,,us.amazon.nova-2-lite-v1:0,1292,46,1140,0,618,95,,,,0,
