@@ -126,6 +126,17 @@ export class CheckoutService {
     return this.load(ctx, id).session;
   }
 
+  /**
+   * What the Store asks to be paid for this session's cart, in x402's own words. The wallet
+   * that pays lives in the host, so the host has to see the challenge; it never talks to the
+   * Store itself (ADR-0001), and the Bridge adds nothing to what the Store said.
+   */
+  async paymentRequired(ctx: CallContext, id: string): Promise<{ x402Version: number; accepts: unknown[] } | undefined> {
+    const { internal } = this.load(ctx, id);
+    if (!internal.cartId) return undefined;
+    return await this.client(ctx).paymentRequired(internal.cartId);
+  }
+
   async update(ctx: CallContext, id: string, req: SessionRequest): Promise<CheckoutSession> {
     const { session, internal } = this.load(ctx, id);
     this.assertMutable(session);
@@ -172,11 +183,13 @@ export class CheckoutService {
       this.deps.storage.checkout.save(session, internal);
       return session;
     }
-    // A decline leaves the session incomplete with only the payment message; the quote is
-    // still good, so a retry with another instrument is allowed. Anything else must be
-    // resolved through update first.
+    // A decline, or a credential the rail could not read, leaves the session incomplete with
+    // only that message; the quote is still good, so a retry with another instrument is
+    // allowed. Anything else must be resolved through update first.
     const retryAfterDecline =
-      session.status === "incomplete" && internal.cartId !== undefined && session.messages.every((m) => m.type === "error" && (m.code === "payment_failed" || m.severity === "requires_buyer_review"));
+      session.status === "incomplete" &&
+      internal.cartId !== undefined &&
+      session.messages.every((m) => m.type === "error" && (m.code === "payment_failed" || m.code === "invalid_credential" || m.severity === "requires_buyer_review"));
     if (session.status !== "ready_for_complete" && !retryAfterDecline) {
       session.messages = [...session.messages.filter((m) => m.type !== "error" || m.code !== "payment_failed"), err("not_ready", "The session is not ready to complete; resolve the messages first.", "recoverable")];
       this.deps.storage.checkout.save(session, internal);

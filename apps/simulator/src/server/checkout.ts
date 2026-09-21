@@ -6,6 +6,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { BridgeCheckoutClient } from "./bridge-client.js";
+import type { HouseholdWallet } from "./x402.js";
 
 /** Fixed checkout identity of the Demo household. Fake by construction. */
 export const SYNTHETIC_PERSONA = {
@@ -54,11 +55,11 @@ export interface CheckoutState {
   speak: string;
 }
 
-const KNOWN: Record<string, { label: string; labelEs: string; kind: "network_token" | "stored" | "tokenizer" | "unsupported" }> = {
+const KNOWN: Record<string, { label: string; labelEs: string; kind: "network_token" | "stored" | "tokenizer" | "wallet" | "unsupported" }> = {
   "com.agentposhq.processor_tokenizer": { label: "Card through the store's Stripe", labelEs: "Tarjeta por el Stripe de la tienda", kind: "tokenizer" },
   "com.amazon.payments.network_token": { label: "Amazon wallet card", labelEs: "Tarjeta de la billetera de Amazon", kind: "network_token" },
   "com.amazon.payments.stored_payment_method": { label: "Saved card", labelEs: "Tarjeta guardada", kind: "stored" },
-  "org.x402.stellar": { label: "USDC wallet (x402)", labelEs: "Billetera USDC (x402)", kind: "unsupported" },
+  "org.x402.stellar": { label: "USDC wallet (x402)", labelEs: "Billetera USDC (x402)", kind: "wallet" },
 };
 
 /** Words the host owns around a payment method, in the household's language. */
@@ -67,11 +68,17 @@ const PAY_WORDS = {
   "es-CL": { testCard: "tarjeta de prueba 4242", ending: "terminada en", card: "tarjeta", notWired: "todavía no está conectada en el simulador", noLive: "los procesadores en vivo no están disponibles para el hogar de demostración" },
 } as const;
 
+/** What a household's wallet is called on screen when it can pay, and when it cannot. */
+const WALLET_WORDS = {
+  "en-US": { testnet: "Stellar testnet", noWallet: "the demo household has no wallet configured here" },
+  "es-CL": { testnet: "testnet de Stellar", noWallet: "el hogar de demostración no tiene billetera configurada aquí" },
+} as const;
+
 export function dollars(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-function options(session: Session, language: SpokenLanguage = "en-US"): PaymentOption[] {
+function options(session: Session, language: SpokenLanguage = "en-US", wallet?: HouseholdWallet): PaymentOption[] {
   const out: PaymentOption[] = [];
   const w = PAY_WORDS[language];
   const nameOf = (k: (typeof KNOWN)[string]) => (language === "es-CL" ? k.labelEs : k.label);
@@ -84,6 +91,18 @@ function options(session: Session, language: SpokenLanguage = "en-US"): PaymentO
       } else if (known.kind === "tokenizer") {
         // The Demo household only has a processor test card; a live processor is not offered.
         out.push({ handlerId: h.id, namespace: ns, label: `${nameOf(known)} (${w.testCard})`, simulated: false, testMode, available: testMode, ...(testMode ? {} : { reason: w.noLive }) });
+      } else if (known.kind === "wallet") {
+        // The household pays from its own wallet, so the rail is only on offer when it has one.
+        const words = WALLET_WORDS[language];
+        out.push({
+          handlerId: h.id,
+          namespace: ns,
+          label: `${nameOf(known)}, ${words.testnet}`,
+          simulated: false,
+          testMode,
+          available: Boolean(wallet),
+          ...(wallet ? {} : { reason: words.noWallet }),
+        });
       } else if (known.kind === "stored") {
         for (const inst of session.payment?.instruments.filter((i) => i.handler_id === h.id) ?? []) {
           const d = inst.display ?? {};
@@ -143,7 +162,11 @@ export class CheckoutFlow {
   /** The open cart of each add-on, so another item joins it instead of starting a second one. */
   private readonly openByAddon = new Map<string, string>();
 
-  constructor(private readonly client: BridgeCheckoutClient) {}
+  constructor(
+    private readonly client: BridgeCheckoutClient,
+    /** The Demo household's Stellar wallet, when this deployment has one. */
+    private readonly wallet?: HouseholdWallet,
+  ) {}
 
   get(sessionId: string): CheckoutState | undefined {
     return this.states.get(sessionId);
@@ -197,7 +220,7 @@ export class CheckoutFlow {
       if (second.status !== 200) throw new Error(`checkout update answered ${second.status}`);
       session = second.body as unknown as Session;
     }
-    const opts = options(session, language);
+    const opts = options(session, language, this.wallet);
     const next: CheckoutState = { sessionId: session.id, addon: state.addon, session, options: opts, speak: speakSession(session, opts, language, true) };
     this.states.set(session.id, next);
     return next;
@@ -221,7 +244,7 @@ export class CheckoutFlow {
       if (updated.status !== 200) throw new Error(`checkout update answered ${updated.status}`);
       session = updated.body as unknown as Session;
     }
-    const opts = options(session, language);
+    const opts = options(session, language, this.wallet);
     const state: CheckoutState = { sessionId: session.id, addon, session, options: opts, speak: speakSession(session, opts, language) };
     this.states.set(session.id, state);
     this.openByAddon.set(addon, session.id);
@@ -252,6 +275,39 @@ export class CheckoutFlow {
       }
     }
     const kind = KNOWN[opt.namespace]?.kind;
+    if (kind === "wallet") {
+      if (!this.wallet) throw new Error("no household wallet is configured for this deployment");
+      const challenge = await this.client.paymentRequired(state.addon, sessionId, traceId);
+      if (!challenge) {
+        const next: CheckoutState = { ...state, speak: es ? "La tienda no pidió un pago para este carro." : "The store did not ask to be paid for this cart." };
+        this.states.set(sessionId, next);
+        return next;
+      }
+      // The wallet signs, and refuses on its own when the amount passes the household's ceiling.
+      const payload = await this.wallet.pay(challenge.accepts);
+      const walletInstrument = {
+        id: `instr_${randomUUID().slice(0, 8)}`,
+        handler_id: handlerId,
+        type: "stellar_wallet",
+        selected: true,
+        display: { wallet: this.wallet.address, network: this.wallet.network },
+        credential: { type: "x402_payload", payload },
+      };
+      const paid = await this.client.complete(state.addon, sessionId, { payment: { instruments: [walletInstrument] } }, traceId, randomUUID(), how.purchaseOrigin);
+      if (paid.status !== 200) throw new Error(`checkout complete answered ${paid.status}: ${JSON.stringify(paid.body).slice(0, 200)}`);
+      const walletSession = paid.body as unknown as Session;
+      const walletOpts = options(walletSession, how.language ?? "en-US", this.wallet);
+      const settled = walletSession.status === "completed" && walletSession.order;
+      const spoken = settled
+        ? es
+          ? `Pedido hecho. Pagaste desde tu billetera en la testnet de Stellar. Tu número de pedido es ${walletSession.order!.id}.`
+          : `Order placed. You paid from your wallet on the Stellar testnet. Your order number is ${walletSession.order!.id}.`
+        : (walletSession.messages.find((m) => m.type === "error")?.content ?? (es ? "El pago no se pudo completar." : "The payment did not go through."));
+      const next: CheckoutState = { sessionId, addon: state.addon, session: walletSession, options: walletOpts, speak: spoken };
+      this.states.set(sessionId, next);
+      if (!isOpen(walletSession)) this.openByAddon.delete(state.addon);
+      return next;
+    }
     const instrument =
       kind === "tokenizer"
         ? // Stripe's test payment method for card 4242: accepted only by a test-mode key, never a real card.
@@ -270,7 +326,7 @@ export class CheckoutFlow {
     const done = await this.client.complete(state.addon, sessionId, { payment: { instruments: [instrument] } }, traceId, randomUUID(), how.purchaseOrigin);
     if (done.status !== 200) throw new Error(`checkout complete answered ${done.status}: ${JSON.stringify(done.body).slice(0, 200)}`);
     const session = done.body as unknown as Session;
-    const opts = options(session, how.language ?? "en-US");
+    const opts = options(session, how.language ?? "en-US", this.wallet);
     let speak: string;
     if (session.status === "completed" && session.order) {
       const how_paid = opt.simulated

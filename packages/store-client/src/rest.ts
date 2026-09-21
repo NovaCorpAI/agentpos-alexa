@@ -195,6 +195,33 @@ export class AgentPosStoreClient {
     return this.fail(res, "processor checkout");
   }
 
+  /**
+   * The x402 challenge for a cart: what the Store wants to be paid, as the protocol states it.
+   * Asked for by making the checkout call with no payment, which is what a 402 is for.
+   */
+  async paymentRequired(cartId: string): Promise<{ x402Version: number; accepts: unknown[] } | undefined> {
+    const res = await this.call(`/checkout?cart=${encodeURIComponent(cartId)}`, { method: "POST" });
+    if (res.status !== 402) return undefined;
+    const body = (await res.json().catch(() => ({}))) as { x402Version?: number; accepts?: unknown[] };
+    return Array.isArray(body.accepts) && body.accepts.length ? { x402Version: body.x402Version ?? 2, accepts: body.accepts } : undefined;
+  }
+
+  /**
+   * Pays a cart with an x402 payload the customer's wallet signed. The Store verifies it and
+   * settles; this client never signs and never holds a key.
+   */
+  async checkoutWithX402(cartId: string, payload: unknown): Promise<{ kind: "paid"; result: CheckoutPaid } | { kind: "parked"; result: CheckoutParked } | { kind: "declined"; code: string; message: string }> {
+    const header = Buffer.from(JSON.stringify(payload)).toString("base64");
+    const res = await this.call(`/checkout?cart=${encodeURIComponent(cartId)}`, { method: "POST", headers: { "X-PAYMENT": header } });
+    if (res.status === 200) return { kind: "paid", result: (await this.json(res, "x402 checkout")) as CheckoutPaid };
+    if (res.status === 202) return { kind: "parked", result: (await this.json(res, "x402 checkout")) as CheckoutParked };
+    if (res.status === 402 || res.status === 400) {
+      const body = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+      return { kind: "declined", code: body.error?.code ?? "PAYMENT_DECLINED", message: body.error?.message ?? "The payment did not settle." };
+    }
+    return this.fail(res, "x402 checkout");
+  }
+
   async order(orderId: string): Promise<Order> {
     const res = await this.call(`/orders/${encodeURIComponent(orderId)}`);
     if (!res.ok) return this.fail(res, "order");

@@ -187,6 +187,13 @@ export class BridgeCheckoutClient {
   update(slug: string, id: string, body: unknown, traceId: string, key: string) {
     return this.call("PUT", `/stores/${slug}/checkout-sessions/${id}`, traceId, body, key);
   }
+  /** What the Store wants paid for this session's cart, for the household's wallet to sign. */
+  async paymentRequired(slug: string, id: string, traceId: string): Promise<{ x402Version: number; accepts: unknown[] } | undefined> {
+    const res = await this.call("POST", `/stores/${slug}/checkout-sessions/${id}/payment-required`, traceId);
+    const body = res.body as { accepts?: unknown[]; x402Version?: number };
+    return res.status === 200 && Array.isArray(body.accepts) ? { x402Version: body.x402Version ?? 2, accepts: body.accepts } : undefined;
+  }
+
   /** purchaseOrigin tells the Bridge whose purchase this is: ours (Scenes, tests) or a visitor's. */
   complete(slug: string, id: string, body: unknown, traceId: string, key: string, purchaseOrigin?: "own" | "third_party") {
     return this.call("POST", `/stores/${slug}/checkout-sessions/${id}/complete`, traceId, body, key, purchaseOrigin ? { "AgentPOS-Purchase-Origin": purchaseOrigin } : {});

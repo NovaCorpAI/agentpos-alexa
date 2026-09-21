@@ -3,3 +3,5 @@ export { stripeTestProcessor } from "./processor.js";
 export type { ChargeInput, ChargeResult, MerchantProcessor } from "./processor.js";
 export type { FixturePolicy, FixtureState, FixtureStoreOptions } from "./app.js";
 export { BAKERY_ITEMS, BAKERY_NAME, BAKERY_NETWORK, BAKERY_PAY_TO } from "./bakery.js";
+export { minorToDecimal, stellarRail } from "./x402.js";
+export type { StellarRail } from "./x402.js";

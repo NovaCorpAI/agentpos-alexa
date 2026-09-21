@@ -103,6 +103,19 @@ export function registerCheckoutRoutes(app: Hono<Env>, deps: CheckoutRouteDeps):
     return c.json(deps.service.get(ctx, c.req.param("id")!));
   });
 
+  /**
+   * The x402 challenge for a session's cart: what the Store wants paid, so the customer's
+   * wallet can sign it. Read only, and the Bridge is only the messenger.
+   */
+  app.post(`${base}/:id/payment-required`, async (c) => {
+    const ctx = ctxOf(c);
+    const challenge = await deps.service.paymentRequired(ctx, c.req.param("id")!);
+    if (!challenge) {
+      throw new BridgeError(409, { code: "NO_PAYMENT_CHALLENGE", message: "This session has no cart the Store can be paid for", hint: "Update the session with its line items first." });
+    }
+    return c.json(challenge);
+  });
+
   app.put(`${base}/:id`, (c) =>
     idempotent(c, `update:${c.req.param("id")}`, async (raw) => {
       const ctx = ctxOf(c);

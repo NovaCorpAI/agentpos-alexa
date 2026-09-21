@@ -11,6 +11,7 @@ import { AgentBrain, ScriptedRouterBrain, type Brain } from "./agent/brain.js";
 import { createSimulatorApp, SIMULATOR_VERSION } from "./app.js";
 import { BridgeCheckoutClient, BridgeClient, BridgeOnboardingClient } from "./bridge-client.js";
 import { CheckoutFlow } from "./checkout.js";
+import { householdWallet } from "./x402.js";
 import { InspectionLog } from "./inspection.js";
 import { AgentCoreHouseholdMemory, ensureMemory, sdkEvents } from "./agentcore-memory.js";
 import { SqliteHouseholdMemory, type HouseholdMemory } from "./memory.js";
@@ -33,7 +34,10 @@ const dataDir = process.env.SIMULATOR_DATA_DIR ?? workspaceDataDir();
 const webDir = resolve(import.meta.dirname, "../../dist/web");
 const bridge = new BridgeClient({ url: bridgeUrl, bearerToken });
 const inspection = new InspectionLog(resolve(dataDir, "inspection-summary.json"), SIMULATOR_VERSION);
-const checkout = new CheckoutFlow(new BridgeCheckoutClient({ url: bridgeUrl, bearerToken }));
+// The Demo household's own wallet (#17): a testnet key, held by the host, never by the Bridge.
+// Without it the x402 rail is shown but cannot be chosen, which is the truth of the matter.
+const wallet = householdWallet(process.env.DEMO_HOUSEHOLD_STELLAR_SECRET, Number(process.env.DEMO_MANDATE_MAX_CENTS ?? 5000) / 100);
+const checkout = new CheckoutFlow(new BridgeCheckoutClient({ url: bridgeUrl, bearerToken }), wallet);
 const merchant = new BridgeOnboardingClient({ url: bridgeUrl, bearerToken });
 // Household memory: SQLite by default; AgentCore Memory when SIMULATOR_MEMORY=agentcore (#16).
 // AGENTCORE_MEMORY_ID pins an existing memory; otherwise it is found by name or created.

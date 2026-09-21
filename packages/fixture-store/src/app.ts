@@ -16,6 +16,7 @@ import {
   BAKERY_PAY_TO,
 } from "./bakery.js";
 import type { MerchantProcessor } from "./processor.js";
+import type { StellarRail } from "./x402.js";
 
 /** Handler namespace for the merchant's own PSP through a processor tokenizer (UCP example pattern). */
 export const PROCESSOR_HANDLER = "com.agentposhq.processor_tokenizer";
@@ -26,6 +27,9 @@ export const UCP_VERSION = "2026-08-25";
 export const CART_TTL_MINUTES = 15;
 /** Header a real x402 client sends with the signed payment payload (x402 version 2). */
 export const PAYMENT_SIGNATURE_HEADER = "Payment-Signature";
+
+/** The header x402 itself uses for the signed payload. */
+export const X402_PAYMENT_HEADER = "X-PAYMENT";
 export const PAYMENT_REQUIRED_HEADER = "Payment-Required";
 
 /** Merchant policy the fixture applies to every cart. Deterministic, like the real Store's. */
@@ -47,6 +51,12 @@ export interface FixtureStoreOptions {
   now?: () => Date;
   /** The merchant's own PSP, run Store-side. Omitted: the handler is not advertised. */
   processor?: MerchantProcessor;
+  /**
+   * The Store's x402 rail on the Stellar testnet. With one, the 402 challenge and the
+   * settlement are the protocol's own and the money moves; without one the handler is still
+   * advertised, but labeled a fixture, and nothing settles.
+   */
+  stellar?: StellarRail;
 }
 
 interface StoredCart {
@@ -136,12 +146,14 @@ export function createFixtureStore(opts: FixtureStoreOptions): { app: Hono; stat
                 protocol: "x402",
                 x402Version: 2,
                 scheme: "exact",
-                network: BAKERY_NETWORK,
+                network: opts.stellar?.network ?? BAKERY_NETWORK,
                 asset: BAKERY_ASSET,
-                assetAddress: BAKERY_ASSET_ADDRESS,
-                payTo: BAKERY_PAY_TO,
+                assetAddress: opts.stellar?.asset ?? BAKERY_ASSET_ADDRESS,
+                payTo: opts.stellar?.payTo ?? BAKERY_PAY_TO,
                 checkout: `${rest}/checkout`,
                 cart: `${rest}/cart`,
+                // A Store that cannot settle says so, in the profile a platform reads.
+                ...(opts.stellar ? { settles: true } : { fixture: true }),
               },
             },
           ],
@@ -273,8 +285,8 @@ export function createFixtureStore(opts: FixtureStoreOptions): { app: Hono; stat
         total: humanAmount(total),
         totalMinor: total.toString(),
         asset: BAKERY_ASSET,
-        network: BAKERY_NETWORK,
-        payTo: BAKERY_PAY_TO,
+        network: opts.stellar?.network ?? BAKERY_NETWORK,
+        payTo: opts.stellar?.payTo ?? BAKERY_PAY_TO,
         requiresShipping: physical,
       },
       checkout: `${rest}/checkout?cart=${cartId}`,
@@ -287,7 +299,7 @@ export function createFixtureStore(opts: FixtureStoreOptions): { app: Hono; stat
     return c.json(quote, 201);
   });
 
-  app.post("/agentpos/checkout", (c) => {
+  app.post("/agentpos/checkout", async (c) => {
     const cartId = c.req.query("cart") ?? "";
     const cart = state.carts.get(cartId);
     if (!cart) {
@@ -296,7 +308,58 @@ export function createFixtureStore(opts: FixtureStoreOptions): { app: Hono; stat
     if (new Date(cart.quote.expiresAt).getTime() < now().getTime()) {
       return c.json({ error: { code: "CART_EXPIRED", message: "The cart must be re-quoted", hint: "POST /agentpos/cart again." } }, 409);
     }
-    const signature = c.req.header(PAYMENT_SIGNATURE_HEADER);
+    // x402 names the header X-PAYMENT; the fixture's own older name still works.
+    const signature = c.req.header(X402_PAYMENT_HEADER) ?? c.req.header(PAYMENT_SIGNATURE_HEADER);
+
+    // With a rail configured, both halves are the protocol's: `@x402/core` builds what the
+    // Store wants to be paid, and its facilitator verifies the customer's signature and
+    // submits the transfer. The order exists only once the network recorded it (hard rule 3).
+    if (opts.stellar) {
+      const requirements = (await opts.stellar.requirements(cart.quote.quote.totalMinor, `${rest}/checkout?cart=${cartId}`, `${name}: pay for a cart`)) as Array<Record<string, unknown>>;
+      if (!signature) {
+        c.header(PAYMENT_REQUIRED_HEADER, Buffer.from(JSON.stringify({ x402Version: 2, error: "Payment required", accepts: requirements })).toString("base64"));
+        c.header("Cache-Control", "no-store");
+        return c.json({ x402Version: 2, error: "Payment required", accepts: requirements }, 402);
+      }
+      if (cart.decision === "review") {
+        const approvalId = id("apr");
+        const expiresAt = new Date(now().getTime() + 24 * 3_600_000).toISOString();
+        state.approvals.set(approvalId, { cartId, expiresAt });
+        return c.json({ status: "pending_approval", approvalId, poll: `${rest}/approvals/${approvalId}`, expiresAt }, 202);
+      }
+      let payload: unknown;
+      try {
+        payload = JSON.parse(Buffer.from(signature, "base64").toString("utf8"));
+      } catch {
+        return c.json({ error: { code: "BAD_PAYMENT", message: "The payment header is not a base64 x402 payload", hint: "Send the payload the x402 client produced." } }, 400);
+      }
+      const verified = await opts.stellar.verify(payload, requirements[0]);
+      if (!verified.isValid) {
+        return c.json({ error: { code: "PAYMENT_INVALID", message: verified.invalidReason ?? "The payment did not verify", hint: "Sign the requirements this cart quoted." } }, 402);
+      }
+      const settled = await opts.stellar.settle(payload, requirements[0]);
+      if (!settled.success || !settled.transaction) {
+        return c.json({ error: { code: "PAYMENT_FAILED", message: settled.errorReason ?? "The transfer did not settle", hint: "Check the wallet's balance on the testnet." } }, 402);
+      }
+      const txHash = settled.transaction;
+      const already = [...state.orders.values()].find((o) => o.payment.txHash === txHash);
+      if (already) return c.json({ orderId: already.orderId, status: already.status, order: `${rest}/orders/${already.orderId}` });
+      const orderId = id("ord");
+      const createdAt = now().toISOString();
+      state.orders.set(orderId, {
+        orderId,
+        cartId,
+        status: "paid",
+        total: cart.quote.quote.total,
+        totalMinor: cart.quote.quote.totalMinor,
+        payment: { protocol: "x402", network: opts.stellar.network, asset: BAKERY_ASSET, amountMinor: cart.quote.quote.totalMinor, txHash, settledAt: createdAt, fixture: false },
+        externalOrderId: String(1000 + state.orders.size),
+        createdAt,
+        lines: cart.quote.quote.lines,
+      });
+      return c.json({ orderId, status: "paid", order: `${rest}/orders/${orderId}` });
+    }
+
     if (!signature) {
       const challenge: PaymentRequired = {
         x402Version: 2,
