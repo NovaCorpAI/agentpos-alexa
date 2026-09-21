@@ -23,6 +23,8 @@
     "demo:run": "node scripts/demo-run.mjs",
     "video:narration": "node scripts/video-narration.mjs",
     "video:record": "node scripts/video-record.mjs",
+    "video:shoot": "node scripts/video-shoot.mjs",
+    "video:cut": "node scripts/video-cut.mjs",
     "video:build": "node scripts/video-build.mjs",
     "submission:bundle": "node scripts/submission-bundle.mjs"
   },
