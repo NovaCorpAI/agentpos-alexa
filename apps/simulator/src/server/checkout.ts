@@ -159,8 +159,12 @@ export interface ConfirmOptions {
 
 export class CheckoutFlow {
   private readonly states = new Map<string, CheckoutState>();
-  /** The open cart of each add-on, so another item joins it instead of starting a second one. */
-  private readonly openByAddon = new Map<string, string>();
+  /**
+   * The open cart of each visitor at each add-on, so another item joins that cart instead of
+   * starting a second one. Keyed by the visitor too: the Demo household is shared on the
+   * public playground, and one person's cart is not another's to add to, pay or even see.
+   */
+  private readonly openCarts = new Map<string, string>();
 
   constructor(
     private readonly client: BridgeCheckoutClient,
@@ -172,14 +176,19 @@ export class CheckoutFlow {
     return this.states.get(sessionId);
   }
 
+  /** A cart that is paid or canceled stops being anybody's open cart. */
+  private forget(sessionId: string): void {
+    for (const [key, id] of this.openCarts) if (id === sessionId) this.openCarts.delete(key);
+  }
+
   /** What the Demo household has settled at this Store this month. The host's own question. */
   async purchases(addon: string, traceId: string, period: "this_month" | "last_30_days" | "all_time" = "this_month") {
     return this.client.purchases(addon, SYNTHETIC_PERSONA.buyer.email, period, traceId);
   }
 
-  /** The cart this add-on still has open, if any: what a reloaded browser asks for. */
-  openFor(addon: string): CheckoutState | undefined {
-    const id = this.openByAddon.get(addon);
+  /** The cart this visitor still has open at this add-on: what their reloaded browser asks for. */
+  openFor(addon: string, visitor = "local"): CheckoutState | undefined {
+    const id = this.openCarts.get(`${visitor}:${addon}`);
     const state = id ? this.states.get(id) : undefined;
     return state && isOpen(state.session) ? state : undefined;
   }
@@ -227,8 +236,8 @@ export class CheckoutFlow {
   }
 
   /** Create, then update with the persona's address so the Store quotes it: one call for the host. */
-  async start(addon: string, lines: LineItemInput[], traceId: string, language: SpokenLanguage = "en-US"): Promise<CheckoutState> {
-    const open = this.openFor(addon);
+  async start(addon: string, lines: LineItemInput[], traceId: string, language: SpokenLanguage = "en-US", visitor = "local"): Promise<CheckoutState> {
+    const open = this.openFor(addon, visitor);
     if (open) return this.addLines(open, lines, traceId, language);
     const created = await this.client.create(addon, { line_items: lines.map((l) => ({ item: { id: l.itemId }, quantity: l.quantity })), buyer: SYNTHETIC_PERSONA.buyer, context: { language, address_country: SYNTHETIC_PERSONA.destination.address_country } }, traceId, randomUUID());
     if (created.status !== 201) throw new Error(`checkout create answered ${created.status}: ${JSON.stringify(created.body).slice(0, 200)}`);
@@ -247,7 +256,7 @@ export class CheckoutFlow {
     const opts = options(session, language, this.wallet);
     const state: CheckoutState = { sessionId: session.id, addon, session, options: opts, speak: speakSession(session, opts, language) };
     this.states.set(session.id, state);
-    this.openByAddon.set(addon, session.id);
+    this.openCarts.set(`${visitor}:${addon}`, session.id);
     return state;
   }
 
@@ -305,7 +314,7 @@ export class CheckoutFlow {
         : (walletSession.messages.find((m) => m.type === "error")?.content ?? (es ? "El pago no se pudo completar." : "The payment did not go through."));
       const next: CheckoutState = { sessionId, addon: state.addon, session: walletSession, options: walletOpts, speak: spoken };
       this.states.set(sessionId, next);
-      if (!isOpen(walletSession)) this.openByAddon.delete(state.addon);
+      if (!isOpen(walletSession)) this.forget(sessionId);
       return next;
     }
     const instrument =
@@ -345,7 +354,7 @@ export class CheckoutFlow {
     }
     const next: CheckoutState = { sessionId, addon: state.addon, session, options: opts, speak };
     this.states.set(sessionId, next);
-    if (!isOpen(session)) this.openByAddon.delete(state.addon);
+    if (!isOpen(session)) this.forget(sessionId);
     return next;
   }
 
@@ -356,7 +365,7 @@ export class CheckoutFlow {
     const session = res.status === 200 ? (res.body as unknown as Session) : state.session;
     const next: CheckoutState = { ...state, session, speak: language === "es-CL" ? "Checkout cancelado. No se cobró nada." : "Checkout canceled. Nothing was charged." };
     this.states.set(sessionId, next);
-    this.openByAddon.delete(state.addon);
+    this.forget(sessionId);
     return next;
   }
 }

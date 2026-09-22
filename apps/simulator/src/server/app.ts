@@ -94,14 +94,16 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
 
   app.get("/api/health", (c) => c.json({ status: "ok", simulatorVersion: SIMULATOR_VERSION }));
 
+  /** Who is asking, as far as a public deployment can tell. The spend guard counts the same way. */
+  const visitorOf = (c: { req: { header: (name: string) => string | undefined } }) => (c.req.header("x-forwarded-for") ?? "").split(",")[0]!.trim() || "local";
+
   // Every route that can call a paid model counts as a turn for the spend guard.
   if (deps.limits) {
     const limiter = new TurnLimiter(deps.limits);
     const guarded = ["/api/turn", "/api/checkout/*", "/api/merchant/scan", "/api/speech", "/api/waitlist"];
     for (const path of guarded) {
       app.use(path, async (c, next) => {
-        const visitor = (c.req.header("x-forwarded-for") ?? "").split(",")[0]!.trim() || "local";
-        const r = limiter.take(visitor);
+        const r = limiter.take(visitorOf(c));
         if (!r.ok) {
           c.header("Retry-After", String(r.retryAfterS));
           const speak = r.scope === "global" ? "The public demo is very busy right now. Please try again later." : "You have reached the demo's limit for a few minutes. Please try again shortly.";
@@ -189,7 +191,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
     if (started && sc?.checkout) {
       // The host's checkout pattern: open the session right away and read back the quote.
       try {
-        checkout = await deps.checkout.start(addon, sc.checkout.lineItems, traceId, language);
+        checkout = await deps.checkout.start(addon, sc.checkout.lineItems, traceId, language, visitorOf(c));
         speak.push(checkout.speak);
       } catch (e) {
         speak.push(language === "es-CL" ? `No pude abrir el checkout: ${(e as Error).message}` : `I could not open the checkout: ${(e as Error).message}`);
@@ -209,7 +211,7 @@ export function createSimulatorApp(deps: SimulatorDeps): Hono {
   app.get("/api/checkout/open", (c) => {
     const addon = c.req.query("addon");
     if (!addon) return c.json({ code: "BAD_ADDON", message: "addon is required", hint: "" }, 400);
-    const state = deps.checkout.openFor(addon);
+    const state = deps.checkout.openFor(addon, visitorOf(c));
     return c.json({ checkout: state ?? null });
   });
 

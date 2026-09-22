@@ -241,6 +241,11 @@ row-1,${since || "2026-09-20T00:00:00.000Z"}
     expect(open.checkout?.sessionId).toBe(first.checkout!.sessionId);
     expect(open.checkout?.session.line_items).toHaveLength(2);
 
+    // Another visitor's browser finds nothing: the Demo household is shared on the public
+    // playground, but one person's open cart is not another's to see, add to or pay.
+    const stranger = (await (await sim.request(`/api/checkout/open?addon=bakery`, { headers: { "x-forwarded-for": "203.0.113.9" } })).json()) as { checkout: unknown };
+    expect(stranger).toEqual({ checkout: null });
+
     await post(`/api/checkout/${first.checkout!.sessionId}/confirm`, { handlerId: "amazon_pay_network_token" });
     // Paid: there is no cart to come back to any more.
     expect((await (await sim.request(`/api/checkout/open?addon=bakery`)).json()) as { checkout: unknown }).toEqual({ checkout: null });
