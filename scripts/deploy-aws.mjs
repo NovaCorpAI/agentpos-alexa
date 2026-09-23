@@ -287,7 +287,14 @@ if (!memoryId) {
 
 // The fixture Store's own Stripe account in test mode, when configured locally: only the Store receives it.
 const stripeEnv = fileEnv.FIXTURE_STRIPE_SECRET_KEY?.startsWith("sk_test_") ? { FIXTURE_STRIPE_SECRET_KEY: fileEnv.FIXTURE_STRIPE_SECRET_KEY, FIXTURE_STRIPE_PUBLISHABLE_KEY: fileEnv.FIXTURE_STRIPE_PUBLISHABLE_KEY || fileEnv.STRIPE_PUBLISHABLE_KEY || "" } : {};
-const storeUrl = await serviceUrl("store", storeName, (own) => ({ SERVICE: "fixture-store", FIXTURE_STORE_URL: own, ...stripeEnv }), "/.well-known/ucp");
+// The two testnet keys the x402 rail needs: the Store's, which receives and submits the
+// transfer, and the demo household's, which signs it. Testnet seeds for a demo household and
+// a fixture Store, deployed the same way as the Stripe test key; no mainnet key belongs here.
+const seed = (value) => (/^S[A-Z2-7]{55}$/.test(value ?? "") ? value : "");
+const storeStellar = seed(fileEnv.FIXTURE_STELLAR_SECRET) ? { FIXTURE_STELLAR_SECRET: fileEnv.FIXTURE_STELLAR_SECRET } : {};
+const householdStellar = seed(fileEnv.DEMO_HOUSEHOLD_STELLAR_SECRET) ? { DEMO_HOUSEHOLD_STELLAR_SECRET: fileEnv.DEMO_HOUSEHOLD_STELLAR_SECRET } : {};
+log("x402 rail configuration", { store: Boolean(storeStellar.FIXTURE_STELLAR_SECRET), household: Boolean(householdStellar.DEMO_HOUSEHOLD_STELLAR_SECRET), hint: "node scripts/stellar-testnet.mjs" });
+const storeUrl = await serviceUrl("store", storeName, (own) => ({ SERVICE: "fixture-store", FIXTURE_STORE_URL: own, ...stripeEnv, ...storeStellar }), "/.well-known/ucp");
 // PUBLIC_BRIDGE_URL is the name the Bridge publishes in profiles and checkout links (a
 // subdomain in front of the load balancer); its own endpoint is what the Simulator calls.
 const publicBridgeUrl = cfg("PUBLIC_BRIDGE_URL", "");
@@ -338,7 +345,7 @@ if (priorSim && envOf(priorSim).SIMULATOR_ADMIN_TOKEN && endpointOf(priorSim)) {
   }
 }
 
-const simulatorUrl = await serviceUrl("sim", simulatorName, () => ({ SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", SIMULATOR_ADMIN_TOKEN: adminToken, ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...models }), "/api/health");
+const simulatorUrl = await serviceUrl("sim", simulatorName, () => ({ SERVICE: "simulator", BRIDGE_URL: bridgeUrl, BRIDGE_BEARER_TOKEN: bearer, SIMULATOR_BRAIN: "auto", SIMULATOR_MEMORY: "agentcore", SIMULATOR_ADMIN_TOKEN: adminToken, ...(memoryId ? { AGENTCORE_MEMORY_ID: memoryId } : {}), ...householdStellar, ...models }), "/api/health");
 
 // Express Mode flips the forward weights between a service's two target groups on every
 // deployment and updates only the generated name's rule, so the project's own names have to

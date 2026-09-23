@@ -131,6 +131,7 @@ repository.
 | Demo video, filmed against the live deployment, 2 min 17 s | https://youtu.be/Jfyoqvlb-7I |
 | Hosted playground, five Scenes green | https://alexa.agentposhq.com/ |
 | The merchant's own Stripe charges the card, in test mode | `pi_3UGkN5375U7THQYH0sTSjSMZ` (public), `pi_3UGjrV375U7THQYH1WeScCOB` (by voice), Stripe test dashboard |
+| USDC on Stellar settles for real, on the deployed playground | order `ord_AJPQcJahpl-K`, transaction `a544d97e6c96c86805c7ab46290465a33bbc3ca7fd4c9af52757a774f7bc6bfd`, ledger 4823125, https://horizon-testnet.stellar.org/transactions/a544d97e6c96c86805c7ab46290465a33bbc3ca7fd4c9af52757a774f7bc6bfd |
 | Cost per closed checkout session: US$0.0021 | `docs/COSTS.md`, `docs/impact/usage-events.csv` (63 rows) |
 | Onboarding: URL to first voice purchase | 28 s on the fixture Store, from `usage_events` stage rows |
 | Household memory on AgentCore Memory | memory `agentpos_alexa_household` in us-east-1, Scene 4 |
