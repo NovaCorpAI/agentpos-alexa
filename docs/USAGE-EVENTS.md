@@ -32,7 +32,9 @@ it so the numbers are comparable across components.
 - **Cost per closed checkout session**: sum of `estimated_cost_usd_micros` grouped by
   `checkout_session_id`, split by `source`.
 - **Third-party purchases**: count of completed sessions with `purchase_origin = third_party`
-  and `simulated = 0`.
+  and `simulated = 0`. The public total at `/stats` adds the releases before the current one,
+  from `docs/impact/purchases.json` (docs/DEPLOY.md); the same response carries `thisRelease`
+  on its own.
 - **Simulated versus real**: nothing labeled simulated is ever counted as a real purchase.
 
 ## Export

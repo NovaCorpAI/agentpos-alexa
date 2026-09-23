@@ -98,11 +98,21 @@ is taken out first. Two exports run before the services are replaced, and both a
 | Waitlist | Simulator, `/api/waitlist/export` | `.data/waitlist-exports/waitlist-<timestamp>.csv`, never committed |
 | usage_events, Bridge and agents | Bridge, `/admin/usage-events.csv` | `docs/impact/playground-usage-events.csv`, committed |
 | usage_events, Household agent | Simulator, `/api/usage-events.csv` | the same file, merged by event id |
+| Public purchase counter | Bridge, the `X-Completed-Own` and `X-Completed-Third-Party` headers of the same export | `docs/impact/purchases.json`, committed, and handed to the next release as `BRIDGE_PRIOR_PURCHASES_*` |
 
 Both endpoints need the service's own token, which stays in its configuration. The usage
 rows are merged by event id, so re-running an export changes nothing, and the committed file
 is the playground's measured history across releases: the model calls, their tokens, their
 latency and their cost. Nothing in a row names a buyer, an order or a card.
+
+The public counter at `/stats` needs the same care for a different reason: it counts completed
+sessions on the task's disk, so without a handover every release would show the playground
+starting from zero. The deploy reads what the outgoing release counted, writes it to
+`docs/impact/purchases.json` under that release's revision, and passes the running total to the
+release that replaces it. Entries are keyed by revision, so an export that runs twice over the
+same release, which is what an interrupted deploy does, replaces its entry rather than adding
+to it. `/stats` answers the total and, next to it, `thisRelease`, so the two are never
+confused.
 
 To pull the live rows at any time, without holding a token (it is read from the service's own
 configuration and never printed):

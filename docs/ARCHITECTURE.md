@@ -45,8 +45,10 @@ Alexa+ (preview, US partners)      |   apps/simulator (Echo Show style web app, 
 - **Agents are visible.** Each agent has one scene in the demo and is instrumented in
   `usage_events` from its first call, including onboarding stage timestamps.
 - **SQLite by default.** No services to create. Postgres for the hosted tier.
-- **Testnet for reproducibility, mainnet for the video.** Judges run against the docker demo
-  store on testnet; one real mainnet purchase is recorded against the authorized demo store.
+- **Testnet everywhere, including the video.** Judges run against the docker demo store on
+  testnet, and the recorded demo is a testnet purchase too, with its transaction hash in
+  `docs/SUBMISSION.md`. A mainnet run remains what hard rule 8 makes it, an explicit flag and
+  the founder's confirmation against the authorized demo store, and has not happened.
 - **Upstream what belongs upstream.** A `PaymentRail` interface and native UCP checkout are
   contributed to the AgentPOS core once its repository is public. The x402 handler is proposed
   to the UCP standard with this repository's `profile/` module as reference implementation.

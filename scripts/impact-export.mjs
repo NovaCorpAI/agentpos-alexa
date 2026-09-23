@@ -41,6 +41,34 @@ export function mergeUsageCsv(exportedCsv, root) {
   return { added: added.length, total: rows.length - 1, path };
 }
 
+export const PURCHASES_FILE = "docs/impact/purchases.json";
+
+/**
+ * The playground's public purchase counter, carried across releases. Each release counts on
+ * its own disk, which the next release replaces, so the deploy reads the outgoing release's
+ * total and writes it here under that release's id. Writing the same release twice replaces
+ * its entry instead of adding to it, which is what makes an interrupted deploy harmless.
+ * Nothing here names a buyer, an order or a Store: two integers per release.
+ */
+export function rememberPurchases(entry, root) {
+  const path = resolve(root, PURCHASES_FILE);
+  const ledger = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : { releases: [] };
+  const releases = (ledger.releases ?? []).filter((r) => r.release !== entry.release);
+  releases.push({ release: entry.release, own: Number(entry.own) || 0, thirdParty: Number(entry.thirdParty) || 0, at: entry.at ?? new Date().toISOString(), ...(entry.note ? { note: entry.note } : {}) });
+  releases.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  const total = releases.reduce((acc, r) => ({ own: acc.own + r.own, thirdParty: acc.thirdParty + r.thirdParty }), { own: 0, thirdParty: 0 });
+  writeFileSync(path, JSON.stringify({ total, releases }, null, 2) + "\n");
+  return { total, releases: releases.length, path };
+}
+
+/** The running total to hand to the next release, without writing anything. */
+export function purchasesTotal(root) {
+  const path = resolve(root, PURCHASES_FILE);
+  if (!existsSync(path)) return { own: 0, thirdParty: 0 };
+  const ledger = JSON.parse(readFileSync(path, "utf8"));
+  return { own: Number(ledger.total?.own) || 0, thirdParty: Number(ledger.total?.thirdParty) || 0 };
+}
+
 /** Where each service keeps its rows, and which of its own tokens opens them. */
 const EXPORTS = {
   "agentpos-alexa-bridge": { path: "/admin/usage-events.csv", tokenVar: "BRIDGE_BEARER_TOKEN" },

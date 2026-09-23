@@ -95,7 +95,10 @@ try {
   logger.log("info", "guardian", { mode: "rules-only", note: "no AWS credentials; the duplicate rule decides with a fixed sentence" });
 }
 
-const app = createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails, guardian, catalogAgent, onboardingAgent });
+// What the playground had already counted when this release replaced the previous one. A
+// release starts with an empty disk, so the deploy hands the running total over (docs/DEPLOY.md).
+const priorPurchases = { own: Number(process.env.BRIDGE_PRIOR_PURCHASES_OWN ?? 0) || 0, thirdParty: Number(process.env.BRIDGE_PRIOR_PURCHASES_THIRD_PARTY ?? 0) || 0 };
+const app = createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails, guardian, catalogAgent, onboardingAgent, priorPurchases });
 serve({ fetch: app.fetch, port }, (info) => {
   logger.log("info", "listening", {
     port: info.port,

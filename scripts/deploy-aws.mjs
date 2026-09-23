@@ -17,7 +17,7 @@ import { BatchGetBuildsCommand, BatchGetProjectsCommand, CodeBuildClient, Create
 import { CreateRepositoryCommand, DescribeRepositoriesCommand, ECRClient } from "@aws-sdk/client-ecr";
 import { AttachRolePolicyCommand, CreateRoleCommand, GetRoleCommand, IAMClient, PutRolePolicyCommand } from "@aws-sdk/client-iam";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
-import { mergeUsageCsv } from "./impact-export.mjs";
+import { mergeUsageCsv, purchasesTotal, rememberPurchases } from "./impact-export.mjs";
 import { configuredDomains, syncDomainRules } from "./custom-domain.mjs";
 import { BedrockAgentCoreControlClient, ListMemoriesCommand } from "@aws-sdk/client-bedrock-agentcore-control";
 
@@ -308,13 +308,27 @@ if (priorBridge && endpointOf(priorBridge)) {
     if (res.ok) {
       const { added, total, path } = mergeUsageCsv(await res.text(), root);
       log("usage events exported before redeploy", { added, total, file: path, closedSessions: Number(res.headers.get("X-Closed-Sessions") ?? 0) });
+      // The public counter would restart at zero on the new disk, so the outgoing release's
+      // purchases are written to the committed ledger and handed to the release that replaces it.
+      const release = [...(priorBridge.activeConfigurations ?? [])].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))[0];
+      const counted = rememberPurchases(
+        {
+          release: release?.serviceRevisionArn ?? release?.createdAt?.toISOString() ?? "unknown",
+          own: Number(res.headers.get("X-Completed-Own") ?? 0),
+          thirdParty: Number(res.headers.get("X-Completed-Third-Party") ?? 0),
+          ...(release?.createdAt ? { at: release.createdAt.toISOString() } : {}),
+        },
+        root,
+      );
+      log("purchases carried to the next release", { ...counted.total, releases: counted.releases, file: counted.path });
     } else log("usage events export skipped", { status: res.status });
   } catch (e) {
     log("usage events export failed", { error: String(e).slice(0, 200) });
   }
 }
 
-const bridgeUrl = await serviceUrl("bridge", bridgeName, (own) => ({ SERVICE: "bridge", AGENTPOS_STORE_URL: storeUrl, BRIDGE_BASE_URL: publicBridgeUrl || own, BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", ...models }), "/health");
+const prior = purchasesTotal(root);
+const bridgeUrl = await serviceUrl("bridge", bridgeName, (own) => ({ SERVICE: "bridge", AGENTPOS_STORE_URL: storeUrl, BRIDGE_BASE_URL: publicBridgeUrl || own, BRIDGE_BEARER_TOKEN: bearer, AMAZON_PSP_MODE: "simulated", BRIDGE_PRIOR_PURCHASES_OWN: String(prior.own), BRIDGE_PRIOR_PURCHASES_THIRD_PARTY: String(prior.thirdParty), ...models }), "/health");
 // The waitlist lives on the Simulator task's disk: export it before a redeploy replaces the task.
 const priorSim = await describe(simulatorName);
 const adminToken = envOf(priorSim).SIMULATOR_ADMIN_TOKEN || randomBytes(32).toString("base64url");

@@ -36,6 +36,13 @@ export interface AppDeps {
   catalogAgent?: CatalogAgent;
   /** Onboarding agent behind /onboarding/scan (#13). Omitted: the deterministic drafter. */
   onboardingAgent?: OnboardingAgent;
+  /**
+   * Purchases counted on earlier releases. Every release starts with an empty disk, so without
+   * this the public counter would go back to zero each time the playground is deployed. The
+   * deploy reads the running total out of the release it is replacing and hands it to the next
+   * one; `docs/impact/purchases.json` is the committed audit trail of those handovers.
+   */
+  priorPurchases?: { own: number; thirdParty: number };
   /** fetch used to reach Stores; tests route it into an in-memory fixture. */
   storeFetch?: typeof fetch;
   now?: () => Date;
@@ -46,7 +53,7 @@ export const TRACE_HEADER = "Request-Id";
 
 type Env = { Variables: { traceId: string; log: Logger } };
 
-export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails = new RailRegistry(), guardian, catalogAgent, onboardingAgent, storeFetch, now }: AppDeps): Hono<Env> {
+export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails = new RailRegistry(), guardian, catalogAgent, onboardingAgent, priorPurchases, storeFetch, now }: AppDeps): Hono<Env> {
   const app = new Hono<Env>();
   const verifier = anyOf(storedTokenVerifier(storage.oauth), staticTokenVerifier(bearerToken));
   const gate = requireBearerAuth({ verifier });
@@ -95,7 +102,13 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails =
   // Public counters for the playground (#21): totals only, nothing about any order or buyer.
   app.get("/stats", (c) => {
     c.header("Cache-Control", "public, max-age=15");
-    return c.json({ purchases: storage.checkout.countCompletedByOrigin(), stores: storage.stores.list().length });
+    const thisRelease = storage.checkout.countCompletedByOrigin();
+    const prior = priorPurchases ?? { own: 0, thirdParty: 0 };
+    return c.json({
+      purchases: { own: prior.own + thisRelease.own, thirdParty: prior.thirdParty + thisRelease.thirdParty },
+      thisRelease,
+      stores: storage.stores.list().length,
+    });
   });
 
   /**
@@ -111,6 +124,10 @@ export function createApp({ storage, logger, bridgeBaseUrl, bearerToken, rails =
     c.header("Content-Type", "text/csv; charset=utf-8");
     c.header("Cache-Control", "no-store");
     c.header("X-Closed-Sessions", String(storage.checkout.countByStatus("completed", since)));
+    // What this release counted, so the next one can carry the public total forward.
+    const completed = storage.checkout.countCompletedByOrigin();
+    c.header("X-Completed-Own", String(completed.own));
+    c.header("X-Completed-Third-Party", String(completed.thirdParty));
     return c.body(usageEventsToCsv(events));
   });
 

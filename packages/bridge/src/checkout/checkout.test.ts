@@ -213,7 +213,21 @@ describe("UCP checkout sessions", () => {
     expect(storage.usageEvents.list({ source: "bridge.checkout" }).map((e) => e.purchaseOrigin)).toEqual(["own", "third_party", "third_party"]);
     const stats = await app.request("/stats");
     expect(stats.status).toBe(200);
-    expect(await stats.json()).toEqual({ purchases: { own: 1, thirdParty: 2 }, stores: 1 });
+    expect(await stats.json()).toEqual({ purchases: { own: 1, thirdParty: 2 }, thisRelease: { own: 1, thirdParty: 2 }, stores: 1 });
+
+    // A release starts with an empty disk, so the public total is what earlier releases counted
+    // plus what this one has counted; the export says what to hand over.
+    const csv = await app.request("/admin/usage-events.csv", { headers: { Authorization: `Bearer ${TOKEN}` } });
+    expect(csv.headers.get("X-Completed-Own")).toBe("1");
+    expect(csv.headers.get("X-Completed-Third-Party")).toBe("2");
+    const next = createApp({
+      storage,
+      logger: createLogger(memorySink().sink),
+      bridgeBaseUrl: BRIDGE,
+      bearerToken: TOKEN,
+      priorPurchases: { own: 4, thirdParty: 9 },
+    }) as unknown as Hono;
+    expect(await (await next.request("/stats")).json()).toMatchObject({ purchases: { own: 5, thirdParty: 11 }, thisRelease: { own: 1, thirdParty: 2 } });
   });
 
   it("replays the same Idempotency-Key and refuses it with a different body", async () => {

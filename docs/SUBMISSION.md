@@ -208,7 +208,7 @@ Mode endpoints (FL-009), Bedrock quotas (FL-007) and model ids and prices (FL-00
 
 - [x] Repository public, Apache-2.0 detected by GitHub, and a clean clone installs, builds and runs the three services (checked 2026-09-17 and 2026-09-19).
 - [x] Video under 3 minutes, English, public on YouTube, shows the simulated experience clearly: https://youtu.be/Jfyoqvlb-7I
-- [ ] Impact numbers filled from `usage_events` export, with the CSV committed under `docs/impact/`. Cost per closed session done (US$0.0021, `docs/impact/usage-events.csv`); onboarding time on real stores and third-party purchases pending.
+- [ ] Impact numbers filled from `usage_events` export, with the CSV committed under `docs/impact/`. Cost per closed session done (US$0.0021, `docs/impact/usage-events.csv`); the public purchase counter now survives releases (`docs/impact/purchases.json`, 7 third-party purchases and 2 of ours as of 2026-09-23); onboarding time on real stores pending on #22.
 - [x] Friction log with at least ten entries, each with date, severity, time lost, workaround, suggestion.
 - [x] `.env.example` covers every key the local `.env` sets; the whole history scanned for Stripe, AWS and private-key patterns, and for committed `.env` or credential files: nothing found (2026-09-19).
 - [ ] Track: Alexa+. Mini challenges: AWS Builder, Open Source. (Chosen on the form itself.)

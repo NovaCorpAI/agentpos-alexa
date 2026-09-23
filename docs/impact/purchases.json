@@ -1,0 +1,15 @@
+{
+  "total": {
+    "own": 2,
+    "thirdParty": 7
+  },
+  "releases": [
+    {
+      "release": "reconstructed-from-usage-events",
+      "own": 2,
+      "thirdParty": 7,
+      "at": "2026-09-23T04:31:19.898Z",
+      "note": "Releases from before this ledger existed. Reconstructed from the nine settlement rows in docs/impact/playground-usage-events.csv that predate the release of 2026-09-23T04:31:19.899Z, one per checkout session. Those rows are written when a rail is asked to settle, so they count settlement attempts; no session in that window was asked twice."
+    }
+  ]
+}
