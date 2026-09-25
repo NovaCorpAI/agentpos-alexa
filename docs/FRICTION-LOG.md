@@ -314,6 +314,39 @@ everything we used, not only what hurt.
 
 ---
 
+## FL-013
+
+- Date: 2026-09-25
+- Tool: Amazon ECS Express Mode (Fargate), service configuration and deployments.
+- What we tried: keep the playground's public counter, the number of purchases visitors have
+  made, correct across a release. The Bridge counts completed checkout sessions in SQLite on
+  the task's own disk and publishes the totals at `/stats`.
+- Expected: either a place to keep a few bytes across deployments, or a loud warning that
+  there is not one.
+- Actual: every release starts a new task with an empty disk, so `/stats` answered zero right
+  after a deployment while the committed export showed nine settled purchases. Express Mode
+  takes a container image, an environment and a health check path; there is no volume, no
+  EFS mount and no persistent storage option in the API shape, and the deployment output says
+  nothing about the disk it is about to discard. The service keeps its name, its endpoint and
+  its certificate across the release, which is exactly what makes the reset easy to miss: the
+  public URL answers normally and the number is quietly wrong.
+- Severity: Medium (the impact number a judge reads was understated, silently)
+- Time lost: about 40 min, nearly all of it writing the handover rather than diagnosing it.
+- Workaround: the deploy reads what the outgoing release counted, through two headers added to
+  the Bridge's own export, writes it to `docs/impact/purchases.json` keyed by that release's
+  `serviceRevisionArn`, and hands the running total to the next release as an environment
+  variable. Keying by revision makes a repeated export harmless, which matters because an
+  interrupted deploy exports the same release twice. `/stats` publishes the total and
+  `thisRelease` side by side.
+- Suggestion: let an Express Mode service declare a small persistent volume, or say plainly in
+  the service documentation that the task's filesystem does not survive a deployment. The
+  quick start sells Express Mode as the shortest path from a container to a public URL, and a
+  reader arriving from it will assume a disk behaves the way it does on any other host.
+- Link: scripts/impact-export.mjs, scripts/deploy-aws.mjs, packages/bridge/src/app.ts,
+  docs/impact/purchases.json
+
+---
+
 ## Tools that worked
 
 No friction worth an entry, and worth saying so, since praise is feedback too.

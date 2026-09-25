@@ -311,6 +311,9 @@ if (priorBridge && endpointOf(priorBridge)) {
       // The public counter would restart at zero on the new disk, so the outgoing release's
       // purchases are written to the committed ledger and handed to the release that replaces it.
       const release = [...(priorBridge.activeConfigurations ?? [])].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))[0];
+      // A release older than the handover answers the export without these headers, and its
+      // purchases cannot be recovered from here: say so rather than record a silent zero.
+      if (res.headers.get("X-Completed-Own") === null) log("the outgoing release predates the purchase handover", { hint: "its completed sessions are not in docs/impact/purchases.json; add them by hand from the committed export" });
       const counted = rememberPurchases(
         {
           release: release?.serviceRevisionArn ?? release?.createdAt?.toISOString() ?? "unknown",
